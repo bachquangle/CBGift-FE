@@ -76,7 +76,8 @@ const mapApiToUiData = (apiData) => {
   // [END FIX]
 
   return {
-    id: apiData.orderCode || apiData.orderId.toString(),
+    id: apiData.orderId || apiData.orderId.toString(),
+    orderCode: apiData.orderCode,
     status: apiData.statusOderName || "PENDING",
     createdAt: apiData.creationDate,
     // [FIX] Thay "Null" bằng null để tránh lỗi Invalid Date ở UI

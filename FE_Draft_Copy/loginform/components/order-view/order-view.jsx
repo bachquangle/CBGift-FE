@@ -9,6 +9,7 @@ import OrderActivity from "./order-activity";
 import { useState } from "react";
 import RequestRefundModal from "@/components/modals/RequestRefundModal"; 
 import RequestReprintModal from "@/components/modals/RequestReprintModal";
+import apiClient from "../../lib/apiClient";
 
 
 const isOrderEligibleForPostShippingActions = (status) => {
@@ -33,12 +34,100 @@ export default function OrderView({
   const [isOrderRefundModalOpen, setIsOrderRefundModalOpen] = useState(false);
   const [isOrderReprintModalOpen, setIsOrderReprintModalOpen] = useState(false);
   const isEligible = isOrderEligibleForPostShippingActions(order.status);
+  const uploadImage = async (file) => {
+    // Sử dụng FormData để gửi file
+    const formData = new FormData();
+    formData.append("File", file);
+    
+    try {
+        const res = await fetch(
+            `${apiClient.defaults.baseURL}/api/images/upload-media`,
+            {
+                method: "POST",
+                credentials: "include",
+                body: formData,
+            }
+        );
+
+        if (!res.ok) {
+            const errorText = await res.text();
+            throw new Error(`Upload failed: ${res.status} - ${errorText}`);
+        }
+
+        const data = await res.json();
+        // Giả định API trả về URL trong trường 'secureUrl', 'url', hoặc 'path'
+        return data.secureUrl || data.url || data.path || null;
+    } catch (err) {
+        console.error("Upload error:", err);
+        // Ném lỗi lên cấp độ submit để hiển thị alert
+        throw new Error(`Lỗi mạng hoặc server khi tải file lên: ${err.message}`);
+    }
+  };
     // Hàm xử lý Submit Refund CẤP ORDER
-    const handleOrderRefundSubmit = (data) => {
-        console.log(`Submitting Refund for ALL products in Order ${order.id}:`, data);
-        setIsOrderRefundModalOpen(false);
-        // Logic gọi API Refund cho toàn bộ Order
+  const handleOrderRefundSubmit = async (data) => {
+    // data: { orderId, reason, selectedItems, proofFiles }
+    const { orderId, reason, selectedItems, proofFiles } = data;
+    
+    let proofUrl = null;
+    const proofFile = proofFiles?.[0]; // Lấy đối tượng File duy nhất (do bạn đã sửa Modal chỉ nhận 1 file)
+
+    // 1. TẢI FILE LÊN NẾU CÓ
+    if (proofFile) {
+        try {
+            console.log(`Đang tải lên bằng chứng: ${proofFile.name}`);
+            proofUrl = await uploadImage(proofFile); 
+            if (!proofUrl) {
+                 throw new Error("Tải lên bằng chứng thất bại, URL trả về trống.");
+            }
+        } catch (error) {
+            // Xử lý lỗi tải file và dừng submission
+            alert(error.message);
+            return;
+        }
+    }
+    // 2. CẤU TRÚC PAYLOAD (RefundRequestDto)
+    const payload = {
+        orderId: Number(orderId),
+        reason: reason,
+        proofUrl: proofUrl, // Gửi URL duy nhất (hoặc null)
+        
+        // Map selectedItems để khớp với cấu trúc DTO C#
+        items: selectedItems.map(item => ({
+            orderDetailId: item.orderDetailId,
+            requestedAmount: item.refundAmount
+        }))
     };
+    // ✨ HIỂN THỊ DỮ LIỆU CUỐI CÙNG TRƯỚC KHI GỬI ✨
+    console.log("------------------- FINAL REFUND PAYLOAD -------------------");
+    console.log(payload);
+    console.log("------------------------------------------------------------");
+
+    // 3. GỌI API REFUND
+    try {
+        const response = await fetch(`${apiClient.defaults.baseURL}/api/Refund/request`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(payload),
+            credentials: 'include',
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.message || `Lỗi API: ${response.status}`);
+        }
+        
+        // Thành công: Đóng modal và thông báo
+        alert("✅ Yêu cầu hoàn tiền đã được gửi thành công!");
+        setIsOrderRefundModalOpen(false); 
+        // window.location.reload(); 
+
+    } catch (error) {
+        console.error("❌ Refund Submission Failed:", error);
+        alert(`❌ Gửi yêu cầu thất bại: ${error.message}`);
+    }
+  };
 
     // Hàm xử lý Submit Reprint CẤP ORDER
     const handleOrderReprintSubmit = (data) => {
@@ -54,6 +143,7 @@ export default function OrderView({
         {/* Header */}
         <OrderHeader
           orderId={order.id}
+          orderCode={order.orderCode}
           status={order.status}
           createdAt={order.createdAt}
           orderDate={order.orderDate}

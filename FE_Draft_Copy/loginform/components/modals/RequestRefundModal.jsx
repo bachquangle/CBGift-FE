@@ -59,27 +59,36 @@ export default function RequestRefundModal({ isOpen, onClose, productDetail, onS
     };
     
     const handleSubmit = () => {
-        const selectedItems = Object.entries(itemDetails)
-            .filter(([id, detail]) => detail.selected)
-            .map(([id, detail]) => ({
-                orderDetailId: Number(id),
-                refundAmount: detail.amount
-            }));
+    const selectedItems = Object.entries(itemDetails)
+        .filter(([id, detail]) => detail.selected)
+        .map(([id, detail]) => ({
+            orderDetailId: Number(id),
+            refundAmount: detail.amount
+        }));
 
-        if (!reason || selectedItems.length === 0) {
-            alert("Vui lòng chọn ít nhất 1 sản phẩm và cung cấp lý do.");
-            return;
-        }
+    if (!reason || selectedItems.length === 0) {
+        alert("Vui lòng chọn ít nhất 1 sản phẩm và cung cấp lý do.");
+        return;
+    }
 
-        onSubmit({
-            orderId: isOrderLevel ? productDetail.id : productDetail.orderId,
-            reason: reason,
-            selectedItems: selectedItems,
-            totalRefundAmount: totalRefundAmount,
-            proofFiles: proofFiles,
-        });
-        onClose();
+    const submissionData = {
+        // LƯU Ý: productDetail.id hoặc productDetail.orderId là chuỗi (string)
+        orderId: isOrderLevel ? productDetail.id : productDetail.orderId, 
+        reason: reason,
+        selectedItems: selectedItems,
+        totalRefundAmount: totalRefundAmount,
+        proofFiles: proofFiles,
     };
+    
+    // ✨ HIỂN THỊ DỮ LIỆU ĐƯỢC GỬI LÊN ORDERVIEW ✨
+    console.log("------------------- MODAL SUBMISSION DATA -------------------");
+    console.log(submissionData);
+    console.log("-------------------------------------------------------------");
+
+
+    onSubmit(submissionData); // Chuyển dữ liệu lên hàm handleOrderRefundSubmit
+    onClose();
+};
     
     // --- RENDER ---
     return (

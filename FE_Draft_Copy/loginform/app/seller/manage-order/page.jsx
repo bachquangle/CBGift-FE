@@ -562,7 +562,8 @@ export default function ManageOrder() {
           id: order.orderId,
           orderId: order.orderCode,
           statusOrder: order.statusOrder,
-          orderDate: new Date(order.orderDate).toISOString().split("T")[0],
+          // orderDate: new Date(order.orderDate).toISOString().split("T")[0],
+          orderDate: new Date(order.orderDate).toLocaleDateString("en-CA"),
           customerName: order.customerName,
           phone: order.phone || "",
           email: order.email || "",
@@ -951,9 +952,9 @@ export default function ManageOrder() {
         return;
       }
 
-      if (orderToDelete.status !== "Draft (Nháp)") {
+      if (orderToDelete.status !== "DRAFT") {
         setResultMessage(
-          `Can't delete the order have status "${orderToDelete.status}". Only can delete the order have status Draft".`
+          `Can't delete the order have status "${orderToDelete.status}". Only can delete the order have status DRAFT".`
         );
         setShowResultDialog(true);
         return;
@@ -3093,10 +3094,7 @@ whitespace-nowrap"
                                                       item.linkImg ||
                                                       "/placeholder.svg"
                                                     }
-                                                    alt={
-                                                      item.productName ||
-                                                      "Product"
-                                                    }
+                                                    alt={item.name || "Product"}
                                                     className="w-16 h-16 rounded object-cover border border-blue-200"
                                                     onError={(e) => {
                                                       console.log(
@@ -3120,7 +3118,7 @@ whitespace-nowrap"
                                                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                                                     <div>
                                                       <span className="text-slate-600 font-medium">
-                                                        Price:
+                                                        Base Cost:
                                                       </span>
                                                       <p className="text-slate-900 font-semibold">
                                                         ${item.price || "0"}
@@ -3134,7 +3132,7 @@ whitespace-nowrap"
                                                         {item.quantity || "0"}
                                                       </p>
                                                     </div>
-                                                    <div>
+                                                    {/* <div>
                                                       <span className="text-slate-600 font-medium">
                                                         Total:
                                                       </span>
@@ -3147,14 +3145,13 @@ whitespace-nowrap"
                                                           (item.quantity || 0)
                                                         ).toFixed(2)}
                                                       </p>
-                                                    </div>
+                                                    </div> */}
                                                     <div>
                                                       <span className="text-slate-600 font-medium">
                                                         Name:
                                                       </span>
                                                       <p className="text-slate-900">
-                                                        {item.productName ||
-                                                          "N/A"}
+                                                        {item.name || "N/A"}
                                                       </p>
                                                     </div>
                                                     {/* ✅ Thêm status ở đây */}

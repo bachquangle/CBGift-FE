@@ -436,9 +436,13 @@ export default function NeedsProductionPage() {
                                         <button className="inline-flex items-center gap-1 text-purple-600 hover:text-purple-800 text-xs">
                                           <LabelIcon /> Label
                                         </button>
-                                        <button className="inline-flex items-center gap-1 text-orange-600 hover:text-orange-800 text-xs">
+                                        <a 
+                                          href={`/staff/qr-code/${detail.orderDetailId}`} // <-- URL MỚI ĐÃ ÁP DỤNG
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className="inline-flex items-center gap-1 text-orange-600 hover:text-orange-800 hover:underline text-xs">
                                           <QrCodeIcon /> QR
-                                        </button>
+                                      </a>
                                       </div>
                                     </td>
                                     <td className="p-3">
@@ -448,7 +452,7 @@ export default function NeedsProductionPage() {
                                           Waiting for Production
                                         </span>
                                       )}
-                                      {detail.statusOrder === 11 && (
+                                      {detail.statusOrder === 11 || detail.statusOrder===10 && (
                                         <span className="inline-flex items-center bg-red-100 text-red-800 text-xs font-medium px-2.5 py-0.5 rounded-full">
                                           <span className="w-2 h-2 me-1 bg-red-500 rounded-full"></span>
                                           Production Failed
@@ -481,7 +485,7 @@ export default function NeedsProductionPage() {
                                           Start Production
                                         </button>
                                       )}
-                                      {detail.statusOrder === 11 && (
+                                      {detail.statusOrder === 11 || detail.statusOrder===10 && (
                                         <button
                                           onClick={() =>
                                             handleReproduction(detail)

@@ -3,7 +3,7 @@
 "use client";
 
 import { useState } from 'react';
-import { X, Printer, Check, X as RejectIcon, FileText, Upload } from 'lucide-react';
+import { X, Printer, Check, X as RejectIcon, FileText, Upload, Link as LinkIcon, Image as ImageIcon } from 'lucide-react'; // Import LinkIcon, ImageIcon
 import { Textarea } from "@/components/ui/textarea"; 
 import { Button } from "@/components/ui/button"; 
 
@@ -16,28 +16,41 @@ export default function ReviewReprintModal({
     if (!isOpen || !requestData) return null;
 
     const request = requestData;
-    const isPending = request.status === 'PENDING';
+    const isPending = request.status;
     
     const [rejectionReason, setRejectionReason] = useState(request.rejectionReason || '');
     const [isRejecting, setIsRejecting] = useState(false); 
     
-    const isOrderLevel = request.productName === 'Order-Level';
+    // LƯU Ý: Nếu Reprint luôn là cấp DETAIL, có thể bỏ isOrderLevel
+    const isOrderLevel = request.targetLevel === 'ORDER-WIDE'; 
+    
+    // Hàm gọi review action (giữ nguyên)
+   const handleReview = (approved) => {
+    if (!approved && isRejecting && rejectionReason.trim() === '') {
+        alert("Vui lòng nhập lý do từ chối.");
+        return;
+    }
+    
+    // 🎯 FIX LỖI: LẤY TẤT CẢ OriginalOrderDetailId từ mảng requestedItems
+    const orderDetailIdsToPass = request.requestedItems 
+        ? request.requestedItems.map(item => item.orderDetailId) 
+        : []; 
+    
+    // Debugging: Kiểm tra xem mảng ID có được thu thập không
+    // console.log("IDs to be passed for review:", orderDetailIdsToPass);
 
-    // Hàm gọi review action
-    const handleReview = (approved) => {
-        if (!approved && isRejecting && rejectionReason.trim() === '') {
-            alert("Vui lòng nhập lý do từ chối.");
-            return;
-        }
-        
-        onReview(request.id, request.type, approved, approved ? null : rejectionReason);
-        onClose();
+    if (orderDetailIdsToPass.length === 0) {
+          alert("Lỗi: Không tìm thấy ID sản phẩm gốc (OriginalOrderDetailId) để duyệt. Vui lòng kiểm tra API Detail.");
+          return;
+    }
+    
+    // Truyền MẢNG ID (vd: [399, 400]) làm tham số đầu tiên (requestId)
+    // onReview sẽ nhận: ([int, int], 'REPRINT', bool, string/null)
+    onReview(orderDetailIdsToPass, request.type, approved, approved ? null : rejectionReason);
+    // Bỏ onClose()
     };
-
     // Giả định: Dữ liệu chi tiết sản phẩm nằm trong trường 'requestedItems'
-    const requestedItems = request.requestedItems || [
-        { id: 1, name: request.productName, sku: 'SKU001', quantity: 1 }
-    ].filter(item => item.name !== 'Order-Level');
+    const requestedItems = request.requestedItems || [];
     
     // --- RENDER ---
     return (
@@ -65,24 +78,46 @@ export default function ReviewReprintModal({
                                 {request.status}
                             </span>
                         </div>
-                        <div>
-                            <p className="text-xs text-gray-500 font-medium">Reason Type</p>
-                            <span className="text-lg font-bold text-blue-600">
-                                {request.reasonType === 'CUSTOMER_CHANGE' ? 'Customer Change' : 'Production Error'}
-                            </span>
-                        </div>
                         <div className="col-span-2">
                              <p className="text-xs text-gray-500 font-medium">Target Level</p>
                              <span className={`font-semibold text-sm ${isOrderLevel ? 'text-red-700' : 'text-blue-700'}`}>
-                                {isOrderLevel ? 'ORDER-WIDE (All Items)' : `DETAIL: ${request.productName}`}
-                            </span>
+                                 {request.targetLevel || (isOrderLevel ? 'ORDER-WIDE' : 'DETAIL')}
+                             </span>
                         </div>
                     </div>
 
-                    {/* 2. Items for Reprint (Read-Only Table) */}
+                    {/* 2. Detail Reason */}
+                    <div>
+                        <h4 className="font-semibold text-gray-800 mb-2 flex items-center gap-1">
+                            <FileText className="h-4 w-4 text-gray-600" /> Request Reason
+                        </h4>
+                        <div className="p-3 border border-gray-300 rounded-md bg-gray-50 whitespace-pre-wrap">
+                            {request.reason || "No detailed reason provided."}
+                        </div>
+                    </div>
+
+                    {/* 3. Proof URL (Link Bằng chứng) */}
+                    {request.proofUrl && (
+                        <div>
+                            <h4 className="font-semibold text-gray-800 mb-2 flex items-center gap-1">
+                                <ImageIcon className="h-4 w-4 text-gray-600" /> Seller Proof / Design File
+                            </h4>
+                            <a 
+                                href={request.proofUrl} 
+                                target="_blank" 
+                                rel="noopener noreferrer" 
+                                className="flex items-center gap-2 text-blue-600 hover:text-blue-800 break-all p-3 border border-blue-200 rounded-md bg-blue-50 transition"
+                            >
+                                <LinkIcon className="h-4 w-4" />
+                                <span className="text-sm font-medium">{request.proofUrl}</span>
+                            </a>
+                        </div>
+                    )}
+                    
+                    {/* 4. Items for Reprint (Read-Only Table) */}
                     <div>
                         <h4 className="font-semibold text-gray-800 mb-3 flex items-center">
-                            Items Requested for Reprint
+                            Items Requested for Reprint ({requestedItems.length} item(s))
                         </h4>
                         <div className="border border-gray-200 rounded-lg overflow-x-auto">
                             <table className="min-w-full divide-y divide-gray-200">
@@ -90,37 +125,34 @@ export default function ReviewReprintModal({
                                     <tr>
                                         <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">Product (SKU)</th>
                                         <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">Quantity</th>
-                                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">Status</th>
+                                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">Reprint</th>
                                     </tr>
                                 </thead>
                                 <tbody className="bg-white divide-y divide-gray-200">
-                                    {requestedItems.map((item) => (
-                                        <tr key={item.id}>
+                                    {requestedItems.length > 0 ? requestedItems.map((item) => (
+                                        <tr key={item.orderDetailId}>
                                             <td className="px-4 py-2 text-sm text-gray-900 font-medium">
-                                                {item.name} <span className="text-xs text-gray-500">({item.sku})</span>
+                                                {item.productName} <span className="text-xs text-gray-500">({item.sku})</span>
                                             </td>
                                             <td className="px-4 py-2 text-sm text-gray-700">
                                                 {item.quantity || 1}
                                             </td>
                                             <td className="px-4 py-2 text-sm font-semibold text-blue-600">
-                                                {item.reprintSelected ? 'Selected' : 'N/A'}
+                                                {item.reprintSelected ? 'YES' : 'NO'}
                                             </td>
                                         </tr>
-                                    ))}
+                                    )) : (
+                                        <tr>
+                                            <td colSpan={3} className="px-4 py-4 text-center text-sm text-gray-500">
+                                                No items found in detail data.
+                                            </td>
+                                        </tr>
+                                    )}
                                 </tbody>
                             </table>
                         </div>
                     </div>
 
-                    {/* 3. Detail Reason */}
-                    <div>
-                        <h4 className="font-semibold text-gray-800 mb-2">
-                            Detailed Reason Provided
-                        </h4>
-                        <div className="p-3 border border-gray-300 rounded-md bg-gray-50 whitespace-pre-wrap">
-                            {request.reason || request.detailReason || "No detailed reason provided."}
-                        </div>
-                    </div>
                     
                     {request.rejectionReason && (
                         <div>
@@ -133,8 +165,8 @@ export default function ReviewReprintModal({
                         </div>
                     )}
 
-                    {/* 4. Manager Rejection Input */}
-                    {isPending && (
+                    {/* 5. Manager Decision Input */}
+                    {isPending == "Pending" && (
                         <div className={`border p-4 rounded-lg transition-all ${isRejecting ? 'bg-red-50 border-red-300' : 'bg-gray-50 border-gray-200'}`}>
                             <h4 className="font-semibold text-gray-700 mb-2">
                                 Manager Decision
@@ -161,24 +193,6 @@ export default function ReviewReprintModal({
                             )}
                         </div>
                     )}
-
-
-                    {/* 5. New Design File Link (Conditional) */}
-                    {(request.newDesignFileUrl || request.needsDesignChange) && (
-                        <div>
-                            <h4 className="font-semibold text-gray-800 mb-2 flex items-center gap-1">
-                                <Upload className="h-4 w-4 text-gray-600" /> Design File Requirement
-                            </h4>
-                            <div className={`p-3 rounded-md font-medium ${request.needsDesignChange ? 'bg-yellow-100 text-yellow-800' : 'bg-green-100 text-green-800'}`}>
-                                {request.needsDesignChange ? 'Requires NEW Design File' : 'Uses OLD Design File'}
-                            </div>
-                            {request.newDesignFileUrl && (
-                                <a href={request.newDesignFileUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline text-sm break-all block mt-2">
-                                    View Uploaded File
-                                </a>
-                            )}
-                        </div>
-                    )}
                     
                 </div>
 
@@ -187,10 +201,10 @@ export default function ReviewReprintModal({
                     <button onClick={onClose} className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300">
                         Close
                     </button>
-                    {isPending && (
+                    {isPending == "Pending" && (
                         <button 
                             onClick={() => handleReview(!isRejecting)} 
-                            className={`px-4 py-2 text-sm font-medium text-white ${!isRejecting ? 'bg-green-600' : 'bg-red-600'}`}
+                            className={`px-4 py-2 text-sm font-medium text-white ${!isRejecting ? 'bg-green-600 hover:bg-green-700' : 'bg-red-600 hover:bg-red-700'}`}
                             disabled={isRejecting && rejectionReason.trim() === ''}
                         >
                             {isRejecting ? 'Confirm Reject' : 'Confirm Approve'}

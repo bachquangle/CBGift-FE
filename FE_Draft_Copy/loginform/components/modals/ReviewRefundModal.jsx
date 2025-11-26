@@ -1,13 +1,13 @@
-// File: components/modals/ReviewRefundModal.jsx (ĐÃ SỬA LỖI TRUY CẬP ITEMS)
+// File: components/modals/ReviewRefundModal.jsx (CẬP NHẬT)
 
 "use client";
 
 import { useState } from 'react';
 import { X, DollarSign, Check, X as RejectIcon, Image, FileText, Zap } from 'lucide-react'; 
+// Giả định Textarea, Button, Table, Input, Select đã có sẵn
 import { Textarea } from "@/components/ui/textarea"; 
 import { Button } from "@/components/ui/button"; 
 
-// Props: requestData (dữ liệu yêu cầu), onReview (hàm xử lý Approve/Reject)
 export default function ReviewRefundModal({ 
     isOpen, 
     onClose, 
@@ -17,8 +17,8 @@ export default function ReviewRefundModal({
     if (!isOpen || !requestData) return null;
 
     const request = requestData;
-    const isPending = request.status === 'PENDING';
-    
+  //  const isPending = request.status === 'PENDING';
+    const isPending = request.status;
     // State cho việc Manager nhập lý do từ chối
     const [rejectionReason, setRejectionReason] = useState(request.rejectionReason || '');
     const [isRejecting, setIsRejecting] = useState(false); 
@@ -27,8 +27,7 @@ export default function ReviewRefundModal({
     const isOrderLevel = request.productName === 'Order-Level';
     const totalRefundAmount = request.requestedAmount || 0;
     
-    // ✨ FIX LỖI: Sử dụng request.items (từ mock data) ✨
-    // Fallback sang mảng rỗng nếu không có dữ liệu
+    // ✨ FIX LỖI: Sử dụng request.items (đã được fetch chi tiết) ✨
     const requestedItems = request.items || []; 
 
 
@@ -39,9 +38,9 @@ export default function ReviewRefundModal({
             return;
         }
         
-        // Cần đảm bảo hàm onReview được truyền đúng Order ID, Request Type, Approval status và Reason
-        onReview(request.id, request.type, approved, approved ? null : rejectionReason);
-        onClose();
+        // Cần đảm bảo hàm onReview được truyền đúng ID, Type, Approval status và Reason
+        onReview(request.refundId, request.type,approved, approved ? null : rejectionReason);
+        onClose(); // Đóng modal
     };
 
     // --- RENDER ---
@@ -101,10 +100,10 @@ export default function ReviewRefundModal({
                                 </thead>
                                 <tbody className="bg-white divide-y divide-gray-200">
                                     {requestedItems.length > 0 ? (
-                                        requestedItems.map((item) => (
-                                            <tr key={item.id}>
+                                        requestedItems.map((item, index) => (
+                                            <tr key={item.id || index}> 
                                                 <td className="px-4 py-2 text-sm text-gray-900 font-medium">
-                                                    {item.name} <span className="text-xs text-gray-500">({item.sku})</span>
+                                                    {item.productName} <span className="text-xs text-gray-500">({item.sku})</span>
                                                 </td>
                                                 <td className="px-4 py-2 text-sm text-gray-700">
                                                     {item.quantity || 1}
@@ -136,9 +135,30 @@ export default function ReviewRefundModal({
                             {request.reason || "No detailed reason provided."}
                         </div>
                     </div>
-                    
+                    <div>
+                    <h4 className="font-semibold text-gray-800 mb-2 flex items-center gap-1">
+                        {/* Giữ lại icon FileText nếu bạn muốn, hoặc dùng ImageIcon/LinkIcon tùy ngữ cảnh */}
+                        <FileText className="h-4 w-4 text-gray-600" /> Proof Link
+                    </h4>
+                    {request.proofUrl ? (
+                        // Hiển thị link nếu có ProofUrl
+                        <a 
+                            href={request.proofUrl} 
+                            target="_blank" 
+                            rel="noopener noreferrer" 
+                            className="text-blue-600 hover:underline text-sm break-all p-2 border border-gray-300 rounded-md bg-white block" // Thêm styling cho dễ nhìn
+                        >
+                            {request.proofUrl}
+                        </a>
+                    ) : (
+                        // Hiển thị N/A nếu không có ProofUrl
+                        <div className="text-gray-500 italic p-2 border border-gray-300 rounded-md bg-gray-50">
+                            N/A
+                        </div>
+                    )}
+                </div>
                     {/* 4. Manager Rejection Input */}
-                    {isPending && (
+                    {isPending == "Pending" && (
                         <div className={`border p-4 rounded-lg transition-all ${isRejecting ? 'bg-red-50 border-red-300' : 'bg-gray-50 border-gray-200'}`}>
                             <h4 className="font-semibold text-gray-700 mb-2">
                                 Manager Decision
@@ -167,16 +187,16 @@ export default function ReviewRefundModal({
                     )}
 
                     {/* 5. Proof */}
-                    {request.proofUrl && (
+                    {/* {request.proofUrl && (
                         <div>
                             <h4 className="font-semibold text-gray-800 mb-2 flex items-center gap-1">
-                                <Image className="h-4 w-4 text-gray-600" /> Proof Link
+                                <FileText className="h-4 w-4 text-gray-600" /> Proof Link
                             </h4>
                             <a href={request.proofUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline text-sm break-all">
                                 {request.proofUrl}
                             </a>
                         </div>
-                    )}
+                    )} */}
                     
                 </div>
 
@@ -185,7 +205,7 @@ export default function ReviewRefundModal({
                     <button onClick={onClose} className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300">
                         Close
                     </button>
-                    {isPending && (
+                    {isPending =="Pending" && (
                         <button 
                             onClick={() => handleReview(!isRejecting)} 
                             className={`px-4 py-2 text-sm font-medium text-white ${!isRejecting ? 'bg-green-600' : 'bg-red-600'}`}

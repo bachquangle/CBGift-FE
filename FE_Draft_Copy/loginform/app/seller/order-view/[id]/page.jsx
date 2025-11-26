@@ -5,6 +5,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation"; // Dùng hook của Next.js
 import OrderView from "@/components/order-view/order-view";
+import apiClient from "../../../../lib/apiClient";
 
 // 1. Ánh xạ ProductionStatus Enum/Code sang Tên Hiển thị
 const PRODUCTION_STATUS_MAP = {
@@ -22,7 +23,8 @@ const PRODUCTION_STATUS_MAP = {
   11: "PROD_REWORK",
   12: "PACKING",
   13: "HOLD",
-  14: "CANCELLED",
+  14: "HOLD_RP",
+  15: "REFUND",
 };
 
 // Hàm map dữ liệu từ API sang cấu trúc UI cần
@@ -158,7 +160,7 @@ export default function OrderViewPage() {
       try {
         setLoading(true);
         // Thay đổi URL localhost này bằng env variable hoặc đường dẫn thật của bạn
-        const response = await fetch(`https://localhost:7015/api/Order/${params.id}`, {
+        const response = await fetch(`${apiClient.defaults.baseURL}/api/Order/${params.id}`, {
             method: 'GET',
             headers: {
                 'Content-Type': 'application/json',

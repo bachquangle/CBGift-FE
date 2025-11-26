@@ -248,7 +248,7 @@ export default function MakeManualModal({ isOpen, onClose }) {
   const fetchProvinces = async () => {
     setLoadingProvinces(true);
     try {
-      const res = await fetch(`https://localhost:7015/api/Location/provinces`, {
+      const res = await fetch(`${apiClient.defaults.baseURL}/api/Location/provinces`, {
         credentials: "include",
       });
 
@@ -274,7 +274,7 @@ export default function MakeManualModal({ isOpen, onClose }) {
     setLoadingDistricts(true);
     try {
       const res = await fetch(
-        `https://localhost:7015/api/Location/districts/${provinceId}`,
+        `${apiClient.defaults.baseURL}/api/Location/districts/${provinceId}`,
         { credentials: "include" }
       );
 
@@ -299,7 +299,7 @@ export default function MakeManualModal({ isOpen, onClose }) {
     setLoadingWards(true);
     try {
       const res = await fetch(
-        `https://localhost:7015/api/Location/wards/${districtId}`,
+        `${apiClient.defaults.baseURL}/api/Location/wards/${districtId}`,
         { credentials: "include" }
       );
 

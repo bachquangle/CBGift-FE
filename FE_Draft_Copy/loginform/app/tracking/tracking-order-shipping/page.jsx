@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import Link from 'next/link';
 
-const DOTNET_API_BASE_URL = "https://localhost:7015/api";
+const DOTNET_API_BASE_URL = `${apiClient.defaults.baseURL}/api`;
 
 // Loading Spinner Component
 const LoadingSpinner = () => (

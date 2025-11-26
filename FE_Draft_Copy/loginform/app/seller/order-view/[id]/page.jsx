@@ -22,7 +22,8 @@ const PRODUCTION_STATUS_MAP = {
   11: "PROD_REWORK",
   12: "PACKING",
   13: "HOLD",
-  14: "CANCELLED",
+  14: "HOLD_RP",
+  15: "REFUND",
 };
 
 // Hàm map dữ liệu từ API sang cấu trúc UI cần

@@ -7,6 +7,7 @@ import ShippingAddress from "./shipping-address";
 import BillingSummary from "./billing-summary";
 import OrderActivity from "./order-activity";
 import { useState } from "react";
+import Swal from "sweetalert2";
 import RequestRefundModal from "@/components/modals/RequestRefundModal"; 
 import RequestReprintModal from "@/components/modals/RequestReprintModal";
 import apiClient from "../../lib/apiClient";
@@ -65,76 +66,156 @@ export default function OrderView({
   };
     // Hàm xử lý Submit Refund CẤP ORDER
   const handleOrderRefundSubmit = async (data) => {
-    // data: { orderId, reason, selectedItems, proofFiles }
-    const { orderId, reason, selectedItems, proofFiles } = data;
+    // data: { orderId, reason, selectedItems, proofUrl }
+    const { orderId, reason, selectedItems, proofUrl } = data;
     
-    let proofUrl = null;
-    const proofFile = proofFiles?.[0]; // Lấy đối tượng File duy nhất (do bạn đã sửa Modal chỉ nhận 1 file)
+    let proofUrlResult = null;
+    const proofFile = data.proofFiles?.[0];
 
-    // 1. TẢI FILE LÊN NẾU CÓ
+    // 1. UPLOAD FILE NẾU CÓ
     if (proofFile) {
         try {
-            console.log(`Đang tải lên bằng chứng: ${proofFile.name}`);
-            proofUrl = await uploadImage(proofFile); 
-            if (!proofUrl) {
-                 throw new Error("Tải lên bằng chứng thất bại, URL trả về trống.");
+            Swal.fire({
+                title: "Uploading Proof...",
+                text: "Please wait while your evidence is uploaded.",
+                icon: "info",
+                allowOutsideClick: false,
+                showConfirmButton: false,
+                didOpen: () => Swal.showLoading()
+            });
+            proofUrlResult = await uploadImage(proofFile); 
+            if (!proofUrlResult) {
+                 throw new Error("Failed to get URL after upload.");
             }
         } catch (error) {
-            // Xử lý lỗi tải file và dừng submission
-            alert(error.message);
+            Swal.fire("Upload Failed", `Network or server error during file upload.`, "error");
             return;
         }
     }
-    // 2. CẤU TRÚC PAYLOAD (RefundRequestDto)
+
+    // 2. CẤU TRÚC PAYLOAD
     const payload = {
-        orderId: Number(orderId),
+        orderId: Number(orderId), 
         reason: reason,
-        proofUrl: proofUrl, // Gửi URL duy nhất (hoặc null)
-        
-        // Map selectedItems để khớp với cấu trúc DTO C#
+        proofUrl: proofUrlResult, 
         items: selectedItems.map(item => ({
             orderDetailId: item.orderDetailId,
             requestedAmount: item.refundAmount
         }))
     };
-    // ✨ HIỂN THỊ DỮ LIỆU CUỐI CÙNG TRƯỚC KHI GỬI ✨
-    console.log("------------------- FINAL REFUND PAYLOAD -------------------");
-    console.log(payload);
-    console.log("------------------------------------------------------------");
 
     // 3. GỌI API REFUND
+    Swal.fire({ 
+        title: "Submitting Request...", 
+        allowOutsideClick: false, 
+        showConfirmButton: false,
+        didOpen: () => Swal.showLoading()
+    });
+    
     try {
         const response = await fetch(`${apiClient.defaults.baseURL}/api/Refund/request`, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload),
             credentials: 'include',
         });
 
         if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.message || `Lỗi API: ${response.status}`);
+            let errorDetail = "Failed to submit request.";
+            try {
+                const errorData = await response.json();
+                errorDetail = errorData.message || errorData.title || JSON.stringify(errorData.errors);
+            } catch (e) {
+                // If response is not JSON, use the status text
+            }
+            throw new Error(errorDetail);
         }
         
-        // Thành công: Đóng modal và thông báo
-        alert("✅ Yêu cầu hoàn tiền đã được gửi thành công!");
+        // Thành công
+        Swal.fire("Success! 🎉", "Your refund request has been submitted and is pending staff review.", "success");
         setIsOrderRefundModalOpen(false); 
-        // window.location.reload(); 
-
+        // window.location.reload(); // Hoặc router.refresh()
+        
     } catch (error) {
         console.error("❌ Refund Submission Failed:", error);
-        alert(`❌ Gửi yêu cầu thất bại: ${error.message}`);
+        Swal.fire("Submission Failed", `Error: ${error.message}`, "error");
     }
   };
-
     // Hàm xử lý Submit Reprint CẤP ORDER
-    const handleOrderReprintSubmit = (data) => {
-        console.log(`Submitting Reprint for ALL products in Order ${order.id}:`, data);
-        setIsOrderReprintModalOpen(false);
-        // Logic gọi API Reprint cho toàn bộ Order
+  const handleOrderReprintSubmit = async (data) => {
+    // data: { orderId, reason, selectedItems, proofFiles }
+    const { orderId, reason, selectedItems, proofFiles } = data;
+    
+    let proofUrlResult = null;
+    const proofFile = proofFiles?.[0]; 
+
+    // 1. UPLOAD FILE NẾU CÓ
+    if (proofFile) {
+        try {
+            Swal.fire({
+                title: "Uploading Design/Proof...",
+                icon: "info",
+                allowOutsideClick: false,
+                showConfirmButton: false,
+                didOpen: () => Swal.showLoading()
+            });
+            proofUrlResult = await uploadImage(proofFile); 
+            if (!proofUrlResult) {
+                 throw new Error("Failed to get URL after upload.");
+            }
+        } catch (error) {
+            Swal.fire("Upload Failed", `Network or server error during file upload.`, "error");
+            return;
+        }
+    }
+
+    // 2. CẤU TRÚC PAYLOAD (SellerReprintRequestDto)
+    const payload = {
+        orderId: Number(orderId), 
+        reason: reason,
+        proofUrl: proofUrlResult, 
+        
+        selectedItems: selectedItems.map(item => ({
+            originalOrderDetailId: item.originalOrderDetailId
+        }))
     };
+
+    // 3. GỌI API REPRINT REQUEST
+    Swal.fire({ 
+        title: "Submitting Reprint Request...", 
+        allowOutsideClick: false, 
+        showConfirmButton: false,
+        didOpen: () => Swal.showLoading()
+    });
+    
+    try {
+        const response = await fetch(`${apiClient.defaults.baseURL}/api/Reprint/request`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+            credentials: 'include',
+        });
+
+        if (!response.ok) {
+            let errorDetail = "Failed to submit request.";
+            try {
+                const errorData = await response.json();
+                errorDetail = errorData.message || errorData.title || JSON.stringify(errorData.errors);
+            } catch (e) {
+                // If response is not JSON, use the status text
+            }
+            throw new Error(errorDetail);
+        }
+        
+        // Thành công
+        Swal.fire("Success! 🎉", "Your reprint request has been submitted and is pending staff review.", "success");
+        setIsOrderReprintModalOpen(false); 
+
+    } catch (error) {
+        console.error("❌ Reprint Submission Failed:", error);
+        Swal.fire("Submission Failed", `Error: ${error.message}`, "error");
+    }
+  };
 
   return (
     <>

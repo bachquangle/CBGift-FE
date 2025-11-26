@@ -137,95 +137,95 @@ export default function ProductItem({
                 
                 {/* Expanded Details */}
                 {expanded && (
-                    <div className="mt-6 pt-6 border-t border-gray-100 bg-gray-50 p-4 rounded-b-lg -mx-6 -mb-6">
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6"> 
-                            
-                            {/* Cột 1: Product Specifications */}
-                            <div className="p-3 bg-white rounded-lg border border-gray-200">
-                                <h4 className="font-semibold text-gray-800 mb-3 border-b pb-2">
-                                    Product Specs
-                                </h4>
-                                <div className="space-y-2 text-sm">
-                                    <p>
-                                        <span className="font-medium text-gray-600">Name:</span>{" "}
-                                        {product.name}
-                                    </p>
-                                    <p>
-                                        <span className="font-medium text-gray-600">SKU:</span>{" "}
-                                        {product.sku}
-                                    </p>
-                                    <p>
-                                        <span className="font-medium text-gray-600">Supplier:</span>{" "}
-                                        {product.supplier}
-                                    </p>
-                                </div>
-                            </div>
-                            
-                            {/* Cột 2: Production Details */}
-                            <div className="p-3 bg-white rounded-lg border border-gray-200">
-                                <h4 className="font-semibold text-gray-800 mb-3 border-b pb-2">
-                                    Production Details
-                                </h4>
-                                <div className="space-y-2 text-sm">
-                                    <p>
-                                        <span className="font-medium text-gray-600">Cost:</span>{" "}
-                                        <span className="font-bold text-gray-900">
-                                            {product.productionCost}
-                                        </span>
-                                    </p>
-                                    <p>
-                                        <span className="font-medium text-gray-600">Print Side:</span>{" "}
-                                        {product.printSide}
-                                    </p>
-                                </div>
-                            </div>
+                <div className="mt-6 pt-6 border-t border-gray-100 bg-gray-50 p-4 rounded-b-lg -mx-6 -mb-6">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                    
+                    {/* Cột 1: Product Specifications */}
+                    <div className="p-3 bg-white rounded-lg border border-gray-200">
+                        <h4 className="font-semibold text-gray-800 mb-3 border-b pb-2">
+                        Product Specs
+                        </h4>
+                        <div className="space-y-2 text-sm">
+                        <p>
+                            <span className="font-medium text-gray-600">Name:</span>{" "}
+                            {product.name}
+                        </p>
+                        <p>
+                            <span className="font-medium text-gray-600">SKU:</span>{" "}
+                            {product.sku}
+                        </p>
+                        <p>
+                            <span className="font-medium text-gray-600">Supplier:</span>{" "}
+                            {product.supplier}
+                        </p>
+                        </div>
+                    </div>
 
-                            {/* Cột 3: Design & Media Links (Dùng Button) */}
-                            <div className="p-3 bg-white rounded-lg border border-gray-200">
-                                <h4 className="font-semibold text-gray-800 mb-3 border-b pb-2">
-                                    Design Files
-                                </h4>
-                                <div className="space-y-3">
-                                    
-                                    {product.linkFileDesign && (
-                                        <a href={product.linkFileDesign} target="_blank" rel="noopener noreferrer" className="block">
-                                            <Button variant="secondary" className="w-full justify-start bg-gray-100 hover:bg-gray-200 text-gray-800">
-                                                <FileText className="h-4 w-4 mr-2" /> View Design File
-                                            </Button>
-                                        </a>
-                                    )}
+                    {/* Cột 2: Production Details */}
+                    <div className="p-3 bg-white rounded-lg border border-gray-200">
+                        <h4 className="font-semibold text-gray-800 mb-3 border-b pb-2">
+                        Production Details
+                        </h4>
+                        <div className="space-y-2 text-sm">
+                        <p>
+                            <span className="font-medium text-gray-600">Cost:</span>{" "}
+                            <span className="font-bold text-gray-900">
+                            {product.productionCost}
+                            </span>
+                        </p>
+                        <p>
+                            <span className="font-medium text-gray-600">Print Side:</span>{" "}
+                            {product.printSide}
+                        </p>
+                        </div>
+                    </div>
 
-                                    {product.linkThanksCard && (
-                                        <a href={product.linkThanksCard} target="_blank" rel="noopener noreferrer" className="block">
-                                            <Button variant="secondary" className="w-full justify-start bg-gray-100 hover:bg-gray-200 text-gray-800">
-                                                <Gift className="h-4 w-4 mr-2" /> View Thanks Card
-                                            </Button>
-                                        </a>
-                                    )}
+                    {/* Cột 3: Design & Media Links */}
+                    <div className="p-3 bg-white rounded-lg border border-gray-200">
+                        <h4 className="font-semibold text-gray-800 mb-3 border-b pb-2">
+                        Design Files
+                        </h4>
+                        <div className="space-y-3">
 
-                                    {product.image && (
-                                        <a href={product.image} target="_blank" rel="noopener noreferrer" className="block">
-                                            <Button variant="secondary" className="w-full justify-start bg-gray-100 hover:bg-gray-200 text-gray-800">
-                                                <ImageIcon className="h-4 w-4 mr-2" /> View Product Image
-                                            </Button>
-                                        </a>
-                                    )}
-                                    
-                                    {!product.linkFileDesign && !product.linkThanksCard && !product.image && (
-                                        <p className="text-sm text-gray-500 italic">No media links available.</p>
-                                    )}
-                                </div>
-                            </div>
+                        {product.linkFileDesign && (
+                            <a href={product.linkFileDesign} target="_blank" rel="noopener noreferrer" className="block">
+                            <Button variant="secondary" className="w-full justify-start bg-gray-100 hover:bg-gray-200 text-gray-800">
+                                <FileText className="h-4 w-4 mr-2" /> View Design File
+                            </Button>
+                            </a>
+                        )}
+
+                        {product.linkThanksCard && (
+                            <a href={product.linkThanksCard} target="_blank" rel="noopener noreferrer" className="block">
+                            <Button variant="secondary" className="w-full justify-start bg-gray-100 hover:bg-gray-200 text-gray-800">
+                                <Gift className="h-4 w-4 mr-2" /> View Thanks Card
+                            </Button>
+                            </a>
+                        )}
+
+                        {product.image && (
+                            <a href={product.image} target="_blank" rel="noopener noreferrer" className="block">
+                            <Button variant="secondary" className="w-full justify-start bg-gray-100 hover:bg-gray-200 text-gray-800">
+                                <ImageIcon className="h-4 w-4 mr-2" /> View Product Image
+                            </Button>
+                            </a>
+                        )}
+
+                        {!product.linkFileDesign && !product.linkThanksCard && !product.image && (
+                            <p className="text-sm text-gray-500 italic">No media links available.</p>
+                        )}
+                        </div>
+                    </div>
 
                             {/* Cột 4: Order Detail Actions */}
-                            <div className="p-3 bg-white rounded-lg border border-gray-200">
+                            {/* <div className="p-3 bg-white rounded-lg border border-gray-200">
                                 <h4 className="font-semibold text-gray-800 mb-3 border-b pb-2">
                                     Actions
                                 </h4>
-                                <div className="space-y-3">
+                                <div className="space-y-3"> */}
                                     
                                     {/* Nút Yêu cầu Hoàn tiền */}
-                                    <Button 
+                                    {/* <Button 
                                         variant="destructive" 
                                         // ✨ DISABLE NẾU KHÔNG ĐỦ ĐIỀU KIỆN ✨
                                             disabled={!isOrderEligible} 
@@ -233,10 +233,10 @@ export default function ProductItem({
                                             className="w-full justify-start text-xs h-8 bg-red-500 hover:bg-red-600"
                                             title={!isOrderEligible ? `Trạng thái Order phải là SHIPPED/COMPLETED (Hiện tại: ${orderStatus})` : `Yêu cầu Hoàn tiền cho sản phẩm ${product.id}`}>
                                         <Wallet className="h-4 w-4 mr-2" /> Request Refund
-                                    </Button>
+                                    </Button> */}
 
                                     {/* Nút Yêu cầu In lại */}
-                                    <Button 
+                                    {/* <Button 
                                         variant="outline" 
                                         // ✨ DISABLE NẾU KHÔNG ĐỦ ĐIỀU KIỆN ✨
                                         disabled={!isOrderEligible} 
@@ -244,10 +244,10 @@ export default function ProductItem({
                                         className="w-full justify-start text-xs h-8 text-blue-600 border-blue-200 hover:bg-blue-50"
                                         title={!isOrderEligible ? `Trạng thái Order phải là SHIPPED/COMPLETED (Hiện tại: ${orderStatus})` : `Yêu cầu In lại cho sản phẩm ${product.id}`}>
                                         <Printer className="h-4 w-4 mr-2" /> Request Reprint
-                                    </Button>
+                                    </Button> */}
                                     
-                                </div>
-                            </div>
+                                {/* </div>
+                            </div> */}
                             
                         </div>
                     </div>

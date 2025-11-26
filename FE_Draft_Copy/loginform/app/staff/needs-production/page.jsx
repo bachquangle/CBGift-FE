@@ -436,9 +436,13 @@ export default function NeedsProductionPage() {
                                         <button className="inline-flex items-center gap-1 text-purple-600 hover:text-purple-800 text-xs">
                                           <LabelIcon /> Label
                                         </button>
-                                        <button className="inline-flex items-center gap-1 text-orange-600 hover:text-orange-800 text-xs">
+                                        <a 
+                                          href={`/staff/qr-code/${detail.orderDetailId}`} // <-- URL MỚI ĐÃ ÁP DỤNG
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className="inline-flex items-center gap-1 text-orange-600 hover:text-orange-800 hover:underline text-xs">
                                           <QrCodeIcon /> QR
-                                        </button>
+                                      </a>
                                       </div>
                                     </td>
                                     <td className="p-3">

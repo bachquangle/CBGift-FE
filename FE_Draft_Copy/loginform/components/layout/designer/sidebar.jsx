@@ -36,6 +36,11 @@ export default function DesignerSidebar({ currentPage, setCurrentPage }) {
       // icon: <History className="h-4 w-4" />,
       id: "design-history",
     },
+    {
+      label: "AI Design",
+      path: "/designer/ai",
+      id: "ai-design",
+    },
   ];
 
   const handleNavigation = (item) => {

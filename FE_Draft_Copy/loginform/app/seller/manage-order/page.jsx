@@ -97,7 +97,7 @@ const STATS_CONFIG = [
     iconColor: "text-gray-500",
     statusFilter: "Draft (Nháp)",
   },
-  {
+  { 
     title: "Need Design",
     color: "bg-yellow-50 border-yellow-200",
     icon: Handshake,
@@ -1531,11 +1531,10 @@ export default function ManageOrder() {
                     Manage your customer orders
                   </p>
                 </div>
-                <div className="mt-3 sm:mt-0">
-                  <div className="flex items-center gap-2 text-sm text-slate-700">
-                    <Package className="h-4 w-4" />
+                
+                  <div className="flex items-center gap-2 text-sm text-slate-700 bg-white px-3 py-1.5 rounded-md border border-blue-100">
+                    <Package className="h-4 w-4 text-blue-500" />
                     <span>{totalOrdersCount} orders</span>
-                  </div>
                 </div>
               </div>
             </div>

@@ -32,6 +32,47 @@ import {
 } from "@/components/ui/alert-dialog";
 import { ChevronDown, ChevronUp } from "lucide-react";
 
+const CircularProgress = ({ progress }) => {
+  const radius = 20;
+  const circumference = 2 * Math.PI * radius;
+  const strokeDashoffset = circumference - (progress / 100) * circumference;
+
+  return (
+    <svg width="50" height="50" className="absolute top-1 left-1">
+      <circle
+        cx="25"
+        cy="25"
+        r={radius}
+        fill="none"
+        stroke="#e5e7eb"
+        strokeWidth="2"
+      />
+      <circle
+        cx="25"
+        cy="25"
+        r={radius}
+        fill="none"
+        stroke="#3b82f6"
+        strokeWidth="2"
+        strokeDasharray={circumference}
+        strokeDashoffset={strokeDashoffset}
+        strokeLinecap="round"
+        style={{ transition: "stroke-dashoffset 0.2s ease" }}
+      />
+      <text
+        x="25"
+        y="30"
+        textAnchor="middle"
+        fontSize="10"
+        fontWeight="bold"
+        fill="#1f2937"
+      >
+        {Math.round(progress)}%
+      </text>
+    </svg>
+  );
+};
+
 // Mock product data
 const availableProducts = [
   {
@@ -87,6 +128,12 @@ export default function MakeManualModal({ isOpen, onClose }) {
   const linkFileDesignRef = useRef(null);
   const linkImgRef = useRef(null);
 
+  const [uploadProgress, setUploadProgress] = useState({
+    linkImg: { isUploading: false, progress: 0 },
+    linkThanksCard: { isUploading: false, progress: 0 },
+    linkFileDesign: { isUploading: false, progress: 0 },
+  });
+
   const [customerInfo, setCustomerInfo] = useState({
     name: "",
     phone: "",
@@ -122,6 +169,8 @@ export default function MakeManualModal({ isOpen, onClose }) {
     productPrice: 0,
   });
 
+  const [previewData, setPreviewData] = useState(null);
+
   const resetForm = () => {
     setCurrentStep(1);
     setCustomerInfo({
@@ -153,6 +202,13 @@ export default function MakeManualModal({ isOpen, onClose }) {
     });
     setDistricts([]);
     setWards([]);
+    setPreviewData(null); // Reset preview data
+    // Reset upload progress states
+    setUploadProgress({
+      linkImg: { isUploading: false, progress: 0 },
+      linkThanksCard: { isUploading: false, progress: 0 },
+      linkFileDesign: { isUploading: false, progress: 0 },
+    });
   };
 
   // ─── Step 2: load products từ BE ───
@@ -264,12 +320,20 @@ export default function MakeManualModal({ isOpen, onClose }) {
     }
   };
 
-  // Upload ảnh thật lên server
-  const uploadImage = async (file) => {
+  const uploadImage = async (file, onProgress) => {
     const formData = new FormData();
     formData.append("File", file);
 
     try {
+      // Simulate progress updates
+      let currentProgress = 0;
+      const progressInterval = setInterval(() => {
+        if (currentProgress < 90) {
+          currentProgress += Math.random() * 30;
+          if (onProgress) onProgress(Math.min(currentProgress, 90));
+        }
+      }, 200);
+
       const res = await fetch(
         `${apiClient.defaults.baseURL}/api/images/upload`,
         {
@@ -279,12 +343,15 @@ export default function MakeManualModal({ isOpen, onClose }) {
         }
       );
 
+      clearInterval(progressInterval);
+
       if (!res.ok) {
         const errText = await res.text();
         throw new Error(`Upload failed: ${res.status} - ${errText}`);
       }
 
       const data = await res.json();
+      if (onProgress) onProgress(100);
       console.log("Upload success:", data);
       return data.url || data.secureUrl || data.path || null;
     } catch (err) {
@@ -309,6 +376,126 @@ export default function MakeManualModal({ isOpen, onClose }) {
 
     const total = (basePrice + ttsExtra) * qty;
     return total;
+  };
+
+  const calculateOrderTotal = () => {
+    if (cartProducts.length === 0) return 0;
+
+    let totalBaseCost = 0;
+    let shipCost = 0;
+    let maxExtraShipping = 0;
+    let maxBaseShipCost = 0;
+    let totalQty = 0;
+
+    cartProducts.forEach((item, index) => {
+      const variant = item.product.variants?.find(
+        (v) => v.productVariantId === item.config.variantId
+      );
+
+      const baseCost = variant?.baseCost ?? 0;
+      const shipCost_variant = variant?.shipCost ?? 0;
+      const extraShipping = variant?.extraShipping ?? 0;
+      const baseShipCost = variant?.shipCost ?? 0; // ⭐ NEW
+      const qty = item.config.quantity || 1;
+
+      totalBaseCost += baseCost * qty;
+
+      if (cartProducts.length === 1 && index === 0) {
+        shipCost = shipCost_variant;
+      }
+
+      // max extra ship
+      if (extraShipping > maxExtraShipping) {
+        maxExtraShipping = extraShipping;
+      }
+
+      // ⭐ NEW — GET MAX BASE SHIP COST
+      if (baseShipCost > maxBaseShipCost) {
+        maxBaseShipCost = baseShipCost;
+      }
+
+      totalQty += qty;
+    });
+
+    let total = totalBaseCost + shipCost;
+
+    if (cartProducts.length > 1) {
+      total += (totalQty - 1) * maxExtraShipping;
+    } else {
+      total += (totalQty - 1) * maxExtraShipping;
+    }
+
+    // ⭐ NEW — ADD BASE SHIP COST
+    total += maxBaseShipCost;
+
+    if (activeTTS) {
+      total += 1.0;
+    }
+
+    return total;
+  };
+
+  const getOrderCostBreakdown = () => {
+    if (cartProducts.length === 0) {
+      return {
+        items: [],
+        totalBase: 0,
+        shipCost: 0,
+        maxExtraShipping: 0,
+        maxExtraProductName: "",
+      };
+    }
+
+    let totalBase = 0;
+    let shipCost = 0;
+    let maxExtraShipping = 0;
+    let maxBaseShipCost = 0;
+    let maxExtraProductName = "";
+
+    const breakdownItems = cartProducts.map((item, index) => {
+      const variant = item.product.variants?.find(
+        (v) => v.productVariantId === item.config.variantId
+      );
+      const baseCost = variant?.baseCost ?? 0;
+      const shipCost_variant = variant?.shipCost ?? 0;
+      const baseShipCost = variant?.shipCost ?? 0;
+      const extraShipping = variant?.extraShipping ?? 0;
+      const qty = item.config.quantity || 1;
+
+      const itemBaseCost = baseCost * qty;
+      totalBase += itemBaseCost;
+
+      if (cartProducts.length === 1 && index === 0) {
+        shipCost = shipCost_variant;
+      }
+
+      if (extraShipping > maxExtraShipping) {
+        maxExtraShipping = extraShipping;
+        maxExtraProductName = item.product.productName;
+      }
+
+      if (baseShipCost > maxBaseShipCost) {
+        maxBaseShipCost = baseShipCost;
+      }
+
+      return {
+        id: item.id,
+        name: item.product.productName,
+        baseCost,
+        qty,
+        totalBaseCost: itemBaseCost,
+        extraShipping,
+      };
+    });
+
+    return {
+      items: breakdownItems,
+      totalBase,
+      shipCost,
+      maxExtraShipping,
+      maxExtraProductName,
+      maxBaseShipCost,
+    };
   };
 
   useEffect(() => {
@@ -374,8 +561,14 @@ export default function MakeManualModal({ isOpen, onClose }) {
       return;
     }
 
-    if (currentStep < 3) {
-      setCurrentStep(currentStep + 1);
+    if (currentStep === 3) {
+      if (cartProducts.length === 0) {
+        setErrorMessage("Please add at least one product to continue.");
+        setShowErrorDialog(true);
+        return;
+      }
+      setCurrentStep(4);
+      return;
     }
   };
 
@@ -388,6 +581,22 @@ export default function MakeManualModal({ isOpen, onClose }) {
   const handleTrimmedInput = (field, value) => {
     if (value.trim() === "" && value.length > 0) return;
     setCustomerInfo((prev) => ({ ...prev, [field]: value.trimStart() }));
+  };
+
+  const getCostDetails = () => {
+    if (!currentProduct || !currentProductConfig.variantId) {
+      return { baseCost: 0, shipCost: 0, extraShipping: 0 };
+    }
+
+    const variant = currentProduct.variants?.find(
+      (v) => v.productVariantId === currentProductConfig.variantId
+    );
+
+    return {
+      baseCost: variant?.baseCost ?? 0,
+      shipCost: variant?.shipCost ?? 0,
+      extraShipping: variant?.extraShipping ?? 0,
+    };
   };
 
   const handleFileUpload = async (field, event) => {
@@ -406,7 +615,18 @@ export default function MakeManualModal({ isOpen, onClose }) {
     }
 
     try {
-      const uploadedUrl = await uploadImage(file);
+      setUploadProgress((prev) => ({
+        ...prev,
+        [field]: { isUploading: true, progress: 0 },
+      }));
+
+      const uploadedUrl = await uploadImage(file, (progress) => {
+        setUploadProgress((prev) => ({
+          ...prev,
+          [field]: { isUploading: true, progress },
+        }));
+      });
+
       if (uploadedUrl) {
         setCurrentProductConfig((prev) => ({
           ...prev,
@@ -419,11 +639,28 @@ export default function MakeManualModal({ isOpen, onClose }) {
           ...prev,
           [`${field}Preview`]: previewUrl,
         }));
+
+        setUploadProgress((prev) => ({
+          ...prev,
+          [field]: { isUploading: false, progress: 100 },
+        }));
+
+        // Clear progress after a brief delay
+        setTimeout(() => {
+          setUploadProgress((prev) => ({
+            ...prev,
+            [field]: { isUploading: false, progress: 0 },
+          }));
+        }, 500);
       }
     } catch (error) {
       console.error("Upload error:", error);
       setErrorMessage("⚠️ Upload failed. Please try again.");
       setShowErrorDialog(true);
+      setUploadProgress((prev) => ({
+        ...prev,
+        [field]: { isUploading: false, progress: 0 },
+      }));
     }
   };
 
@@ -552,14 +789,13 @@ export default function MakeManualModal({ isOpen, onClose }) {
         address1: customerInfo.address1,
         zipCode: "",
         shipState: "",
-        shipCity: "",
         shipCountry: "",
       },
 
       orderCreate: {
         orderCode: orderId?.trim() || `ORD-${Date.now()}`,
         endCustomerID: 0,
-        totalCost: calculateTotalMoney(),
+        totalCost: calculateOrderTotal(),
         sellerUserId: null,
         orderDate: new Date().toISOString(),
         costScan: 1,
@@ -811,7 +1047,7 @@ export default function MakeManualModal({ isOpen, onClose }) {
                 type="button"
                 onClick={() => setOpenProvinceDropdown(!openProvinceDropdown)}
                 disabled={loadingProvinces}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md bg-white text-left flex justify-between items-center hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md bg-white text-left text-sm flex justify-between items-center hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
               >
                 <span>
                   {customerInfo.provinceName ||
@@ -847,7 +1083,7 @@ export default function MakeManualModal({ isOpen, onClose }) {
                             setHoverProvince(p.id || p.provinceId || idx)
                           }
                           onMouseLeave={() => setHoverProvince(null)}
-                          className={`w-full px-3 py-2 text-left transition-colors ${
+                          className={`w-full px-3 py-2 text-left text-sm transition-colors ${
                             hoverProvince === (p.id || p.provinceId || idx)
                               ? "bg-blue-100 text-blue-900"
                               : customerInfo.provinceId?.toString() ===
@@ -880,7 +1116,7 @@ export default function MakeManualModal({ isOpen, onClose }) {
                   setOpenDistrictDropdown(!openDistrictDropdown)
                 }
                 disabled={loadingDistricts || !customerInfo.provinceId}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md bg-white text-left flex justify-between items-center hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:bg-gray-100"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md bg-white text-left text-sm flex justify-between items-center hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:bg-gray-100"
               >
                 <span>
                   {customerInfo.districtName ||
@@ -920,7 +1156,7 @@ export default function MakeManualModal({ isOpen, onClose }) {
                             setHoverDistrict(d.id || d.districtId)
                           }
                           onMouseLeave={() => setHoverDistrict(null)}
-                          className={`w-full px-3 py-2 text-left transition-colors ${
+                          className={`w-full px-3 py-2 text-left text-sm transition-colors ${
                             hoverDistrict === (d.id || d.districtId)
                               ? "bg-blue-100 text-blue-900"
                               : customerInfo.districtId?.toString() ===
@@ -953,7 +1189,7 @@ export default function MakeManualModal({ isOpen, onClose }) {
                   setOpenWardDropdown(!openWardDropdown)
                 }
                 disabled={loadingWards || !customerInfo.districtId}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md bg-white text-left flex justify-between items-center hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:bg-gray-100"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md bg-white text-left text-sm flex justify-between items-center hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:bg-gray-100"
               >
                 <span>
                   {customerInfo.wardName ||
@@ -989,7 +1225,7 @@ export default function MakeManualModal({ isOpen, onClose }) {
                           }
                           onMouseEnter={() => setHoverWard(w.id || w.wardId)}
                           onMouseLeave={() => setHoverWard(null)}
-                          className={`w-full px-3 py-2 text-left transition-colors ${
+                          className={`w-full px-3 py-2 text-left text-sm transition-colors ${
                             hoverWard === (w.id || w.wardId)
                               ? "bg-blue-100 text-blue-900"
                               : customerInfo.wardId?.toString() ===
@@ -1113,7 +1349,10 @@ export default function MakeManualModal({ isOpen, onClose }) {
                     <img
                       src={
                         p.itemLink ||
-                        "/placeholder.svg?height=128&width=256&query=product"
+                        "/placeholder.svg?height=128&width=256&query=product" ||
+                        "/placeholder.svg" ||
+                        "/placeholder.svg" ||
+                        "/placeholder.svg"
                       }
                       alt={p.productName}
                       className="w-full h-32 object-cover rounded-md mb-3"
@@ -1148,14 +1387,16 @@ export default function MakeManualModal({ isOpen, onClose }) {
                 </Button>
 
                 <div className="flex items-center gap-1">
-                  {/* Show first page */}
-                  <Button
-                    variant={productCurrentPage === 1 ? "default" : "outline"}
-                    onClick={() => setProductCurrentPage(1)}
-                    className="w-10"
-                  >
-                    1
-                  </Button>
+                  {/* Show first page only if not on page 1 */}
+                  {productCurrentPage !== 1 && (
+                    <Button
+                      variant="outline"
+                      onClick={() => setProductCurrentPage(1)}
+                      className="w-10"
+                    >
+                      1
+                    </Button>
+                  )}
 
                   {/* Show ellipsis if needed before current page */}
                   {productCurrentPage > 3 && (
@@ -1165,6 +1406,8 @@ export default function MakeManualModal({ isOpen, onClose }) {
                   {/* Show pages around current page */}
                   {Array.from({ length: totalPages }, (_, i) => i + 1)
                     .filter((page) => {
+                      // Show page 1 only once (already shown above if not on page 1)
+                      if (page === 1) return productCurrentPage === 1;
                       // Show current page and 1 page before/after
                       if (page === productCurrentPage) return true;
                       if (
@@ -1197,14 +1440,10 @@ export default function MakeManualModal({ isOpen, onClose }) {
                     <span className="px-2 text-gray-500">...</span>
                   )}
 
-                  {/* Show last page if more than 1 page */}
-                  {totalPages > 1 && (
+                  {/* Show last page only if not on last page */}
+                  {productCurrentPage !== totalPages && totalPages > 1 && (
                     <Button
-                      variant={
-                        productCurrentPage === totalPages
-                          ? "default"
-                          : "outline"
-                      }
+                      variant="outline"
                       onClick={() => setProductCurrentPage(totalPages)}
                       className="w-10"
                     >
@@ -1232,10 +1471,12 @@ export default function MakeManualModal({ isOpen, onClose }) {
 
   const renderStep3 = () => (
     <div className="space-y-4">
-      <h3 className="text-lg font-semibold">Step 3: Configure Product</h3>
+      <h3 className="text-lg font-semibold">
+        Step 3: Configure Product & Review Costs
+      </h3>
 
       {currentProduct && (
-        <div className="bg-gray-50 p-4 rounded-lg mb-4">
+        <div className="bg-blue-50 p-4 rounded-lg mb-4 border border-blue-100">
           <div className="flex items-center gap-4">
             <img
               src={currentProduct.itemLink || "/placeholder.svg"}
@@ -1243,7 +1484,9 @@ export default function MakeManualModal({ isOpen, onClose }) {
               className="w-16 h-16 object-cover rounded"
             />
             <div>
-              <h4 className="font-semibold">{currentProduct.productName}</h4>
+              <h4 className="font-semibold text-gray-900">
+                {currentProduct.productName}
+              </h4>
               <p className="text-sm text-gray-600">{currentProduct.describe}</p>
             </div>
           </div>
@@ -1259,12 +1502,11 @@ export default function MakeManualModal({ isOpen, onClose }) {
           type="text"
           value={orderId}
           onChange={(e) => {
-            // Only allow editing if Order ID hasn't been set yet
             if (!isOrderIdSet) {
               setOrderId(e.target.value);
             }
           }}
-          placeholder="Nhập Order ID..."
+          placeholder="Enter Order ID..."
           className="mt-1"
           readOnly={isOrderIdSet}
           disabled={isOrderIdSet}
@@ -1303,7 +1545,8 @@ export default function MakeManualModal({ isOpen, onClose }) {
                   key={v.productVariantId}
                   value={v.productVariantId.toString()}
                 >
-                  {v.sizeInch} — ${v.totalCost.toFixed(2)}
+                  {/* {v.sizeInch} — ${v.totalCost.toFixed(2)} */}
+                  {v.sizeInch}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -1313,170 +1556,197 @@ export default function MakeManualModal({ isOpen, onClose }) {
         {/* Link Image */}
         <div>
           <Label htmlFor="linkImg">Link Image</Label>
-          <Input
-            id="linkImg"
-            type="file"
-            accept="image/*"
-            ref={linkImgRef}
-            onChange={(e) => handleFileUpload("linkImg", e)}
-          />
+          <div className="relative">
+            <Input
+              id="linkImg"
+              type="file"
+              accept="image/*"
+              ref={linkImgRef}
+              onChange={(e) => handleFileUpload("linkImg", e)}
+              disabled={uploadProgress.linkImg.isUploading}
+            />
+            {uploadProgress.linkImg.isUploading && (
+              <CircularProgress progress={uploadProgress.linkImg.progress} />
+            )}
+          </div>
 
-          {currentProductConfig.linkImg && (
-            <div className="mt-2 space-y-2">
-              <p className="text-sm text-green-600 flex items-center gap-1">
-                Uploaded:{" "}
-                <a
-                  href={currentProductConfig.linkImg}
-                  target="_blank"
-                  className="underline text-blue-600 truncate max-w-[200px]"
-                  rel="noreferrer"
-                >
-                  {currentProductConfig.linkImg.split("/").pop()}
-                </a>
-              </p>
-
-              {(currentProductConfig.linkImg.endsWith(".png") ||
-                currentProductConfig.linkImg.endsWith(".jpg") ||
-                currentProductConfig.linkImg.endsWith(".jpeg")) && (
-                <div className="relative inline-block">
-                  <img
-                    src={currentProductConfig.linkImg || "/placeholder.svg"}
-                    alt="Uploaded Image Preview"
-                    className="w-20 h-20 object-cover rounded border border-gray-300 shadow-sm"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setCurrentProductConfig((prev) => ({
-                        ...prev,
-                        linkImg: null,
-                      }));
-                      if (linkImgRef.current) {
-                        linkImgRef.current.value = "";
-                      }
-                    }}
-                    className="absolute top-0 right-0 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs hover:bg-red-600 translate-x-1 -translate-y-1"
+          {currentProductConfig.linkImg &&
+            !uploadProgress.linkImg.isUploading && (
+              <div className="mt-2 space-y-2">
+                <p className="text-sm text-green-600 flex items-center gap-1">
+                  Uploaded:{" "}
+                  <a
+                    href={currentProductConfig.linkImg}
+                    target="_blank"
+                    className="underline text-blue-600 truncate max-w-[200px]"
+                    rel="noreferrer"
                   >
-                    ×
-                  </button>
-                </div>
-              )}
-            </div>
-          )}
+                    {currentProductConfig.linkImg.split("/").pop()}
+                  </a>
+                </p>
+
+                {(currentProductConfig.linkImg.endsWith(".png") ||
+                  currentProductConfig.linkImg.endsWith(".jpg") ||
+                  currentProductConfig.linkImg.endsWith(".jpeg")) && (
+                  <div className="relative inline-block">
+                    <img
+                      src={currentProductConfig.linkImg || "/placeholder.svg"}
+                      alt="Uploaded Image Preview"
+                      className="w-20 h-20 object-cover rounded border border-gray-300 shadow-sm"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCurrentProductConfig((prev) => ({
+                          ...prev,
+                          linkImg: null,
+                        }));
+                        if (linkImgRef.current) {
+                          linkImgRef.current.value = "";
+                        }
+                      }}
+                      className="absolute top-0 right-0 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs hover:bg-red-600 translate-x-1 -translate-y-1"
+                    >
+                      ×
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
         </div>
 
         {/* Link Thanks Card */}
         <div>
           <Label htmlFor="linkThanksCard">Link Thanks Card</Label>
-          <Input
-            id="linkThanksCard"
-            type="file"
-            accept="image/*"
-            ref={linkThanksCardRef}
-            onChange={(e) => handleFileUpload("linkThanksCard", e)}
-          />
+          <div className="relative">
+            <Input
+              id="linkThanksCard"
+              type="file"
+              accept="image/*"
+              ref={linkThanksCardRef}
+              onChange={(e) => handleFileUpload("linkThanksCard", e)}
+              disabled={uploadProgress.linkThanksCard.isUploading}
+            />
+            {uploadProgress.linkThanksCard.isUploading && (
+              <CircularProgress
+                progress={uploadProgress.linkThanksCard.progress}
+              />
+            )}
+          </div>
 
-          {currentProductConfig.linkThanksCard && (
-            <div className="mt-2 space-y-2">
-              <p className="text-sm text-green-600 flex items-center gap-1">
-                Uploaded:{" "}
-                <a
-                  href={currentProductConfig.linkThanksCard}
-                  target="_blank"
-                  className="underline text-blue-600 truncate max-w-[200px]"
-                  rel="noreferrer"
-                >
-                  {currentProductConfig.linkThanksCard.split("/").pop()}
-                </a>
-              </p>
-
-              {(currentProductConfig.linkThanksCard.endsWith(".png") ||
-                currentProductConfig.linkThanksCard.endsWith(".jpg") ||
-                currentProductConfig.linkThanksCard.endsWith(".jpeg")) && (
-                <div className="relative inline-block">
-                  <img
-                    src={
-                      currentProductConfig.linkThanksCard || "/placeholder.svg"
-                    }
-                    alt="Thanks Card Preview"
-                    className="w-20 h-20 object-cover rounded border border-gray-300 shadow-sm"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setCurrentProductConfig((prev) => ({
-                        ...prev,
-                        linkThanksCard: null,
-                      }));
-                      if (linkThanksCardRef.current) {
-                        linkThanksCardRef.current.value = "";
-                      }
-                    }}
-                    className="absolute top-0 right-0 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs hover:bg-red-600 translate-x-1 -translate-y-1"
+          {currentProductConfig.linkThanksCard &&
+            !uploadProgress.linkThanksCard.isUploading && (
+              <div className="mt-2 space-y-2">
+                <p className="text-sm text-green-600 flex items-center gap-1">
+                  Uploaded:{" "}
+                  <a
+                    href={currentProductConfig.linkThanksCard}
+                    target="_blank"
+                    className="underline text-blue-600 truncate max-w-[200px]"
+                    rel="noreferrer"
                   >
-                    ×
-                  </button>
-                </div>
-              )}
-            </div>
-          )}
+                    {currentProductConfig.linkThanksCard.split("/").pop()}
+                  </a>
+                </p>
+
+                {(currentProductConfig.linkThanksCard.endsWith(".png") ||
+                  currentProductConfig.linkThanksCard.endsWith(".jpg") ||
+                  currentProductConfig.linkThanksCard.endsWith(".jpeg")) && (
+                  <div className="relative inline-block">
+                    <img
+                      src={
+                        currentProductConfig.linkThanksCard ||
+                        "/placeholder.svg"
+                      }
+                      alt="Thanks Card Preview"
+                      className="w-20 h-20 object-cover rounded border border-gray-300 shadow-sm"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCurrentProductConfig((prev) => ({
+                          ...prev,
+                          linkThanksCard: null,
+                        }));
+                        if (linkThanksCardRef.current) {
+                          linkThanksCardRef.current.value = "";
+                        }
+                      }}
+                      className="absolute top-0 right-0 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs hover:bg-red-600 translate-x-1 -translate-y-1"
+                    >
+                      ×
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
         </div>
 
         {/* Link File Design */}
         <div>
           <Label htmlFor="linkFileDesign">Link File Design</Label>
-          <Input
-            id="linkFileDesign"
-            type="file"
-            accept="image/*,.pdf,.zip,.ai,.psd"
-            ref={linkFileDesignRef}
-            onChange={(e) => handleFileUpload("linkFileDesign", e)}
-          />
+          <div className="relative">
+            <Input
+              id="linkFileDesign"
+              type="file"
+              accept="image/*,.pdf,.zip,.ai,.psd"
+              ref={linkFileDesignRef}
+              onChange={(e) => handleFileUpload("linkFileDesign", e)}
+              disabled={uploadProgress.linkFileDesign.isUploading}
+            />
+            {uploadProgress.linkFileDesign.isUploading && (
+              <CircularProgress
+                progress={uploadProgress.linkFileDesign.progress}
+              />
+            )}
+          </div>
 
-          {currentProductConfig.linkFileDesign && (
-            <div className="mt-2 space-y-2">
-              <p className="text-sm text-green-600 flex items-center gap-1">
-                Uploaded:{" "}
-                <a
-                  href={currentProductConfig.linkFileDesign}
-                  target="_blank"
-                  className="underline text-blue-600 truncate max-w-[200px]"
-                  rel="noreferrer"
-                >
-                  {currentProductConfig.linkFileDesign.split("/").pop()}
-                </a>
-              </p>
-
-              {(currentProductConfig.linkFileDesign.endsWith(".png") ||
-                currentProductConfig.linkFileDesign.endsWith(".jpg") ||
-                currentProductConfig.linkFileDesign.endsWith(".jpeg")) && (
-                <div className="relative inline-block">
-                  <img
-                    src={
-                      currentProductConfig.linkFileDesign || "/placeholder.svg"
-                    }
-                    alt="Design File Preview"
-                    className="w-20 h-20 object-cover rounded border border-gray-300 shadow-sm"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setCurrentProductConfig((prev) => ({
-                        ...prev,
-                        linkFileDesign: null,
-                      }));
-                      if (linkFileDesignRef.current) {
-                        linkFileDesignRef.current.value = "";
-                      }
-                    }}
-                    className="absolute top-0 right-0 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs hover:bg-red-600 translate-x-1 -translate-y-1"
+          {currentProductConfig.linkFileDesign &&
+            !uploadProgress.linkFileDesign.isUploading && (
+              <div className="mt-2 space-y-2">
+                <p className="text-sm text-green-600 flex items-center gap-1">
+                  Uploaded:{" "}
+                  <a
+                    href={currentProductConfig.linkFileDesign}
+                    target="_blank"
+                    className="underline text-blue-600 truncate max-w-[200px]"
+                    rel="noreferrer"
                   >
-                    ×
-                  </button>
-                </div>
-              )}
-            </div>
-          )}
+                    {currentProductConfig.linkFileDesign.split("/").pop()}
+                  </a>
+                </p>
+
+                {(currentProductConfig.linkFileDesign.endsWith(".png") ||
+                  currentProductConfig.linkFileDesign.endsWith(".jpg") ||
+                  currentProductConfig.linkFileDesign.endsWith(".jpeg")) && (
+                  <div className="relative inline-block">
+                    <img
+                      src={
+                        currentProductConfig.linkFileDesign ||
+                        "/placeholder.svg"
+                      }
+                      alt="Design File Preview"
+                      className="w-20 h-20 object-cover rounded border border-gray-300 shadow-sm"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCurrentProductConfig((prev) => ({
+                          ...prev,
+                          linkFileDesign: null,
+                        }));
+                        if (linkFileDesignRef.current) {
+                          linkFileDesignRef.current.value = "";
+                        }
+                      }}
+                      className="absolute top-0 right-0 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs hover:bg-red-600 translate-x-1 -translate-y-1"
+                    >
+                      ×
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
         </div>
 
         {/* Quantity */}
@@ -1526,6 +1796,55 @@ export default function MakeManualModal({ isOpen, onClose }) {
           />
         </div>
 
+        <div className="bg-slate-50 p-4 rounded-lg border border-slate-200 mt-4 md:col-span-2">
+          <h4 className="font-semibold text-gray-900 mb-3">Cost Breakdown</h4>
+          <div className="space-y-2">
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-600">Base Cost:</span>
+              <span className="font-medium text-gray-900">
+                ${getCostDetails().baseCost.toFixed(2)}
+              </span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-600">Ship Cost:</span>
+              <span className="font-medium text-gray-900">
+                ${getCostDetails().shipCost.toFixed(2)}
+              </span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-600">Extra Shipping (per unit):</span>
+              <span className="font-medium text-gray-900">
+                ${getCostDetails().extraShipping.toFixed(2)}
+              </span>
+            </div>
+            <div className="border-t border-slate-200 pt-2 flex justify-between">
+              <span className="font-semibold text-gray-900">Unit Price:</span>
+              <span className="font-bold text-blue-600 text-lg">
+                $
+                {(
+                  getCostDetails().baseCost + getCostDetails().shipCost
+                ).toFixed(2)}
+              </span>
+            </div>
+          </div>
+
+          {/* {cartProducts.length > 0 && (
+            <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded text-xs text-slate-700">
+              <p className="font-semibold text-blue-900 mb-1">
+                📦 Shipping Calculation:
+              </p>
+              {cartProducts.length === 1 ? (
+                <p>Single product: Total = Base Cost + Ship Cost</p>
+              ) : (
+                <>
+                  <p>Multiple products: Extra shipping uses the highest rate</p>
+                  <p>Total += (Total Quantity - 1) × Max Extra Shipping</p>
+                </>
+              )}
+            </div>
+          )} */}
+        </div>
+
         {/* Price */}
         <div className="md:col-span-2">
           <div className="bg-blue-50 p-4 rounded-lg">
@@ -1562,7 +1881,10 @@ export default function MakeManualModal({ isOpen, onClose }) {
 
           <div className="space-y-3">
             {cartProducts.map((item) => (
-              <div key={item.id} className="border rounded-lg p-4 bg-gray-50">
+              <div
+                key={item.id}
+                className="border rounded-lg p-4 bg-slate-50 border-slate-200"
+              >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <img
@@ -1571,17 +1893,19 @@ export default function MakeManualModal({ isOpen, onClose }) {
                       className="w-12 h-12 object-cover rounded"
                     />
                     <div>
-                      <p className="font-medium">{item.product.productName}</p>
+                      <p className="font-medium text-gray-900">
+                        {item.product.productName}
+                      </p>
                       <p className="text-sm text-gray-600">
-                        {item.config.size} • Qty: {item.config.quantity}
+                        {item.config.size} • Quantity: {item.config.quantity}
                       </p>
                     </div>
                   </div>
 
                   <div className="flex items-center gap-2">
-                    <span className="font-semibold text-blue-600">
+                    {/* <span className="font-semibold text-blue-600">
                       ${item.totalPrice.toFixed(2)}
-                    </span>
+                    </span> */}
                     <Button
                       variant="outline"
                       size="sm"
@@ -1705,6 +2029,14 @@ export default function MakeManualModal({ isOpen, onClose }) {
                                 src={
                                   item.config.linkFileDesign ||
                                   "/placeholder.svg" ||
+                                  "/placeholder.svg" ||
+                                  "/placeholder.svg" ||
+                                  "/placeholder.svg" ||
+                                  "/placeholder.svg" ||
+                                  "/placeholder.svg" ||
+                                  "/placeholder.svg" ||
+                                  "/placeholder.svg" ||
+                                  "/placeholder.svg" ||
                                   "/placeholder.svg"
                                 }
                                 alt="File Design"
@@ -1735,8 +2067,112 @@ export default function MakeManualModal({ isOpen, onClose }) {
             ))}
           </div>
 
+          <div className="mt-6 bg-slate-50 p-4 rounded-lg border border-slate-200">
+            <h4 className="font-semibold text-gray-900 mb-3">Cost Breakdown</h4>
+            <div className="space-y-3">
+              {cartProducts.length === 1 ? (
+                <div className="space-y-2">
+                  {getOrderCostBreakdown().items.map((item) => (
+                    <div key={item.id} className="space-y-1">
+                      <p className="text-sm font-medium text-gray-700">
+                        {item.name}
+                      </p>
+                      <div className="flex justify-between text-sm ml-3">
+                        <span className="text-gray-600">Base Cost:</span>
+                        <span className="font-medium text-gray-900">
+                          ${item.baseCost.toFixed(2)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between text-sm ml-3">
+                        <span className="text-gray-600">Ship Cost:</span>
+                        <span className="font-medium text-gray-900">
+                          ${getOrderCostBreakdown().shipCost.toFixed(2)}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                  <div className="border-t border-slate-300 pt-2 flex justify-between font-semibold">
+                    <span className="text-gray-900">Total:</span>
+                    <span className="text-blue-600">
+                      $
+                      {(
+                        getOrderCostBreakdown().totalBase +
+                        getOrderCostBreakdown().shipCost +
+                        (activeTTS ? 1.0 : 0)
+                      ).toFixed(2)}
+                    </span>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <p className="text-xs text-gray-600 italic mb-2">
+                    Breakdown by product:
+                  </p>
+                  {getOrderCostBreakdown().items.map((item) => (
+                    <div
+                      key={item.id}
+                      className="flex justify-between text-sm ml-3"
+                    >
+                      <span className="text-gray-600">
+                        {item.name} (Base: ${item.baseCost.toFixed(2)} ×{" "}
+                        {item.qty})
+                      </span>
+                      <span className="font-medium text-gray-900">
+                        ${item.totalBaseCost.toFixed(2)}
+                      </span>
+                    </div>
+                  ))}
+
+                  <div className="border-t border-slate-300 pt-2 space-y-1">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">Total Base Cost:</span>
+                      <span className="font-medium text-gray-900">
+                        ${getOrderCostBreakdown().totalBase.toFixed(2)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">Base Ship Cost:</span>
+                      <span className="font-medium text-gray-900">
+                        ${getOrderCostBreakdown().maxBaseShipCost.toFixed(2)}
+                      </span>
+                    </div>
+                    {getOrderCostBreakdown().maxExtraShipping > 0 && (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-600">
+                          Extra Shipping (Max from{" "}
+                          {getOrderCostBreakdown().maxExtraProductName}):
+                        </span>
+                        <span className="font-medium text-gray-900">
+                          $
+                          {(
+                            getOrderCostBreakdown().maxExtraShipping *
+                            (cartProducts.reduce(
+                              (sum, p) => sum + p.config.quantity,
+                              0
+                            ) -
+                              1)
+                          ).toFixed(2)}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="border-t border-slate-300 pt-2 flex justify-between font-semibold">
+                    <span className="text-gray-900">Order Total:</span>
+                    <span className="text-blue-600">
+                      $
+                      {(calculateOrderTotal() - (activeTTS ? 1.0 : 0)).toFixed(
+                        2
+                      )}
+                    </span>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
           {/* Total Section */}
-          <div className="mt-4 bg-green-50 p-4 rounded-lg flex flex-col md:flex-row justify-between items-center gap-3">
+          <div className="mt-4 bg-blue-50 p-4 rounded-lg border border-blue-200 flex flex-col md:flex-row justify-between items-center gap-3">
             <div className="flex flex-col sm:flex-row items-center gap-4 w-full sm:w-auto">
               <div className="flex items-center space-x-2">
                 <Checkbox
@@ -1744,21 +2180,22 @@ export default function MakeManualModal({ isOpen, onClose }) {
                   checked={activeTTS}
                   onCheckedChange={(checked) => setActiveTTS(checked)}
                 />
-                <Label htmlFor="activeTTS">
-                  Active TTS (Cộng 1 Total Order)
+                <Label htmlFor="activeTTS" className="text-gray-700">
+                  Active TTS (Add $1 to Total)
                 </Label>
               </div>
 
-              <Label className="text-lg font-semibold text-green-700">
-                Total Money: ${calculateTotalMoney().toFixed(2)}
+              <Label className="text-lg font-semibold text-blue-700">
+                Total Order: ${calculateOrderTotal().toFixed(2)}
               </Label>
             </div>
 
             <Button
-              onClick={handleMakeOrder}
+              onClick={handleNext}
               disabled={cartProducts.length === 0}
+              className="bg-blue-600 hover:bg-blue-700 text-white"
             >
-              Make Order
+              Review & Continue
             </Button>
           </div>
         </div>
@@ -1766,20 +2203,183 @@ export default function MakeManualModal({ isOpen, onClose }) {
     </div>
   );
 
+  const renderStep4 = () => {
+    const {
+      items,
+      totalBase,
+      shipCost,
+      maxExtraShipping,
+      maxExtraProductName,
+    } = getOrderCostBreakdown();
+    const totalQty = cartProducts.reduce(
+      (sum, item) => sum + item.config.quantity,
+      0
+    );
+    const shippingCost =
+      cartProducts.length > 1
+        ? shipCost + (totalQty - 1) * maxExtraShipping
+        : shipCost;
+
+    return (
+      <div className="space-y-4">
+        <h3 className="text-lg font-semibold">
+          Step 4: Review & Confirm Order
+        </h3>
+
+        {/* Customer Info */}
+        <div className="bg-blue-50 p-4 rounded-lg border border-blue-100">
+          <div className="flex justify-between items-center mb-3">
+            <h4 className="font-semibold text-gray-900">
+              Customer Information
+            </h4>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentStep(1)}
+              className="text-xs"
+            >
+              Back to Step 1 Edit
+            </Button>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+            <div>
+              <p className="text-gray-600">Name</p>
+              <p className="font-medium text-gray-900">{customerInfo.name}</p>
+            </div>
+            <div>
+              <p className="text-gray-600">Phone</p>
+              <p className="font-medium text-gray-900">{customerInfo.phone}</p>
+            </div>
+            <div>
+              <p className="text-gray-600">Email</p>
+              <p className="font-medium text-gray-900">{customerInfo.email}</p>
+            </div>
+            <div>
+              <p className="text-gray-600">Address</p>
+              <p className="font-medium text-gray-900">
+                {customerInfo.address}
+              </p>
+            </div>
+            <div>
+              <p className="text-gray-600">Location</p>
+              <p className="font-medium text-gray-900">
+                {customerInfo.wardName}, {customerInfo.districtName},{" "}
+                {customerInfo.provinceName}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Products Summary */}
+        <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
+          <div className="flex justify-between items-center mb-3">
+            <h4 className="font-semibold text-gray-900">
+              Products ({cartProducts.length})
+            </h4>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentStep(3)}
+              className="text-xs"
+            >
+              Back to Step 3 Edit
+            </Button>
+          </div>
+
+          <div className="space-y-3">
+            {cartProducts.map((item) => (
+              <div key={item.id}>
+                <div className="bg-white border border-slate-200 rounded p-3 flex justify-between items-start">
+                  <div className="flex gap-3 flex-1">
+                    <img
+                      src={item.product.itemLink || "/placeholder.svg"}
+                      alt={item.product.productName}
+                      className="w-12 h-12 object-cover rounded"
+                    />
+                    <div className="flex-1">
+                      <p className="font-medium text-gray-900">
+                        {item.product.productName}
+                      </p>
+                      <p className="text-sm text-gray-600">
+                        Size: {item.config.size} • Qty: {item.config.quantity}
+                      </p>
+                    </div>
+                  </div>
+                  {/* <p className="font-semibold text-gray-900">
+                    ${item.totalPrice?.toFixed(2) || "0.00"}
+                  </p> */}
+                </div>
+
+                {/* <div className="bg-blue-50 p-2 rounded text-xs text-gray-700 space-y-1 mt-2 mx-0">
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Base Unit Cost:</span>
+                    <span className="font-medium text-gray-900">
+                      $
+                      {(
+                        item.product.variants?.find(
+                          (v) => v.productVariantId === item.config.variantId
+                        )?.baseCost ?? 0
+                      ).toFixed(2)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Unit Ship Cost:</span>
+                    <span className="font-medium text-gray-900">
+                      $
+                      {(
+                        item.product.variants?.find(
+                          (v) => v.productVariantId === item.config.variantId
+                        )?.shipCost ?? 0
+                      ).toFixed(2)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Unit Extra Shipping:</span>
+                    <span className="font-medium text-gray-900">
+                      $
+                      {(
+                        item.product.variants?.find(
+                          (v) => v.productVariantId === item.config.variantId
+                        )?.extraShipping ?? 0
+                      ).toFixed(2)}
+                    </span>
+                  </div>
+                </div> */}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Cost Breakdown */}
+
+        {/* Order Total */}
+        <div className="bg-green-50 p-4 rounded-lg border border-green-200">
+          <div className="flex justify-between items-center">
+            <span className="text-lg font-semibold text-gray-900">
+              Total Order:
+            </span>
+            <span className="text-2xl font-bold text-green-700">
+              ${calculateOrderTotal().toFixed(2)}
+            </span>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <>
       <Dialog open={isOpen} onOpenChange={onClose}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
-              Make Manual Order - Step {currentStep} of 3
+              Make Manual Order - Step {currentStep} of 4
             </DialogTitle>
           </DialogHeader>
 
           <div className="py-4">
-            {/* Progress indicator */}
             <div className="flex items-center justify-between mb-6">
-              {[1, 2, 3].map((step) => (
+              {[1, 2, 3, 4].map((step) => (
                 <div key={step} className="flex items-center">
                   <div
                     className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
@@ -1790,9 +2390,9 @@ export default function MakeManualModal({ isOpen, onClose }) {
                   >
                     {step}
                   </div>
-                  {step < 3 && (
+                  {step < 4 && (
                     <div
-                      className={`w-16 h-1 mx-2 ${
+                      className={`w-12 h-1 mx-2 ${
                         step < currentStep ? "bg-blue-600" : "bg-gray-200"
                       }`}
                     />
@@ -1805,9 +2405,9 @@ export default function MakeManualModal({ isOpen, onClose }) {
             {currentStep === 1 && renderStep1()}
             {currentStep === 2 && renderStep2()}
             {currentStep === 3 && renderStep3()}
+            {currentStep === 4 && renderStep4()}
           </div>
 
-          {/* Navigation buttons */}
           <div className="flex justify-between pt-4 border-t">
             <Button
               variant="outline"
@@ -1817,9 +2417,14 @@ export default function MakeManualModal({ isOpen, onClose }) {
               Back
             </Button>
 
-            {currentStep < 3 && (
-              <Button onClick={handleNext} disabled={currentStep === 2}>
-                Next
+            {currentStep < 4 && <Button onClick={handleNext}>Next</Button>}
+
+            {currentStep === 4 && (
+              <Button
+                onClick={handleMakeOrder}
+                className="bg-green-600 hover:bg-green-700 text-white"
+              >
+                Confirm Order
               </Button>
             )}
           </div>
@@ -1834,7 +2439,7 @@ export default function MakeManualModal({ isOpen, onClose }) {
             <AlertDialogDescription>
               Are you sure you want to create this order with{" "}
               {cartProducts.length} product(s) for $
-              {calculateTotalMoney().toFixed(2)}?
+              {calculateOrderTotal().toFixed(2)}?
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

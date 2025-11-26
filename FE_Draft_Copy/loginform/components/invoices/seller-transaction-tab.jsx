@@ -32,7 +32,7 @@ const SellerTransactionTab = ({ seller, onActionDone }) => {
 
       try {
         const response = await fetch(
-          `https://localhost:7015/api/invoices/seller-payments/${seller.id}?${params.toString()}`,
+          `${apiClient.defaults.baseURL}/api/invoices/seller-payments/${seller.id}?${params.toString()}`,
           { credentials: "include" }
         );
         if (!response.ok) throw new Error("Failed to fetch payment history.");

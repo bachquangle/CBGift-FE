@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import StaffSidebar from "@/components/layout/staff/sidebar";
 import StaffHeader from "@/components/layout/staff/header";
+import apiClient from "../../../lib/apiClient";
 
 const FilterIcon = () => (
   <svg
@@ -114,7 +115,7 @@ export default function ProducedPage() {
 
       try {
         const response = await fetch(
-          `https://localhost:7015/api/plan/staff-view?${params.toString()}`
+          `${apiClient.defaults.baseURL}/api/plan/staff-view?${params.toString()}`
         );
         if (!response.ok)
           throw new Error(`HTTP error! status: ${response.status}`);

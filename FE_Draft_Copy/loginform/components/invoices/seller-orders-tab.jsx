@@ -37,7 +37,7 @@ const MonthlyOrderList = ({ sellerId, year, month }) => {
       });
       
       const response = await fetch(
-        `https://localhost:7015/api/invoices/seller-monthly-orders/${sellerId}?${params.toString()}`,
+        `${apiClient.defaults.baseURL}/api/invoices/seller-monthly-orders/${sellerId}?${params.toString()}`,
         { credentials: "include" }
       );
       const data = await response.json();
@@ -193,7 +193,7 @@ const SellerOrdersTab = ({ seller, onActionDone }) => {
       setError(null);
       try {
         const response = await fetch(
-          `https://localhost:7015/api/invoices/seller-monthly-sales/${seller.id}`,
+          `${apiClient.defaults.baseURL}/api/invoices/seller-monthly-sales/${seller.id}`,
           { credentials: "include" }
         );
         if (!response.ok) throw new Error("Failed to fetch monthly sales.");
@@ -217,7 +217,7 @@ const SellerOrdersTab = ({ seller, onActionDone }) => {
     setCreatingInvoice(month.monthName); // Đặt loading cho nút
     try {
       const response = await fetch(
-        `https://localhost:7015/api/invoices/create-monthly-invoice`,
+        `${apiClient.defaults.baseURL}/api/invoices/create-monthly-invoice`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },

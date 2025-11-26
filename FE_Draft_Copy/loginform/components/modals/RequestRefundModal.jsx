@@ -3,38 +3,66 @@
 "use client";
 
 import { useState, useMemo } from 'react';
-import { X, Zap, File } from 'lucide-react'; // Đảm bảo các icon cần thiết được import
+// Import các component và icons cần thiết (Loader, X, Zap)
+import { X, Zap, Loader, Badge } from 'lucide-react'; 
+import Swal from "sweetalert2";
+import apiClient from "../../lib/apiClient";
+// Giả định các components UI (Button, Textarea, Input, etc.) và apiClient đã được định nghĩa và import đúng.
+// Giả định apiClient được truy cập global.
+
+// Khai báo hàm uploadImage trong scope này (CẦN SỬA ĐỔI ĐỂ KHÔNG CHỨA LỖI CS1503)
+const uploadImage = async (file) => {
+    const formData = new FormData();
+    formData.append("File", file);
+    
+    try {
+        const res = await fetch(
+            `${apiClient.defaults.baseURL}/api/images/upload-media`,
+            {
+                method: "POST",
+                credentials: "include",
+                body: formData,
+            }
+        );
+
+        if (!res.ok) {
+            const errorText = await res.text();
+            throw new Error(`Upload failed: ${res.status} - ${errorText}`);
+        }
+
+        const data = await res.json();
+        return data.secureUrl || data.url || data.path || null;
+    } catch (err) {
+        console.error("Upload error:", err);
+        throw new Error(`Lỗi mạng hoặc server khi tải file lên: ${err.message}`);
+    }
+};
+
 
 export default function RequestRefundModal({ isOpen, onClose, productDetail, onSubmit }) {
     if (!isOpen) return null;
 
-    // --- 1. XÁC ĐỊNH KIỂU DỮ LIỆU & LẤY DANH SÁCH SẢN PHẨM ---
+    // --- 1. XÁC ĐỊNH KIỂU DỮ LIỆU & PRODUCT LIST ---
     const isOrderLevel = productDetail.products && Array.isArray(productDetail.products);
-    
-    // productList: Lấy mảng products (cấp Order) hoặc mảng 1 phần tử (cấp Product)
     const productList = isOrderLevel ? productDetail.products : [productDetail];
     
     // --- STATE VÀ LOGIC CHUNG ---
     const [reason, setReason] = useState('');
-    const [proofFiles, setProofFiles] = useState([]);
+    const [proofFiles, setProofFiles] = useState([]); // Chứa 1 File object
+    const [uploadedUrl, setUploadedUrl] = useState(null); 
+    const [isUploading, setIsUploading] = useState(false); // Quản lý trạng thái disabled của nút
     
-    // State theo dõi số tiền và selection cho từng sản phẩm
     const [itemDetails, setItemDetails] = useState(() => {
         return productList.reduce((acc, item) => {
-            acc[item.id] = { 
-                selected: !isOrderLevel, // Mặc định chọn nếu là cấp Product
-                amount: item.priceRaw || 0 // Giả định đã có priceRaw
-            };
+            acc[item.id] = { selected: !isOrderLevel, amount: item.priceRaw || 0 };
             return acc;
         }, {});
     });
 
-    // Tính tổng số tiền hoàn lại hiện tại
     const totalRefundAmount = useMemo(() => {
         return productList.reduce((sum, item) => {
             const detail = itemDetails[item.id];
             if (detail && detail.selected) {
-                // Đảm bảo không trả về NaN
                 return sum + (Number(detail.amount) || 0); 
             }
             return sum;
@@ -44,12 +72,17 @@ export default function RequestRefundModal({ isOpen, onClose, productDetail, onS
     const handleAmountChange = (id, newAmount) => {
         const maxAmount = productList.find(p => p.id === id)?.priceRaw || 0;
         const validAmount = Math.max(0, Math.min(Number(newAmount), maxAmount));
-        
         setItemDetails(prevDetails => ({
             ...prevDetails,
             [id]: { ...prevDetails[id], amount: validAmount }
         }));
     };
+    
+    const handleFileChange = (e) => {
+        const file = e.target.files[0];
+        setProofFiles(file ? [file] : []);
+        setUploadedUrl(null); // Reset URL nếu file mới được chọn
+    }
 
     const handleItemSelect = (id, isChecked) => {
         setItemDetails(prevDetails => ({
@@ -58,9 +91,9 @@ export default function RequestRefundModal({ isOpen, onClose, productDetail, onS
         }));
     };
     
-    const handleSubmit = () => {
+    const handleSubmit = async () => { 
         const selectedItems = Object.entries(itemDetails)
-            .filter(([id, detail]) => detail.selected)
+            .filter(([id, detail]) => detail.selected && detail.amount > 0)
             .map(([id, detail]) => ({
                 orderDetailId: Number(id),
                 refundAmount: detail.amount
@@ -71,14 +104,58 @@ export default function RequestRefundModal({ isOpen, onClose, productDetail, onS
             return;
         }
 
+        let finalProofUrl = uploadedUrl;
+        
+        // 1. TẢI FILE LÊN NẾU CÓ VÀ CHƯA ĐƯỢC TẢI
+        if (proofFiles.length > 0 && !finalProofUrl) {
+            setIsUploading(true); // Bật trạng thái disabled của nút
+
+            // Hiển thị Swal spinner
+            Swal.fire({
+                title: 'Uploading Proof...',
+                html: 'Please wait while your evidence is uploaded.',
+                allowOutsideClick: false,
+                showConfirmButton: false,
+                didOpen: () => Swal.showLoading()
+            });
+            
+            try {
+                // Cho phép UI repaint trước khi gọi fetch
+                await new Promise(resolve => setTimeout(resolve, 10)); 
+                
+                const url = await uploadImage(proofFiles[0]); // Chỉ upload file đầu tiên
+                
+                if (!url) {
+                    throw new Error("Failed to get URL after upload.");
+                }
+                finalProofUrl = url;
+                setUploadedUrl(url); 
+                
+                Swal.close(); // Đóng spinner sau khi upload thành công
+
+            } catch (error) {
+                Swal.close();
+                Swal.fire("Upload Failed", `Lỗi tải file: ${error.message}`, "error");
+                setIsUploading(false); // Reset trạng thái
+                return;
+            } finally {
+                setIsUploading(false); // Luôn tắt loading
+            }
+        }
+        
+        // 2. GỌI HÀM SUBMIT CUỐI CÙNG (Gửi payload JSON lên component cha)
+        
+        // LƯU Ý: Component cha (OrderView.jsx) sẽ chịu trách nhiệm hiển thị spinner cho API submission.
         onSubmit({
             orderId: isOrderLevel ? productDetail.id : productDetail.orderId,
             reason: reason,
             selectedItems: selectedItems,
             totalRefundAmount: totalRefundAmount,
-            proofFiles: proofFiles,
+            proofUrl: finalProofUrl, // Gửi URL (string hoặc null)
         });
-        onClose();
+        
+        // Đóng Modal sau khi hoàn tất giao tiếp với component cha
+        onClose(); 
     };
     
     // --- RENDER ---
@@ -99,12 +176,13 @@ export default function RequestRefundModal({ isOpen, onClose, productDetail, onS
                 {/* Body - Scrollable */}
                 <div className="p-6 space-y-6 max-h-[70vh] overflow-y-auto flex-1">
                     
-                    {/* 1. Product Selection Table (CHỈ HIỆN KHI LÀ CẤP ORDER) */}
+                    {/* 1. Product Selection Table / Single Product View (Giữ nguyên) */}
                     {isOrderLevel && (
                         <div>
                             <h4 className="font-semibold text-gray-800 mb-3">
                                 1. Select Items for Refund
                             </h4>
+                            {/* Table List Items */}
                             <div className="border border-gray-200 rounded-lg overflow-x-auto">
                                 <table className="min-w-full divide-y divide-gray-200">
                                     <thead className="bg-gray-50">
@@ -150,25 +228,7 @@ export default function RequestRefundModal({ isOpen, onClose, productDetail, onS
                             <p className="text-sm text-gray-600 mb-4">
                                 Product: <strong>{productList[0].name}</strong> (SKU: {productList[0].sku})
                             </p>
-                            
-                            {/* Form cũ cho Single Product (Cần được cải tiến nếu logic phức tạp) */}
                             <div className="space-y-4">
-                                
-                                {/* Lựa chọn Full/Partial (Giả lập bằng cách đặt vào state) */}
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Refund Type</label>
-                                    <select 
-                                        value={productList[0].priceRaw === itemDetails[productList[0].id]?.amount ? 'FULL' : 'PARTIAL'} 
-                                        onChange={(e) => {
-                                            const newAmount = e.target.value === 'FULL' ? productList[0].priceRaw : 0;
-                                            handleAmountChange(productList[0].id, newAmount);
-                                        }}
-                                        className="w-full p-2 border border-gray-300 rounded-md"
-                                    >
-                                        <option value="FULL">Full Refund ({productList[0].productionCost})</option>
-                                        <option value="PARTIAL">Partial Refund</option>
-                                    </select>
-                                </div>
                                 
                                 {/* Input Amount */}
                                 <div>
@@ -186,13 +246,12 @@ export default function RequestRefundModal({ isOpen, onClose, productDetail, onS
                         </div>
                     )}
 
-                    {/* 3. Global Reason (VẤN ĐỀ CỦA BẠN ĐANG Ở ĐÂY) */}
+                    {/* 3. Global Reason */}
                     <div>
                         <h4 className="font-semibold text-gray-800 mb-3">
                             {isOrderLevel ? '2. Global Reason & Proof' : 'Reason & Proof'}
                         </h4>
                         
-                        {/* REASON TEXTAREA */}
                         <label className="block text-sm font-medium text-gray-700 mb-1">Reason (Required)</label>
                         <textarea
                             value={reason}
@@ -203,15 +262,28 @@ export default function RequestRefundModal({ isOpen, onClose, productDetail, onS
                         />
                     </div>
 
-                    {/* 4. Proof Upload (VẤN ĐỀ CỦA BẠN ĐANG Ở ĐÂY) */}
+                    {/* 4. Proof Upload (SINGLE FILE) */}
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Proof (Images/Videos of Defect)</label>
-                        <input 
-                            type="file" 
-                            multiple
-                            onChange={(e) => setProofFiles(Array.from(e.target.files))}
-                            className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-red-50 file:text-red-600 hover:file:bg-red-100"
-                        />
+                        <div className="flex gap-2 items-center">
+                             <input 
+                                type="file" 
+                                onChange={handleFileChange}
+                                disabled={isUploading || uploadedUrl} 
+                                className="flex-1 w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-red-50 file:text-red-600 hover:file:bg-red-100 disabled:opacity-50"
+                            />
+                            {/* Hiển thị trạng thái file đã chọn/upload */}
+                            {uploadedUrl && (
+                                <Badge className="bg-green-100 text-green-800 whitespace-nowrap">
+                                    Uploaded
+                                </Badge>
+                            )}
+                            {proofFiles.length > 0 && !uploadedUrl && !isUploading && (
+                                <Badge className="bg-yellow-100 text-yellow-800 whitespace-nowrap">
+                                    Ready to upload
+                                </Badge>
+                            )}
+                        </div>
                     </div>
                     
                 </div>
@@ -221,8 +293,18 @@ export default function RequestRefundModal({ isOpen, onClose, productDetail, onS
                     <button onClick={onClose} className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300">
                         Cancel
                     </button>
-                    <button onClick={handleSubmit} className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700" disabled={!reason || totalRefundAmount <= 0}>
-                        Submit Refund Request
+                    <button 
+                        onClick={handleSubmit} 
+                        className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700 flex items-center justify-center" 
+                        disabled={!reason || totalRefundAmount <= 0 || isUploading}
+                    >
+                        {isUploading ? (
+                            <>
+                                <Loader className="h-4 w-4 mr-2 animate-spin" /> Uploading...
+                            </>
+                        ) : (
+                            "Submit Refund Request"
+                        )}
                     </button>
                 </div>
             </div>

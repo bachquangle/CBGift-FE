@@ -22,7 +22,8 @@ const PRODUCTION_STATUS_MAP = {
   11: "PROD_REWORK",
   12: "PACKING",
   13: "HOLD",
-  14: "CANCELLED",
+  14: "HOLD_RP",
+  15: "REFUND",
 };
 
 // Hàm map dữ liệu từ API sang cấu trúc UI cần
@@ -76,7 +77,8 @@ const mapApiToUiData = (apiData) => {
   // [END FIX]
 
   return {
-    id: apiData.orderCode || apiData.orderId.toString(),
+    id: apiData.orderId || apiData.orderId.toString(),
+    orderCode: apiData.orderCode,
     status: apiData.statusOderName || "PENDING",
     createdAt: apiData.creationDate,
     // [FIX] Thay "Null" bằng null để tránh lỗi Invalid Date ở UI

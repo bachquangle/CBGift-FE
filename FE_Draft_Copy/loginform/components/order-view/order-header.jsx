@@ -6,6 +6,7 @@ import { Trash2, ArrowLeft, Wallet, Printer } from 'lucide-react';
 
  export default function OrderHeader({
   orderId,
+  orderCode,
   status, // Đây là statusOderName (string) từ API
   createdAt,
   orderDate,
@@ -75,7 +76,7 @@ import { Trash2, ArrowLeft, Wallet, Printer } from 'lucide-react';
         <div>
           <div className="flex items-center gap-3 mb-2">
             <h1 className="text-xl font-semibold text-gray-900">
-              Order: #{orderId}
+              Order: #{orderCode}
             </h1>
             <Badge className={`${getStatusBadgeColor(status)} font-medium`}>
               {getStatusLabel(status)}

@@ -7,7 +7,6 @@ import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { jwtDecode } from "jwt-decode";
 import apiClient from "../lib/apiClient";
-import { Eye, EyeOff } from "lucide-react";
 
 import {
   Dialog,
@@ -28,20 +27,16 @@ import {
 export default function LoginPage() {
   const router = useRouter();
 
-  // ================== PASSWORD VISIBILITY ==================
-  const [showLoginPassword, setShowLoginPassword] = useState(false);
-  const [showNewPassword, setShowNewPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-
-  // ================== FORM STATES ==================
+  // Login states
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-
   const [rememberMe, setRememberMe] = useState(false);
-  const [error, setError] = useState("");
-  const [open, setOpen] = useState(false);
 
-  // Forgot password
+  // Dialogs & error
+  const [open, setOpen] = useState(false);
+  const [error, setError] = useState("");
+
+  // Forgot password system
   const [forgotPasswordOpen, setForgotPasswordOpen] = useState(false);
   const [forgotPasswordEmail, setForgotPasswordEmail] = useState("");
   const [forgotPasswordStep, setForgotPasswordStep] = useState("email");
@@ -51,35 +46,37 @@ export default function LoginPage() {
   const [otpError, setOtpError] = useState("");
   const [otpCountdown, setOtpCountdown] = useState(120);
   const [isOtpExpired, setIsOtpExpired] = useState(false);
+  const [isOtpVerified, setIsOtpVerified] = useState(false);
 
-  // Reset password
+  // Reset pwd
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+
+  // Loading
   const [isLoading, setIsLoading] = useState(false);
 
-  // Success
+  // Success dialog
   const [successOpen, setSuccessOpen] = useState(false);
 
-  // ============ OTP countdown =============
+  // OTP Countdown
   useEffect(() => {
-    let interval;
+    if (forgotPasswordStep !== "otp") return;
 
-    if (forgotPasswordStep === "otp" && otpCountdown > 0) {
-      interval = setInterval(() => {
-        setOtpCountdown((prev) => {
-          if (prev - 1 === 0) setIsOtpExpired(true);
-          return prev - 1;
-        });
-      }, 1000);
+    if (otpCountdown <= 0) {
+      setIsOtpExpired(true);
+      return;
     }
+
+    const interval = setInterval(() => {
+      setOtpCountdown((prev) => prev - 1);
+    }, 1000);
 
     return () => clearInterval(interval);
   }, [forgotPasswordStep, otpCountdown]);
 
-  // ============ LOGIN =============
+  // MAIN LOGIN -------------------------------------------------------
   const handleLogin = async (e) => {
     e.preventDefault();
-
     if (!email || !password) {
       setError("Please enter both email and password");
       setOpen(true);
@@ -90,11 +87,11 @@ export default function LoginPage() {
       const res = await fetch(`${apiClient.defaults.baseURL}/api/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({
           userNameOrEmail: email,
           password: password,
         }),
-        credentials: "include",
       });
 
       if (!res.ok) {
@@ -105,10 +102,10 @@ export default function LoginPage() {
       }
 
       const data = await res.json();
-      const token = data.accessToken;
+      const token = data?.accessToken;
 
       if (!token) {
-        setError("No token received");
+        setError("No token received from server");
         setOpen(true);
         return;
       }
@@ -124,9 +121,11 @@ export default function LoginPage() {
         ] || decoded.sub;
 
       if (userId) localStorage.setItem("userId", userId);
+
       if (rememberMe) localStorage.setItem("token", token);
       else sessionStorage.setItem("token", token);
 
+      // Redirect by role
       if (roles?.includes("Seller")) router.push("/seller/dashboard");
       else if (roles?.includes("Designer")) router.push("/designer/dashboard");
       else if (roles?.includes("Manager")) router.push("/manager/dashboard");
@@ -139,14 +138,13 @@ export default function LoginPage() {
     }
   };
 
-  // ============ FORGOT PASSWORD OPEN =============
+  // FORGOT PASSWORD --------------------------------------------------
   const handleForgotPasswordClick = () => {
     setForgotPasswordOpen(true);
     setForgotPasswordStep("email");
     setOtpError("");
   };
 
-  // ============ SEND OTP EMAIL =============
   const handleSendResetEmail = async () => {
     if (!forgotPasswordEmail) {
       setError("Please enter your email");
@@ -156,13 +154,12 @@ export default function LoginPage() {
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(forgotPasswordEmail)) {
-      setError("Please enter a valid email");
+      setError("Please enter a valid email address");
       setOpen(true);
       return;
     }
 
     setIsLoading(true);
-
     try {
       const res = await fetch(
         `${apiClient.defaults.baseURL}/api/auth/forgot-password`,
@@ -175,21 +172,26 @@ export default function LoginPage() {
 
       if (!res.ok) {
         const err = await res.json();
-        setError(err.message || "Failed to send OTP");
+        setError(err.message || "Sending request failed. Please try again.");
         setOpen(true);
         return;
       }
 
       setForgotPasswordStep("otp");
       setOtp("");
+      setOtpError("");
       setOtpCountdown(120);
       setIsOtpExpired(false);
+      setIsOtpVerified(false);
+    } catch {
+      setError("An error has occurred! Please try again.");
+      setOpen(true);
     } finally {
       setIsLoading(false);
     }
   };
 
-  // ============ VERIFY OTP =============
+  // VERIFY OTP -------------------------------------------------------
   const handleVerifyOtp = async () => {
     if (!otp || otp.length !== 6) {
       setOtpError("Please enter a valid 6-digit OTP");
@@ -197,7 +199,7 @@ export default function LoginPage() {
     }
 
     if (isOtpExpired) {
-      setOtpError("OTP expired");
+      setOtpError("OTP has expired. Please request a new one.");
       return;
     }
 
@@ -219,26 +221,29 @@ export default function LoginPage() {
 
       if (!res.ok) {
         const err = await res.json();
-        setOtpError(err.message || "Invalid OTP");
+        setOtpError(err.message || "Invalid or expired OTP");
         return;
       }
 
+      setIsOtpVerified(true);
       setForgotPasswordStep("reset");
+    } catch {
+      setOtpError("Failed to verify OTP. Please try again.");
     } finally {
       setIsLoading(false);
     }
   };
 
-  // ============ RESET PASSWORD ============
+  // RESET PASSWORD ---------------------------------------------------
   const handleResetPassword = async () => {
     if (!newPassword || !confirmPassword) {
-      setError("Please fill in all fields");
+      setError("Please fill in all password fields");
       setOpen(true);
       return;
     }
 
     if (newPassword.length < 8) {
-      setError("Password must be at least 8 characters");
+      setError("Password must be at least 8 characters long");
       setOpen(true);
       return;
     }
@@ -250,7 +255,6 @@ export default function LoginPage() {
     }
 
     setIsLoading(true);
-
     try {
       const res = await fetch(
         `${apiClient.defaults.baseURL}/api/auth/reset-password-with-otp`,
@@ -260,8 +264,8 @@ export default function LoginPage() {
           body: JSON.stringify({
             email: forgotPasswordEmail,
             otp: otp,
-            newPassword: newPassword,
-            confirmPassword: confirmPassword,
+            newPassword,
+            confirmPassword,
           }),
         }
       );
@@ -273,26 +277,39 @@ export default function LoginPage() {
         return;
       }
 
+      // Reset UI
       setForgotPasswordOpen(false);
       setSuccessOpen(true);
+
+      setForgotPasswordEmail("");
+      setOtp("");
+      setNewPassword("");
+      setConfirmPassword("");
+    } catch {
+      setError("Something went wrong!");
+      setOpen(true);
     } finally {
       setIsLoading(false);
     }
   };
 
-  // ============ BACK BUTTON ============
+  // STEP BACK --------------------------------------------------------
   const handleBack = () => {
     if (forgotPasswordStep === "otp") {
       setForgotPasswordStep("email");
       setOtp("");
+      setOtpError("");
+      setIsOtpVerified(false);
     } else if (forgotPasswordStep === "reset") {
       setForgotPasswordStep("otp");
       setNewPassword("");
       setConfirmPassword("");
+      setOtpError("");
+      setIsOtpVerified(false);
     }
   };
 
-  // ============ CLOSE ============
+  // CLOSE POPUP ------------------------------------------------------
   const handleCloseForgotPassword = () => {
     setForgotPasswordOpen(false);
     setForgotPasswordStep("email");
@@ -302,13 +319,20 @@ export default function LoginPage() {
     setConfirmPassword("");
     setOtpError("");
     setOtpCountdown(120);
+    setIsOtpExpired(false);
+    setIsOtpVerified(false);
   };
 
+  // RENDER -----------------------------------------------------------
   return (
     <div className="min-h-screen bg-gray-50 flex">
-      {/* LEFT LOGIN SECTION */}
+      {/* LEFT LOGIN FORM */}
       <div className="w-full lg:w-1/2 flex items-center justify-center p-8">
         <div className="w-full max-w-md space-y-6">
+          <div className="flex items-center space-x-2 mb-8">
+            <div className="w-8 h-8 bg-cyan-400 rounded"></div>
+          </div>
+
           <div className="space-y-6">
             <div>
               <h1 className="text-2xl font-semibold text-gray-900">Login</h1>
@@ -318,7 +342,6 @@ export default function LoginPage() {
             </div>
 
             <form onSubmit={handleLogin} className="space-y-4">
-              {/* EMAIL */}
               <div className="space-y-2">
                 <label className="text-sm font-medium text-gray-700">
                   Email*
@@ -328,34 +351,21 @@ export default function LoginPage() {
                   placeholder="Enter your email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full"
                 />
               </div>
 
-              {/* PASSWORD WITH EYE */}
-              <div className="space-y-2 relative">
+              <div className="space-y-2">
                 <label className="text-sm font-medium text-gray-700">
                   Password*
                 </label>
-
                 <Input
-                  type={showLoginPassword ? "text" : "password"}
+                  type="password"
                   placeholder="minimum 8 characters"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full pr-10"
                 />
-
-                <button
-                  type="button"
-                  onClick={() => setShowLoginPassword(!showLoginPassword)}
-                  className="absolute right-3 top-10 text-gray-600"
-                >
-                  {showLoginPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                </button>
               </div>
 
-              {/* REMEMBER + FORGOT */}
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-2">
                   <Checkbox
@@ -363,7 +373,9 @@ export default function LoginPage() {
                     checked={rememberMe}
                     onCheckedChange={setRememberMe}
                   />
-                  <label className="text-sm text-gray-600">Remember me</label>
+                  <label className="text-sm text-gray-600" htmlFor="remember">
+                    Remember me
+                  </label>
                 </div>
 
                 <button
@@ -375,8 +387,10 @@ export default function LoginPage() {
                 </button>
               </div>
 
-              {/* LOGIN BUTTON */}
-              <Button className="w-full bg-gray-900 hover:bg-gray-800 text-white py-3">
+              <Button
+                type="submit"
+                className="w-full bg-gray-900 hover:bg-gray-800 text-white py-3"
+              >
                 Login
               </Button>
             </form>
@@ -384,46 +398,42 @@ export default function LoginPage() {
         </div>
       </div>
 
-      {/* RIGHT IMAGE */}
+      {/* RIGHT ILLUSTRATION */}
       <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-blue-50 to-purple-50 items-center justify-center p-8">
-        <img
-          src="/isometric-3d-illustration-of-people-working-with-d.jpg"
-          alt="People working with data visualization"
-          className="w-full h-auto"
-        />
+        <div className="w-full max-w-lg">
+          <img
+            src="/isometric-3d-illustration-of-people-working-with-d.jpg"
+            alt="Illustration"
+            className="w-full h-auto"
+          />
+        </div>
       </div>
 
-      {/* ======================================================
-           FORGOT PASSWORD DIALOG
-      ====================================================== */}
+      {/* FORGOT PASSWORD MODAL */}
       <Dialog
         open={forgotPasswordOpen}
         onOpenChange={handleCloseForgotPassword}
       >
         <DialogContent className="sm:max-w-[425px]">
-          {/* STEP 1: ENTER EMAIL */}
           {forgotPasswordStep === "email" && (
             <>
               <DialogHeader>
                 <DialogTitle>Forgot Password</DialogTitle>
                 <DialogDescription>
-                  Enter your email address to receive OTP.
+                  Enter your email and we will send you an OTP.
                 </DialogDescription>
               </DialogHeader>
 
               <div className="space-y-4 py-4">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-700">
-                    Email Address
-                  </label>
-                  <Input
-                    type="email"
-                    placeholder="Enter your email"
-                    value={forgotPasswordEmail}
-                    onChange={(e) => setForgotPasswordEmail(e.target.value)}
-                    disabled={isLoading}
-                  />
-                </div>
+                <label className="text-sm font-medium text-gray-700">
+                  Email Address
+                </label>
+                <Input
+                  type="email"
+                  value={forgotPasswordEmail}
+                  onChange={(e) => setForgotPasswordEmail(e.target.value)}
+                  disabled={isLoading}
+                />
               </div>
 
               <DialogFooter>
@@ -437,7 +447,6 @@ export default function LoginPage() {
             </>
           )}
 
-          {/* STEP 2: ENTER OTP */}
           {forgotPasswordStep === "otp" && (
             <>
               <DialogHeader>
@@ -448,32 +457,48 @@ export default function LoginPage() {
               </DialogHeader>
 
               <div className="space-y-4 py-4">
-                <InputOTP
-                  maxLength={6}
-                  value={otp}
-                  onChange={setOtp}
-                  disabled={isLoading || isOtpExpired}
-                >
-                  <InputOTPGroup>
-                    <InputOTPSlot index={0} />
-                    <InputOTPSlot index={1} />
-                    <InputOTPSlot index={2} />
-                  </InputOTPGroup>
-                  <InputOTPSeparator />
-                  <InputOTPGroup>
-                    <InputOTPSlot index={3} />
-                    <InputOTPSlot index={4} />
-                    <InputOTPSlot index={5} />
-                  </InputOTPGroup>
-                </InputOTP>
+                <label className="text-sm font-medium text-gray-700">
+                  Enter OTP
+                </label>
+
+                <div className="flex justify-center">
+                  <InputOTP
+                    maxLength={6}
+                    value={otp}
+                    onChange={setOtp}
+                    disabled={isLoading || isOtpExpired}
+                  >
+                    <InputOTPGroup>
+                      <InputOTPSlot index={0} />
+                      <InputOTPSlot index={1} />
+                      <InputOTPSlot index={2} />
+                    </InputOTPGroup>
+
+                    <InputOTPSeparator />
+
+                    <InputOTPGroup>
+                      <InputOTPSlot index={3} />
+                      <InputOTPSlot index={4} />
+                      <InputOTPSlot index={5} />
+                    </InputOTPGroup>
+                  </InputOTP>
+                </div>
 
                 {otpError && (
                   <p className="text-sm text-red-600 text-center">{otpError}</p>
                 )}
 
-                <p className="text-center text-sm">
+                <p
+                  className={`text-center text-sm ${
+                    isOtpExpired ? "text-red-600" : "text-gray-600"
+                  }`}
+                >
                   OTP expires in:{" "}
-                  <span className="font-bold text-blue-600">
+                  <span
+                    className={`font-bold ${
+                      isOtpExpired ? "text-red-600" : "text-blue-600"
+                    }`}
+                  >
                     {Math.floor(otpCountdown / 60)}:
                     {String(otpCountdown % 60).padStart(2, "0")}
                   </span>
@@ -481,7 +506,7 @@ export default function LoginPage() {
 
                 {isOtpExpired && (
                   <p className="text-xs text-red-500 text-center">
-                    OTP expired. Please request again.
+                    OTP has expired. Please request a new one.
                   </p>
                 )}
               </div>
@@ -500,7 +525,6 @@ export default function LoginPage() {
             </>
           )}
 
-          {/* STEP 3: RESET PASSWORD */}
           {forgotPasswordStep === "reset" && (
             <>
               <DialogHeader>
@@ -509,53 +533,23 @@ export default function LoginPage() {
               </DialogHeader>
 
               <div className="space-y-4 py-4">
-                {/* NEW PASSWORD WITH EYE */}
-                <div className="space-y-2 relative">
-                  <label className="text-sm font-medium text-gray-700">
-                    New Password
-                  </label>
-                  <Input
-                    type={showNewPassword ? "text" : "password"}
-                    placeholder="Enter new password (min 8 chars)"
-                    value={newPassword}
-                    onChange={(e) => setNewPassword(e.target.value)}
-                    disabled={isLoading}
-                    className="pr-10"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowNewPassword(!showNewPassword)}
-                    className="absolute right-3 top-10 text-gray-600"
-                  >
-                    {showNewPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                  </button>
-                </div>
+                <label className="text-sm font-medium text-gray-700">
+                  New Password
+                </label>
+                <Input
+                  type="password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                />
 
-                {/* CONFIRM PASSWORD WITH EYE */}
-                <div className="space-y-2 relative">
-                  <label className="text-sm font-medium text-gray-700">
-                    Confirm Password
-                  </label>
-                  <Input
-                    type={showConfirmPassword ? "text" : "password"}
-                    placeholder="Confirm password"
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    disabled={isLoading}
-                    className="pr-10"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                    className="absolute right-3 top-10 text-gray-600"
-                  >
-                    {showConfirmPassword ? (
-                      <EyeOff size={18} />
-                    ) : (
-                      <Eye size={18} />
-                    )}
-                  </button>
-                </div>
+                <label className="text-sm font-medium text-gray-700">
+                  Confirm Password
+                </label>
+                <Input
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                />
               </div>
 
               <DialogFooter>
@@ -574,12 +568,12 @@ export default function LoginPage() {
         </DialogContent>
       </Dialog>
 
-      {/* SUCCESS */}
+      {/* SUCCESS DIALOG */}
       <Dialog open={successOpen} onOpenChange={setSuccessOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle className="text-green-600">
-              Password Reset Successful!
+              Password Changed!
             </DialogTitle>
           </DialogHeader>
           <p className="py-4 text-gray-700">
@@ -587,6 +581,19 @@ export default function LoginPage() {
           </p>
           <DialogFooter>
             <Button onClick={() => setSuccessOpen(false)}>OK</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ERROR DIALOG */}
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="text-red-600">Error</DialogTitle>
+          </DialogHeader>
+          <p className="text-gray-700">{error}</p>
+          <DialogFooter>
+            <Button onClick={() => setOpen(false)}>OK</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

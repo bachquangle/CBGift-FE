@@ -422,14 +422,14 @@ export default function MakeManualModal({ isOpen, onClose }) {
 
     let total = totalBaseCost + shipCost;
 
-    total += (totalQty - 1) * maxExtraShipping;
+    if (cartProducts.length > 1) {
+      total += (totalQty - 1) * maxExtraShipping;
+    } else {
+      total += (totalQty - 1) * maxExtraShipping;
+    }
 
     // ⭐ NEW — ADD BASE SHIP COST
     total += maxBaseShipCost;
-
-    if (cartProducts.length > 1) {
-      total += maxBaseShipCost;
-    }
 
     if (activeTTS) {
       total += 1.0;

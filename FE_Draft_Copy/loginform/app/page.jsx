@@ -7,7 +7,6 @@ import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { jwtDecode } from "jwt-decode";
 import apiClient from "../lib/apiClient";
-
 import {
   Dialog,
   DialogContent,
@@ -16,67 +15,51 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
-
 import {
   InputOTP,
   InputOTPGroup,
   InputOTPSlot,
   InputOTPSeparator,
-} from "@/components/ui/input-otp";
+} from "@/components/ui/input-otp"; // import OTP input component
 
 export default function LoginPage() {
-  const router = useRouter();
-
-  // Login states
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [rememberMe, setRememberMe] = useState(false);
-
-  // Dialogs & error
-  const [open, setOpen] = useState(false);
   const [error, setError] = useState("");
-
-  // Forgot password system
+  const [open, setOpen] = useState(false);
   const [forgotPasswordOpen, setForgotPasswordOpen] = useState(false);
   const [forgotPasswordEmail, setForgotPasswordEmail] = useState("");
-  const [forgotPasswordStep, setForgotPasswordStep] = useState("email");
-
-  // OTP
+  const [successOpen, setSuccessOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [forgotPasswordStep, setForgotPasswordStep] = useState("email"); // "email" | "otp" | "reset"
   const [otp, setOtp] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [resetPasswordOpen, setResetPasswordOpen] = useState(false);
   const [otpError, setOtpError] = useState("");
   const [otpCountdown, setOtpCountdown] = useState(120);
   const [isOtpExpired, setIsOtpExpired] = useState(false);
   const [isOtpVerified, setIsOtpVerified] = useState(false);
-
-  // Reset pwd
-  const [newPassword, setNewPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-
-  // Loading
-  const [isLoading, setIsLoading] = useState(false);
-
-  // Success dialog
-  const [successOpen, setSuccessOpen] = useState(false);
-
-  // OTP Countdown
+  const router = useRouter();
   useEffect(() => {
-    if (forgotPasswordStep !== "otp") return;
-
-    if (otpCountdown <= 0) {
-      setIsOtpExpired(true);
-      return;
+    let interval;
+    if (forgotPasswordStep === "otp" && otpCountdown > 0) {
+      interval = setInterval(() => {
+        setOtpCountdown((prev) => {
+          if (prev - 1 === 0) {
+            setIsOtpExpired(true);
+          }
+          return prev - 1;
+        });
+      }, 1000);
     }
-
-    const interval = setInterval(() => {
-      setOtpCountdown((prev) => prev - 1);
-    }, 1000);
-
     return () => clearInterval(interval);
   }, [forgotPasswordStep, otpCountdown]);
 
-  // MAIN LOGIN -------------------------------------------------------
   const handleLogin = async (e) => {
     e.preventDefault();
+
     if (!email || !password) {
       setError("Please enter both email and password");
       setOpen(true);
@@ -86,12 +69,14 @@ export default function LoginPage() {
     try {
       const res = await fetch(`${apiClient.defaults.baseURL}/api/auth/login`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
         body: JSON.stringify({
           userNameOrEmail: email,
           password: password,
         }),
+        credentials: "include",
       });
 
       if (!res.ok) {
@@ -102,7 +87,7 @@ export default function LoginPage() {
       }
 
       const data = await res.json();
-      const token = data?.accessToken;
+      const token = data.accessToken;
 
       if (!token) {
         setError("No token received from server");
@@ -110,35 +95,53 @@ export default function LoginPage() {
         return;
       }
 
+      // decode JWT để lấy role
       const decoded = jwtDecode(token);
-
       const roles =
         decoded["http://schemas.microsoft.com/ws/2008/06/identity/claims/role"];
 
+      // ✅ Lưu userId vào localStorage (SignalR dùng để JoinGroup)
       const userId =
         decoded[
           "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier"
-        ] || decoded.sub;
+        ] || decoded.sub; // fallback nếu token không có claim này
 
-      if (userId) localStorage.setItem("userId", userId);
+      if (userId) {
+        localStorage.setItem("userId", userId);
+        console.log("💾 Saved userId:", userId);
+      }
 
-      if (rememberMe) localStorage.setItem("token", token);
-      else sessionStorage.setItem("token", token);
+      console.log("Decoded token:", decoded);
+      console.log("Roles:", roles);
+      console.log("👤 Current userId:", localStorage.getItem("userId"));
 
-      // Redirect by role
-      if (roles?.includes("Seller")) router.push("/seller/dashboard");
-      else if (roles?.includes("Designer")) router.push("/designer/dashboard");
-      else if (roles?.includes("Manager")) router.push("/manager/dashboard");
-      else if (roles?.includes("QC")) router.push("/qc/dashboard");
-      else if (roles?.includes("Staff")) router.push("/staff/dashboard");
-      else router.push("/");
-    } catch (err) {
+      // Lưu token (có thể đổi sang cookie nếu muốn an toàn hơn)
+      if (rememberMe) {
+        localStorage.setItem("token", token);
+      } else {
+        sessionStorage.setItem("token", token);
+      }
+
+      // Điều hướng theo role
+      if (roles?.includes("Seller")) {
+        router.push("/seller/dashboard");
+      } else if (roles?.includes("Designer")) {
+        router.push("/designer/dashboard");
+      } else if (roles?.includes("Manager")) {
+        router.push("/manager/dashboard");
+      } else if (roles?.includes("QC")) {
+        router.push("/qc/dashboard");
+      } else if (roles?.includes("Staff")) {
+        router.push("/staff/dashboard");
+      } else {
+        router.push("/"); // fallback
+      }
+    } catch (error) {
       setError("Something went wrong!");
       setOpen(true);
     }
   };
 
-  // FORGOT PASSWORD --------------------------------------------------
   const handleForgotPasswordClick = () => {
     setForgotPasswordOpen(true);
     setForgotPasswordStep("email");
@@ -146,27 +149,34 @@ export default function LoginPage() {
   };
 
   const handleSendResetEmail = async () => {
+    // 1.  Kiểm tra email rỗng
     if (!forgotPasswordEmail) {
       setError("Please enter your email");
       setOpen(true);
       return;
     }
 
+    // 2. Thêm validation định dạng email bằng Regex
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(forgotPasswordEmail)) {
-      setError("Please enter a valid email address");
+      setError("Please enter a valid email address"); // Thêm validate
       setOpen(true);
       return;
     }
 
     setIsLoading(true);
+
     try {
       const res = await fetch(
         `${apiClient.defaults.baseURL}/api/auth/forgot-password`,
         {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email: forgotPasswordEmail }),
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            email: forgotPasswordEmail,
+          }),
         }
       );
 
@@ -174,16 +184,18 @@ export default function LoginPage() {
         const err = await res.json();
         setError(err.message || "Sending request failed. Please try again.");
         setOpen(true);
+        setIsLoading(false);
         return;
       }
 
+      // Xử lý khi thành công...
       setForgotPasswordStep("otp");
       setOtp("");
       setOtpError("");
       setOtpCountdown(120);
       setIsOtpExpired(false);
       setIsOtpVerified(false);
-    } catch {
+    } catch (error) {
       setError("An error has occurred! Please try again.");
       setOpen(true);
     } finally {
@@ -191,7 +203,6 @@ export default function LoginPage() {
     }
   };
 
-  // VERIFY OTP -------------------------------------------------------
   const handleVerifyOtp = async () => {
     if (!otp || otp.length !== 6) {
       setOtpError("Please enter a valid 6-digit OTP");
@@ -211,7 +222,9 @@ export default function LoginPage() {
         `${apiClient.defaults.baseURL}/api/auth/verify-otp`,
         {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+          },
           body: JSON.stringify({
             email: forgotPasswordEmail,
             otp: otp,
@@ -222,19 +235,20 @@ export default function LoginPage() {
       if (!res.ok) {
         const err = await res.json();
         setOtpError(err.message || "Invalid or expired OTP");
+        setIsLoading(false);
         return;
       }
 
+      // OTP verified successfully, proceed to reset password
       setIsOtpVerified(true);
       setForgotPasswordStep("reset");
-    } catch {
+    } catch (error) {
       setOtpError("Failed to verify OTP. Please try again.");
     } finally {
       setIsLoading(false);
     }
   };
 
-  // RESET PASSWORD ---------------------------------------------------
   const handleResetPassword = async () => {
     if (!newPassword || !confirmPassword) {
       setError("Please fill in all password fields");
@@ -255,17 +269,20 @@ export default function LoginPage() {
     }
 
     setIsLoading(true);
+
     try {
       const res = await fetch(
         `${apiClient.defaults.baseURL}/api/auth/reset-password-with-otp`,
         {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+          },
           body: JSON.stringify({
             email: forgotPasswordEmail,
             otp: otp,
-            newPassword,
-            confirmPassword,
+            newPassword: newPassword,
+            confirmPassword: confirmPassword,
           }),
         }
       );
@@ -274,18 +291,18 @@ export default function LoginPage() {
         const err = await res.json();
         setError(err.message || "Failed to reset password");
         setOpen(true);
+        setIsLoading(false);
         return;
       }
 
-      // Reset UI
+      // Close forgot password dialog and show success
       setForgotPasswordOpen(false);
       setSuccessOpen(true);
-
       setForgotPasswordEmail("");
       setOtp("");
       setNewPassword("");
       setConfirmPassword("");
-    } catch {
+    } catch (error) {
       setError("Something went wrong!");
       setOpen(true);
     } finally {
@@ -293,7 +310,6 @@ export default function LoginPage() {
     }
   };
 
-  // STEP BACK --------------------------------------------------------
   const handleBack = () => {
     if (forgotPasswordStep === "otp") {
       setForgotPasswordStep("email");
@@ -309,7 +325,6 @@ export default function LoginPage() {
     }
   };
 
-  // CLOSE POPUP ------------------------------------------------------
   const handleCloseForgotPassword = () => {
     setForgotPasswordOpen(false);
     setForgotPasswordStep("email");
@@ -323,16 +338,17 @@ export default function LoginPage() {
     setIsOtpVerified(false);
   };
 
-  // RENDER -----------------------------------------------------------
   return (
     <div className="min-h-screen bg-gray-50 flex">
-      {/* LEFT LOGIN FORM */}
+      {/* Left side - Login Form */}
       <div className="w-full lg:w-1/2 flex items-center justify-center p-8">
         <div className="w-full max-w-md space-y-6">
+          {/* Logo */}
           <div className="flex items-center space-x-2 mb-8">
             <div className="w-8 h-8 bg-cyan-400 rounded"></div>
           </div>
 
+          {/* Login Form */}
           <div className="space-y-6">
             <div>
               <h1 className="text-2xl font-semibold text-gray-900">Login</h1>
@@ -342,6 +358,7 @@ export default function LoginPage() {
             </div>
 
             <form onSubmit={handleLogin} className="space-y-4">
+              {/* Email Input */}
               <div className="space-y-2">
                 <label className="text-sm font-medium text-gray-700">
                   Email*
@@ -351,9 +368,11 @@ export default function LoginPage() {
                   placeholder="Enter your email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
+                  className="w-full"
                 />
               </div>
 
+              {/* Password Input */}
               <div className="space-y-2">
                 <label className="text-sm font-medium text-gray-700">
                   Password*
@@ -363,9 +382,11 @@ export default function LoginPage() {
                   placeholder="minimum 8 characters"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
+                  className="w-full"
                 />
               </div>
 
+              {/* Remember Me & Forgot Password */}
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-2">
                   <Checkbox
@@ -373,11 +394,10 @@ export default function LoginPage() {
                     checked={rememberMe}
                     onCheckedChange={setRememberMe}
                   />
-                  <label className="text-sm text-gray-600" htmlFor="remember">
+                  <label htmlFor="remember" className="text-sm text-gray-600">
                     Remember me
                   </label>
                 </div>
-
                 <button
                   type="button"
                   onClick={handleForgotPasswordClick}
@@ -387,6 +407,7 @@ export default function LoginPage() {
                 </button>
               </div>
 
+              {/* Login Button */}
               <Button
                 type="submit"
                 className="w-full bg-gray-900 hover:bg-gray-800 text-white py-3"
@@ -398,18 +419,17 @@ export default function LoginPage() {
         </div>
       </div>
 
-      {/* RIGHT ILLUSTRATION */}
+      {/* Right side - Illustration */}
       <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-blue-50 to-purple-50 items-center justify-center p-8">
         <div className="w-full max-w-lg">
           <img
             src="/isometric-3d-illustration-of-people-working-with-d.jpg"
-            alt="Illustration"
+            alt="People working with data visualization"
             className="w-full h-auto"
           />
         </div>
       </div>
 
-      {/* FORGOT PASSWORD MODAL */}
       <Dialog
         open={forgotPasswordOpen}
         onOpenChange={handleCloseForgotPassword}
@@ -420,27 +440,34 @@ export default function LoginPage() {
               <DialogHeader>
                 <DialogTitle>Forgot Password</DialogTitle>
                 <DialogDescription>
-                  Enter your email and we will send you an OTP.
+                  Enter your email address and we'll send you an OTP to reset
+                  your password.
                 </DialogDescription>
               </DialogHeader>
-
               <div className="space-y-4 py-4">
-                <label className="text-sm font-medium text-gray-700">
-                  Email Address
-                </label>
-                <Input
-                  type="email"
-                  value={forgotPasswordEmail}
-                  onChange={(e) => setForgotPasswordEmail(e.target.value)}
-                  disabled={isLoading}
-                />
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-700">
+                    Email Address
+                  </label>
+                  <Input
+                    type="email"
+                    placeholder="Enter your email"
+                    value={forgotPasswordEmail}
+                    onChange={(e) => setForgotPasswordEmail(e.target.value)}
+                    className="w-full"
+                    disabled={isLoading}
+                  />
+                </div>
               </div>
-
               <DialogFooter>
-                <Button variant="outline" onClick={handleCloseForgotPassword}>
+                <Button
+                  variant="outline"
+                  onClick={handleCloseForgotPassword}
+                  disabled={isLoading}
+                >
                   Cancel
                 </Button>
-                <Button onClick={handleSendResetEmail}>
+                <Button onClick={handleSendResetEmail} disabled={isLoading}>
                   {isLoading ? "Sending..." : "Send OTP"}
                 </Button>
               </DialogFooter>
@@ -452,74 +479,79 @@ export default function LoginPage() {
               <DialogHeader>
                 <DialogTitle>Verify OTP</DialogTitle>
                 <DialogDescription>
-                  OTP sent to {forgotPasswordEmail}
+                  We've sent a 6-digit OTP to {forgotPasswordEmail}. Please
+                  enter it below.
                 </DialogDescription>
               </DialogHeader>
-
               <div className="space-y-4 py-4">
-                <label className="text-sm font-medium text-gray-700">
-                  Enter OTP
-                </label>
-
-                <div className="flex justify-center">
-                  <InputOTP
-                    maxLength={6}
-                    value={otp}
-                    onChange={setOtp}
-                    disabled={isLoading || isOtpExpired}
-                  >
-                    <InputOTPGroup>
-                      <InputOTPSlot index={0} />
-                      <InputOTPSlot index={1} />
-                      <InputOTPSlot index={2} />
-                    </InputOTPGroup>
-
-                    <InputOTPSeparator />
-
-                    <InputOTPGroup>
-                      <InputOTPSlot index={3} />
-                      <InputOTPSlot index={4} />
-                      <InputOTPSlot index={5} />
-                    </InputOTPGroup>
-                  </InputOTP>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-700">
+                    Enter OTP
+                  </label>
+                  <div className="flex justify-center">
+                    <InputOTP
+                      maxLength={6}
+                      value={otp}
+                      onChange={setOtp}
+                      disabled={isLoading || isOtpExpired}
+                    >
+                      <InputOTPGroup>
+                        <InputOTPSlot index={0} />
+                        <InputOTPSlot index={1} />
+                        <InputOTPSlot index={2} />
+                      </InputOTPGroup>
+                      <InputOTPSeparator />
+                      <InputOTPGroup>
+                        <InputOTPSlot index={3} />
+                        <InputOTPSlot index={4} />
+                        <InputOTPSlot index={5} />
+                      </InputOTPGroup>
+                    </InputOTP>
+                  </div>
+                  {otpError && (
+                    <p className="text-sm text-red-600 text-center">
+                      {otpError}
+                    </p>
+                  )}
+                  <div className="text-center">
+                    <p
+                      className={`text-sm font-medium ${
+                        isOtpExpired ? "text-red-600" : "text-gray-600"
+                      }`}
+                    >
+                      OTP expires in:{" "}
+                      <span
+                        className={
+                          isOtpExpired
+                            ? "text-red-600 font-bold"
+                            : "text-blue-600 font-bold"
+                        }
+                      >
+                        {Math.floor(otpCountdown / 60)}:
+                        {String(otpCountdown % 60).padStart(2, "0")}
+                      </span>
+                    </p>
+                    {isOtpExpired && (
+                      <p className="text-xs text-red-500 mt-1">
+                        OTP has expired. Please request a new one.
+                      </p>
+                    )}
+                  </div>
                 </div>
-
-                {otpError && (
-                  <p className="text-sm text-red-600 text-center">{otpError}</p>
-                )}
-
-                <p
-                  className={`text-center text-sm ${
-                    isOtpExpired ? "text-red-600" : "text-gray-600"
-                  }`}
-                >
-                  OTP expires in:{" "}
-                  <span
-                    className={`font-bold ${
-                      isOtpExpired ? "text-red-600" : "text-blue-600"
-                    }`}
-                  >
-                    {Math.floor(otpCountdown / 60)}:
-                    {String(otpCountdown % 60).padStart(2, "0")}
-                  </span>
-                </p>
-
-                {isOtpExpired && (
-                  <p className="text-xs text-red-500 text-center">
-                    OTP has expired. Please request a new one.
-                  </p>
-                )}
               </div>
-
               <DialogFooter>
-                <Button variant="outline" onClick={handleBack}>
+                <Button
+                  variant="outline"
+                  onClick={handleBack}
+                  disabled={isLoading}
+                >
                   Back
                 </Button>
                 <Button
                   onClick={handleVerifyOtp}
-                  disabled={otp.length !== 6 || isOtpExpired}
+                  disabled={isLoading || otp.length !== 6 || isOtpExpired}
                 >
-                  Verify OTP
+                  {isLoading ? "Verifying..." : "Verify OTP"}
                 </Button>
               </DialogFooter>
             </>
@@ -529,38 +561,51 @@ export default function LoginPage() {
             <>
               <DialogHeader>
                 <DialogTitle>Reset Password</DialogTitle>
-                <DialogDescription>Enter your new password.</DialogDescription>
+                <DialogDescription>
+                  Enter your new password below.
+                </DialogDescription>
               </DialogHeader>
-
               <div className="space-y-4 py-4">
-                <label className="text-sm font-medium text-gray-700">
-                  New Password
-                </label>
-                <Input
-                  type="password"
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                />
-
-                <label className="text-sm font-medium text-gray-700">
-                  Confirm Password
-                </label>
-                <Input
-                  type="password"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                />
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-700">
+                    New Password
+                  </label>
+                  <Input
+                    type="password"
+                    placeholder="Enter new password (minimum 8 characters)"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    className="w-full"
+                    disabled={isLoading}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-700">
+                    Confirm Password
+                  </label>
+                  <Input
+                    type="password"
+                    placeholder="Confirm your new password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    className="w-full"
+                    disabled={isLoading}
+                  />
+                </div>
               </div>
-
               <DialogFooter>
-                <Button variant="outline" onClick={handleBack}>
+                <Button
+                  variant="outline"
+                  onClick={handleBack}
+                  disabled={isLoading}
+                >
                   Back
                 </Button>
                 <Button
                   onClick={handleResetPassword}
-                  disabled={!newPassword || !confirmPassword}
+                  disabled={isLoading || !newPassword || !confirmPassword}
                 >
-                  Reset Password
+                  {isLoading ? "Resetting..." : "Reset Password"}
                 </Button>
               </DialogFooter>
             </>
@@ -568,24 +613,22 @@ export default function LoginPage() {
         </DialogContent>
       </Dialog>
 
-      {/* SUCCESS DIALOG */}
+      {/* Success Dialog */}
       <Dialog open={successOpen} onOpenChange={setSuccessOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle className="text-green-600">
-              Password Changed!
+              Reset Link Sent!
             </DialogTitle>
           </DialogHeader>
-          <p className="py-4 text-gray-700">
-            Your password has been reset successfully.
-          </p>
+          <p className="text-gray-700 py-4">Change Password Success</p>
           <DialogFooter>
             <Button onClick={() => setSuccessOpen(false)}>OK</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* ERROR DIALOG */}
+      {/* Error Dialog */}
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>
           <DialogHeader>

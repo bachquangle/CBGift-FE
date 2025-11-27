@@ -248,9 +248,12 @@ export default function MakeManualModal({ isOpen, onClose }) {
   const fetchProvinces = async () => {
     setLoadingProvinces(true);
     try {
-      const res = await fetch(`${apiClient.defaults.baseURL}/api/Location/provinces`, {
-        credentials: "include",
-      });
+      const res = await fetch(
+        `${apiClient.defaults.baseURL}/api/Location/provinces`,
+        {
+          credentials: "include",
+        }
+      );
 
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
@@ -419,14 +422,14 @@ export default function MakeManualModal({ isOpen, onClose }) {
 
     let total = totalBaseCost + shipCost;
 
-    if (cartProducts.length > 1) {
-      total += (totalQty - 1) * maxExtraShipping;
-    } else {
-      total += (totalQty - 1) * maxExtraShipping;
-    }
+    total += (totalQty - 1) * maxExtraShipping;
 
     // ⭐ NEW — ADD BASE SHIP COST
     total += maxBaseShipCost;
+
+    if (cartProducts.length > 1) {
+      total += maxBaseShipCost;
+    }
 
     if (activeTTS) {
       total += 1.0;

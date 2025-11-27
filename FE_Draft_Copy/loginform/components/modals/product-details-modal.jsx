@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { ChevronDown, ChevronRight } from "lucide-react";
+import apiClient from "../../lib/apiClient";
 
 export default function ProductDetailsModal({
   product,

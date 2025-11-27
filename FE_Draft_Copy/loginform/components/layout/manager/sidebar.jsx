@@ -23,11 +23,11 @@ export default function ManagerSidebar({ currentPage, setCurrentPage }) {
       label: "Manage Relationship",
       path: "/manager/manage-relationship",
     },
-    {
-      id: "manage-topup",
-      label: "Manage Top Up Money",
-      path: "/manager/manage-topup",
-    },
+    // {
+    //   id: "manage-topup",
+    //   label: "Manage Top Up Money",
+    //   path: "/manager/manage-topup",
+    // },
     {
       id: "manage-catalog",
       label: "Manage Product",
@@ -38,11 +38,11 @@ export default function ManagerSidebar({ currentPage, setCurrentPage }) {
       label: "Manage Category",
       path: "/manager/manage-category",
     },
-    {
-      id: "report-analyst",
-      label: "Report and Analyst",
-      path: "/manager/report-analyst",
-    },
+    // {
+    //   id: "report-analyst",
+    //   label: "Report and Analyst",
+    //   path: "/manager/report-analyst",
+    // },
     { id: "report", label: "Reports", path: "/manager/reports" },
     {
       id: "operations",

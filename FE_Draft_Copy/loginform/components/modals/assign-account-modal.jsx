@@ -316,7 +316,7 @@ export default function AssignAccountModal({
                   )}
                 </div>
 
-                <div>
+                {/* <div>
                   <Label>Department (Optional)</Label>
                   <Input
                     value={formData.department}
@@ -324,14 +324,14 @@ export default function AssignAccountModal({
                       handleInputChange("department", e.target.value)
                     }
                   />
-                </div>
+                </div> */}
               </div>
             </div>
 
             <Separator />
 
             {/* Notes */}
-            <div>
+            {/* <div>
               <h3 className="text-lg font-semibold">Additional Information</h3>
               <Textarea
                 placeholder="Add any additional notes..."
@@ -339,7 +339,7 @@ export default function AssignAccountModal({
                 onChange={(e) => handleInputChange("notes", e.target.value)}
                 rows={3}
               />
-            </div>
+            </div> */}
 
             <Alert>
               <AlertCircle className="h-4 w-4" />

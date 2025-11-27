@@ -25,10 +25,13 @@ export default function ProfileModal({ open, onOpenChange }) {
   useEffect(() => {
     const fetchProfile = async () => {
       try {
-        const res = await fetch(`${apiClient.defaults.baseURL}/api/auth/profile`, {
-          method: "GET",
-          credentials: "include",
-        });
+        const res = await fetch(
+          `${apiClient.defaults.baseURL}/api/auth/profile`,
+          {
+            method: "GET",
+            credentials: "include",
+          }
+        );
 
         if (res.ok) {
           const data = await res.json();
@@ -68,10 +71,10 @@ export default function ProfileModal({ open, onOpenChange }) {
               readOnly
             />
           </div>
-          <div className="space-y-2">
+          {/* <div className="space-y-2">
             <Label htmlFor="phone">Phone</Label>
             <Input id="phone" value={profile.phoneNumber || ""} readOnly />
-          </div>
+          </div> */}
           <div className="space-y-2">
             <Label htmlFor="userName">User Name</Label>
             <Input id="userName" value={profile.userName || ""} readOnly />

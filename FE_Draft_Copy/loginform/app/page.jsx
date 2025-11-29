@@ -151,7 +151,7 @@ export default function LoginPage() {
   const handleSendResetEmail = async () => {
     // 1.  Kiểm tra email rỗng
     if (!forgotPasswordEmail) {
-      setError("Please enter your email"); 
+      setError("Please enter your email");
       setOpen(true);
       return;
     }
@@ -218,16 +218,19 @@ export default function LoginPage() {
     setOtpError("");
 
     try {
-      const res = await fetch(`${apiClient.defaults.baseURL}/api/auth/verify-otp`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          email: forgotPasswordEmail,
-          otp: otp,
-        }),
-      });
+      const res = await fetch(
+        `${apiClient.defaults.baseURL}/api/auth/verify-otp`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            email: forgotPasswordEmail,
+            otp: otp,
+          }),
+        }
+      );
 
       if (!res.ok) {
         const err = await res.json();

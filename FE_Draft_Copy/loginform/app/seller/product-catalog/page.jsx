@@ -67,7 +67,7 @@ export default function SellerProductCatalog() {
 
       const category = categoryFilter === "all" ? "" : categoryFilter;
 
-      const url = `${apiClient.defaults.baseURL}/api/Product/filter?searchTerm=${searchTerm}&category=${category}&status=&page=${page}&pageSize=${itemsPerPage}`;
+      const url = `${apiClient.defaults.baseURL}/api/Product/filter?searchTerm=${searchTerm}&category=${category}&status=1&page=${page}&pageSize=${itemsPerPage}`;
 
       const res = await fetch(url, { cache: "no-store" });
       if (!res.ok) throw new Error("Failed to fetch products");

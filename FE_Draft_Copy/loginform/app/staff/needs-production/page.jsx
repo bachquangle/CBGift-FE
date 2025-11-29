@@ -117,9 +117,7 @@ export default function NeedsProductionPage() {
 
       try {
         const response = await fetch(
-          `${
-            apiClient.defaults.baseURL
-          }/api/plan/staff-view?${params.toString()}`
+          `${apiClient.defaults.baseURL}/api/plan/staff-view?${params.toString()}`
         );
         if (!response.ok)
           throw new Error(`HTTP error! status: ${response.status}`);

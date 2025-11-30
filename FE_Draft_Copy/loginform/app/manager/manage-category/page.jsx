@@ -30,6 +30,7 @@ import {
   ChevronRight,
   Edit2,
   RotateCcw,
+  EyeOff,
 } from "lucide-react";
 
 import { useToast } from "@/hooks/use-toast";
@@ -63,7 +64,9 @@ export default function ManageCategory() {
   const fetchCategories = async () => {
     try {
       const url = `${apiClient.defaults.baseURL}/api/Categories/filter?searchTerm=${searchTerm}&page=${page}&pageSize=${itemsPerPage}`;
-      const res = await fetch(url);
+      const res = await fetch(url, {
+          credentials: 'include'
+      });
 
       if (!res.ok) throw new Error("Failed to fetch categories");
 
@@ -132,8 +135,9 @@ export default function ManageCategory() {
   const handleEditCategory = async (id) => {
     try {
       const res = await fetch(
-        `${apiClient.defaults.baseURL}/api/Categories/${id}`
-      );
+        `${apiClient.defaults.baseURL}/api/Categories/${id}`, {
+        credentials: "include",
+      });
 
       if (!res.ok) throw new Error("Cannot load category");
 
@@ -171,6 +175,7 @@ export default function ManageCategory() {
         `${apiClient.defaults.baseURL}/api/Categories/${editingId}`,
         {
           method: "PUT",
+          credentials: 'include',
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             categoryName: editingName,
@@ -205,6 +210,7 @@ export default function ManageCategory() {
         `${apiClient.defaults.baseURL}/api/Categories/${id}`,
         {
           method: "DELETE",
+          credentials: 'include',
         }
       );
 
@@ -231,6 +237,7 @@ export default function ManageCategory() {
         `${apiClient.defaults.baseURL}/api/Categories/${id}/status`,
         {
           method: "PATCH",
+          credentials: 'include',
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ status: 1 }),
         }
@@ -343,7 +350,7 @@ export default function ManageCategory() {
                               className="text-red-600 border-red-300"
                               onClick={() => handleDeleteCategory(c.categoryId)}
                             >
-                              <Trash2 className="h-4 w-4" />
+                              <EyeOff className="h-4 w-4" />
                             </Button>
                           ) : (
                             <Button

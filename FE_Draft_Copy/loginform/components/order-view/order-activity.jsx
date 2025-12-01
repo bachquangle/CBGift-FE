@@ -1,11 +1,13 @@
+// File: components/order-view/order-activity.jsx
+
 "use client";
 
 import { 
-  FileText,       // Icon cho Draft
-  CheckCircle2,   // Icon cho Confirmed
-  RefreshCcw,     // Icon cho Refund
-  Circle,         // Icon mặc định
-  Truck           // Icon cho Shipped (nếu cần sau này)
+FileText, // Icon cho Draft
+CheckCircle2,  // Icon cho Confirmed
+RefreshCcw,  // Icon cho Refund/Rejected
+Circle,  // Icon mặc định
+Printer  // Icon cho Reprint
 } from "lucide-react";
 
 export default function OrderActivity({ activities }) {
@@ -30,7 +32,17 @@ export default function OrderActivity({ activities }) {
       };
     }
 
-    if (lowerTitle.includes("refund")) {
+    // Logic REPRINT
+    if (lowerTitle.includes("reprint")) {
+      return {
+        color: "bg-orange-100 text-orange-600 border-orange-200", 
+        lineColor: "bg-orange-200",
+        icon: Printer, 
+      };
+    }
+
+    // Logic REFUND và REJECTED (cho cả Refund và Reprint)
+    if (lowerTitle.includes("refund") || lowerTitle.includes("rejected")) {
       return {
         color: "bg-red-100 text-red-600 border-red-200",
         lineColor: "bg-red-200",

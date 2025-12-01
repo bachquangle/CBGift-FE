@@ -2,8 +2,8 @@ import axios from "axios";
 
 // 1. Đọc biến môi trường (từ .env.local hoặc DigitalOcean)
 //const apiURL = process.env.NEXT_PUBLIC_API_URL;
-const apiURL = "https://cb-gift-app-xsgw5.ondigitalocean.app";
-//const apiURL = "https://localhost:7015";
+//const apiURL = "https://cb-gift-app-xsgw5.ondigitalocean.app";
+const apiURL = "https://localhost:7015";
 // 2. Tạo một instance (thể hiện) axios đã được cấu hình sẵn
 const apiClient = axios.create({
   // baseURL chính là "biến chung" mà bạn muốn

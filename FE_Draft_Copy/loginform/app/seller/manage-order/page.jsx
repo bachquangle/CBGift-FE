@@ -77,6 +77,8 @@ import {
   ArrowUp,
   ArrowDown,
   ChevronDown,
+  Copy,        
+  Check,
 } from "lucide-react";
 import { format } from "date-fns";
 
@@ -206,7 +208,7 @@ export default function ManageOrder() {
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [isEditMode, setIsEditMode] = useState(false);
   const [editedOrder, setEditedOrder] = useState(null);
-
+  const [copiedTrackingId, setCopiedTrackingId] = useState(null);
   const [page, setPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [isDateFilterOpen, setIsDateFilterOpen] = useState(false);
@@ -565,6 +567,7 @@ export default function ManageOrder() {
           // orderDate: new Date(order.orderDate).toISOString().split("T")[0],
           orderDate: new Date(order.orderDate).toLocaleDateString("en-CA"),
           customerName: order.customerName,
+          tracking : order.tracking,
           phone: order.phone || "",
           email: order.email || "",
           paymentStatus: order.paymentStatus || "",
@@ -1414,7 +1417,27 @@ export default function ManageOrder() {
       setIsSubmittingDetail(null);
     }
   };
+  const handleCopyTracking = async (trackingCode) => {
+    if (!trackingCode || trackingCode === 'N/A') return;
 
+    try {
+      await navigator.clipboard.writeText(trackingCode);
+      setCopiedTrackingId(trackingCode); // Đặt mã tracking hiện tại là đã copy
+      
+      // Reset trạng thái sau 2 giây
+      setTimeout(() => setCopiedTrackingId(null), 2000); 
+    } catch (err) {
+      console.error('Failed to copy text: ', err);
+      // Có thể hiển thị Swal.fire thông báo lỗi
+      Swal.fire({
+          icon: "error",
+          title: "Copy Failed",
+          text: "Lỗi khi truy cập clipboard.",
+          timer: 1500,
+          showConfirmButton: false,
+      });
+    }
+  };
   const getStatusBadge = (status) => {
     switch (status) {
       case "Pending Design":
@@ -1829,7 +1852,10 @@ export default function ManageOrder() {
                             Payment Status
                           </TableHead>
                           <TableHead className="font-medium text-slate-700 uppercase text-xs tracking-wide whitespace-nowrap">
-                            Exist File Design
+                            File Design
+                          </TableHead>
+                          <TableHead className="font-medium text-slate-700 uppercase text-xs tracking-wide whitespace-nowrap">
+                            Tracking Number
                           </TableHead>
                           <TableHead
                             className="font-medium text-slate-700 uppercase text-xs tracking-wide whitespace-nowrap cursor-pointer hover:bg-blue-200 transition-colors"
@@ -1906,6 +1932,32 @@ whitespace-nowrap"
                                     <XCircle className="w-5 h-5 text-red-600" />
                                   )}
                                 </TableCell>
+                                <TableCell className="font-medium text-slate-900 whitespace-nowrap">
+                                  {/* Bọc mã tracking và nút copy trong một div flex */}
+                                  <div className="flex items-center gap-1">
+                                      
+                                      {/* Mã Tracking */}
+                                      <span className="text-gray-700">
+                                          {order.tracking}
+                                      </span>
+                                      
+                                      {/* NÚT COPY */}
+                                      {order.tracking && order.tracking !== 'N/A' && (
+                                          <button
+                                              onClick={() => handleCopyTracking(order.tracking)}
+                                              type="button"
+                                              className="p-0 h-auto w-auto bg-transparent border-none cursor-pointer focus:outline-none transition-colors"
+                                              title={copiedTrackingId === order.tracking ? "Đã sao chép!" : "Sao chép mã tracking"}
+                                          >
+                                              {copiedTrackingId === order.tracking ? (
+                                                  <Check className="h-4 w-4 text-green-500" />
+                                              ) : (
+                                                  <Copy className="h-4 w-4 text-gray-500 hover:text-blue-500" />
+                                              )}
+                                          </button>
+                                      )}
+                                  </div>
+                              </TableCell>
                                 <TableCell className="font-medium text-slate-900 whitespace-nowrap">
                                   {order.totalAmount}
                                 </TableCell>

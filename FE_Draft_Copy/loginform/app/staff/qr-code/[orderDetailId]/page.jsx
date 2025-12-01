@@ -3,7 +3,9 @@
 import { useState, useEffect, useRef } from "react"
 import { useParams } from "next/navigation"
 import Link from "next/link"
-import apiClient from "../../../../lib/apiClient";
+import apiClient from "../../../../lib/apiClient"
+import StaffSidebar from "@/components/layout/staff/sidebar"
+import StaffHeader from "@/components/layout/staff/header"
 
 export default function QrCodePage() {
   const params = useParams()
@@ -13,8 +15,7 @@ export default function QrCodePage() {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState(null)
   const canvasRef = useRef(null)
-  const downloadCanvasRef = useRef(null)
-
+  
   useEffect(() => {
     const fetchQrCode = async () => {
       setIsLoading(true)
@@ -74,7 +75,7 @@ export default function QrCodePage() {
       const downloadCanvas = document.createElement("canvas")
       const ctx = downloadCanvas.getContext("2d")
 
-      const padding = 40
+      const padding = 50
       const qrSize = 400
       const headerHeight = 80
       const totalWidth = qrSize + padding * 2
@@ -140,132 +141,139 @@ export default function QrCodePage() {
     window.print()
   }
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-500 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading QR code...</p>
-        </div>
-      </div>
-    )
-  }
-
-  if (error) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center bg-white p-8 rounded-lg shadow-md">
-          <p className="text-red-500 font-semibold mb-4">{error}</p>
-          <Link
-            href="/staff/dashboard"
-            className="inline-flex items-center bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 transition-colors"
-          >
-            Back to Dashboard
-          </Link>
-        </div>
-      </div>
-    )
-  }
-
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="max-w-4xl mx-auto p-6">
-        <div className="mb-8 flex items-center justify-between print:hidden">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-800">QR Code View</h1>
-            <p className="text-gray-500 mt-1">Order Detail #{orderDetailId}</p>
-          </div>
-          <div className="flex gap-3">
-            <button
-              onClick={handleDownloadQR}
-              className="bg-green-500 text-white px-4 py-2 rounded-md hover:bg-green-600 transition-colors flex items-center gap-2"
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="20"
-                height="20"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                <polyline points="7 10 12 15 17 10" />
-                <line x1="12" y1="15" x2="12" y2="3" />
-              </svg>
-              Download QR
-            </button>
-            <button
-              onClick={handlePrint}
-              className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 transition-colors flex items-center gap-2"
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="20"
-                height="20"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <polyline points="6 9 6 2 18 2 18 9" />
-                <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
-                <rect x="6" y="14" width="12" height="8" />
-              </svg>
-              Print
-            </button>
-            <Link
-              href="/staff/dashboard"
-              className="bg-gray-500 text-white px-4 py-2 rounded-md hover:bg-gray-600 transition-colors"
-            >
-              Back
-            </Link>
-          </div>
+    <div className="flex h-screen bg-slate-50 overflow-hidden font-sans">
+      {/* UPDATE: Thêm class 'flex' để StaffSidebar bên trong tự động giãn full chiều cao */}
+      <div className="print:hidden h-full flex-shrink-0 flex">
+        <StaffSidebar />
+      </div>
+      
+      <div className="flex-1 flex flex-col overflow-hidden">
+        <div className="print:hidden">
+          <StaffHeader />
         </div>
 
-        {qrData && (
-          <div className="bg-white rounded-lg shadow-lg p-8 border border-gray-200">
-            <div className="mb-6 flex justify-center">
-              <canvas ref={canvasRef} className="border border-gray-300 rounded-lg" />
-            </div>
-
-            <div className="flex justify-center mb-6">
-              <div className="border-4 border-gray-300 rounded-lg p-4 bg-white">
-                <img
-                  src={qrData.qrCodeUrl || "/placeholder.svg"}
-                  alt={`QR Code for ${qrData.orderCode}`}
-                  className="w-96 h-96"
-                />
+        <main className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 p-6">
+          {isLoading ? (
+            <div className="h-full flex items-center justify-center">
+              <div className="text-center">
+                <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-500 mx-auto"></div>
+                <p className="mt-4 text-gray-600">Loading QR code...</p>
               </div>
             </div>
-
-            <div className="border-t border-gray-200 pt-6 mt-6">
-              <h2 className="text-xl font-semibold text-gray-800 mb-4">Order Information</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="bg-gray-50 p-4 rounded-lg">
-                  <p className="text-sm text-gray-500 mb-1">Order Code</p>
-                  <p className="text-lg font-semibold text-gray-800">{qrData.orderCode}</p>
-                </div>
-                <div className="bg-gray-50 p-4 rounded-lg">
-                  <p className="text-sm text-gray-500 mb-1">Order Detail ID</p>
-                  <p className="text-lg font-semibold text-gray-800">{qrData.orderDetailId}</p>
-                </div>
-                <div className="bg-gray-50 p-4 rounded-lg">
-                  <p className="text-sm text-gray-500 mb-1">Product Name</p>
-                  <p className="text-lg font-semibold text-gray-800">{qrData.productName}</p>
-                </div>
-                <div className="bg-gray-50 p-4 rounded-lg">
-                  <p className="text-sm text-gray-500 mb-1">Quantity</p>
-                  <p className="text-lg font-semibold text-gray-800">{qrData.quantity}</p>
-                </div>
+          ) : error ? (
+            <div className="h-full flex items-center justify-center">
+              <div className="text-center bg-white p-8 rounded-lg shadow-md border border-gray-100">
+                <p className="text-red-500 font-semibold mb-4">{error}</p>
+                <Link
+                  href="/staff/needs-production"
+                  className="inline-flex items-center bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 transition-colors"
+                >
+                  Back to Dashboard
+                </Link>
               </div>
             </div>
-          </div>
-        )}
+          ) : (
+            <div className="max-w-4xl mx-auto">
+              <div className="mb-8 flex items-center justify-between print:hidden">
+                <div>
+                  <h1 className="text-2xl font-bold text-gray-800">QR Code View</h1>
+                  <p className="text-gray-500 mt-1">Order Detail #{orderDetailId}</p>
+                </div>
+                <div className="flex gap-3">
+                  <button
+                    onClick={handleDownloadQR}
+                    className="bg-green-500 text-white px-4 py-2 rounded-md hover:bg-green-600 transition-colors flex items-center gap-2 shadow-sm"
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="20"
+                      height="20"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                      <polyline points="7 10 12 15 17 10" />
+                      <line x1="12" y1="15" x2="12" y2="3" />
+                    </svg>
+                    Download QR
+                  </button>
+                  <button
+                    onClick={handlePrint}
+                    className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 transition-colors flex items-center gap-2 shadow-sm"
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="20"
+                      height="20"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <polyline points="6 9 6 2 18 2 18 9" />
+                      <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
+                      <rect x="6" y="14" width="12" height="8" />
+                    </svg>
+                    Print
+                  </button>
+                  <Link
+                    href="/staff/needs-production"
+                    className="bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-50 transition-colors shadow-sm"
+                  >
+                    Back
+                  </Link>
+                </div>
+              </div>
+
+              {qrData && (
+                <div className="bg-white rounded-xl shadow-sm p-8 border border-gray-200">
+                  <div className="mb-6 flex justify-center">
+                    <canvas ref={canvasRef} className="border border-gray-200 rounded-lg" />
+                  </div>
+
+                  <div className="flex justify-center mb-6">
+                    <div className="border-4 border-gray-200 rounded-xl p-4 bg-white">
+                      <img
+                        src={qrData.qrCodeUrl || "/placeholder.svg"}
+                        alt={`QR Code for ${qrData.orderCode}`}
+                        className="w-96 h-96 object-contain"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="border-t border-gray-100 pt-6 mt-6">
+                    <h2 className="text-xl font-bold text-gray-800 mb-4">Order Information</h2>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="bg-gray-50 p-4 rounded-lg border border-gray-100">
+                        <p className="text-sm text-gray-500 mb-1 font-medium">Order Code</p>
+                        <p className="text-lg font-bold text-gray-800 font-mono">{qrData.orderCode}</p>
+                      </div>
+                      <div className="bg-gray-50 p-4 rounded-lg border border-gray-100">
+                        <p className="text-sm text-gray-500 mb-1 font-medium">Order Detail ID</p>
+                        <p className="text-lg font-bold text-gray-800">{qrData.orderDetailId}</p>
+                      </div>
+                      <div className="bg-gray-50 p-4 rounded-lg border border-gray-100">
+                        <p className="text-sm text-gray-500 mb-1 font-medium">Product Name</p>
+                        <p className="text-lg font-bold text-gray-800">{qrData.productName}</p>
+                      </div>
+                      <div className="bg-gray-50 p-4 rounded-lg border border-gray-100">
+                        <p className="text-sm text-gray-500 mb-1 font-medium">Quantity</p>
+                        <p className="text-lg font-bold text-gray-800">{qrData.quantity}</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </main>
       </div>
 
       <style jsx global>{`

@@ -8,11 +8,11 @@ export default function ShippingAddress({ address }) {
       </h3>
       <div className="space-y-2">
         <p className="text-sm text-gray-900">{address.street}</p>
-        <p className="text-sm text-gray-900">
+        {/* <p className="text-sm text-gray-900">
           {address.city}, {address.state}
         </p>
-        <p className="text-sm text-gray-900">{address.country}</p>
-        <p className="text-sm text-gray-900">Zip code: {address.zipCode}</p>
+        <p className="text-sm text-gray-900">{address.country}</p> */}
+        {/* <p className="text-sm text-gray-900">Zip code: {address.zipCode}</p> */}
       </div>
     </div>
   );

@@ -248,9 +248,12 @@ export default function MakeManualModal({ isOpen, onClose }) {
   const fetchProvinces = async () => {
     setLoadingProvinces(true);
     try {
-      const res = await fetch(`${apiClient.defaults.baseURL}/api/Location/provinces`, {
-        credentials: "include",
-      });
+      const res = await fetch(
+        `${apiClient.defaults.baseURL}/api/Location/provinces`,
+        {
+          credentials: "include",
+        }
+      );
 
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
 

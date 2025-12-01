@@ -229,6 +229,7 @@ export default function OrderView({
           createdAt={order.createdAt}
           orderDate={order.orderDate}
           onCancel={onCancel}
+          trackingCode = {order.trackingCode}
           onBack={onBack}
           isEligible={isEligible} 
           orderStatus={order.status}

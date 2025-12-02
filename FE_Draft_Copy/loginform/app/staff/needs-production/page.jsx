@@ -1,167 +1,118 @@
-"use client";
-
-import { useState, useEffect } from "react";
-import StaffSidebar from "@/components/layout/staff/sidebar";
-import StaffHeader from "@/components/layout/staff/header";
-import { Layers } from "lucide-react"; // Import thêm icon cho nút mới
-import apiClient from "../../../lib/apiClient";
-
-const FilterIcon = () => (
-  <svg
-    xmlns="http://www.w3.org/2000/svg"
-    width="20"
-    height="20"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    className="mr-2 text-gray-500"
-  >
-    <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon>
-  </svg>
-);
-
-const DownloadIcon = () => (
-  <svg
-    xmlns="http://www.w3.org/2000/svg"
-    width="16"
-    height="16"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-  >
-    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-    <polyline points="7 10 12 15 17 10" />
-    <line x1="12" y1="15" x2="12" y2="3" />
-  </svg>
-);
-
-const CardIcon = () => (
-  <svg
-    xmlns="http://www.w3.org/2000/svg"
-    width="16"
-    height="16"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-  >
-    <path d="M22 18a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v12Z" />
-    <path d="M6 12h12" />
-  </svg>
-);
-
-const LabelIcon = () => (
-  <svg
-    xmlns="http://www.w3.org/2000/svg"
-    width="16"
-    height="16"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-  >
-    <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z" />
-    <line x1="7" y1="7" x2="7.01" y2="7" />
-  </svg>
-);
-
-const QrCodeIcon = () => (
-  <svg
-    xmlns="http://www.w3.org/2000/svg"
-    width="20"
-    height="20"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-  >
-    <rect x="3" y="3" width="7" height="7"></rect>
-    <rect x="14" y="3" width="7" height="7"></rect>
-    <rect x="3" y="14" width="7" height="7"></rect>
-    <line x1="11" y1="19" x2="17" y2="19"></line>
-    <line x1="19" y1="17" x2="19" y2="23"></line>
-    <line x1="17" y1="21" x2="23" y2="21"></line>
-  </svg>
-);
+"use client"
+import { useState, useEffect, useMemo } from "react"
+import StaffSidebar from "@/components/layout/staff/sidebar"
+import StaffHeader from "@/components/layout/staff/header"
+import { 
+  Layers, Filter, Download, CreditCard, Tag, QrCode, 
+  Calendar, Play, CheckCircle, AlertCircle, 
+  Copy, User, StickyNote, AlertTriangle, XCircle, RotateCcw, Clock, Activity, Search
+} from "lucide-react"
+import apiClient from "../../../lib/apiClient"
 
 export default function NeedsProductionPage() {
-  const [productionData, setProductionData] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [selectedCategory, setSelectedCategory] = useState(null);
-  const [selectedDate, setSelectedDate] = useState("");
-  const [updateTrigger, setUpdateTrigger] = useState(0);
-  const [isGrouping, setIsGrouping] = useState(false);
+  const [productionData, setProductionData] = useState([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState(null)
+  
+  // States cho Filter & Search
+  const [selectedCategory, setSelectedCategory] = useState(null)
+  const [selectedDate, setSelectedDate] = useState("")
+  const [searchOrderCode, setSearchOrderCode] = useState("") 
+  
+  const [updateTrigger, setUpdateTrigger] = useState(0)
+  const [isGrouping, setIsGrouping] = useState(false)
 
+  // --- API CALLS ---
+  // Lưu ý: Đã bỏ searchOrderCode ra khỏi dependency để tránh spam API
   useEffect(() => {
     const fetchProductionData = async () => {
-      setIsLoading(true);
-      setError(null);
-
-      const params = new URLSearchParams();
-      if (selectedCategory) params.append("categoryId", selectedCategory);
-      if (selectedDate) params.append("selectedDate", selectedDate);
-      params.append("status", "needs_production");
-
+      setIsLoading(true)
+      setError(null)
+      const params = new URLSearchParams()
+      
+      if (selectedCategory) params.append("categoryId", selectedCategory)
+      if (selectedDate) params.append("selectedDate", selectedDate)
+      // params.append("keyword", searchOrderCode) // Tạm bỏ vì Backend chưa hỗ trợ
+      
+      params.append("status", "needs_production")
+      
       try {
-        const response = await fetch(
-          `${
-            apiClient.defaults.baseURL
-          }/api/plan/staff-view?${params.toString()}`
-        );
-        if (!response.ok)
-          throw new Error(`HTTP error! status: ${response.status}`);
-        const data = await response.json();
-        setProductionData(data);
+        const response = await fetch(`${apiClient.defaults.baseURL}/api/plan/staff-view?${params.toString()}`)
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`)
+        const data = await response.json()
+        
+        console.log("🔥 Production Data:", data) 
+        setProductionData(data)
       } catch (e) {
-        console.error("Failed to fetch production data:", e);
-        setError("Could not load production data. Please try again later.");
+        console.error("Failed to fetch production data:", e)
+        setError("Could not load production data.")
       } finally {
-        setIsLoading(false);
+        setIsLoading(false)
       }
-    };
-
-    fetchProductionData();
-  }, [selectedCategory, selectedDate, updateTrigger]);
-  const handleGroupSubmit = async () => {
-    setIsGrouping(true); // Bắt đầu loading
-    try {
-      const response = await fetch(
-        `${apiClient.defaults.baseURL}/api/plan/group-submitted`,
-        {
-          method: "POST",
-        }
-      );
-
-      if (!response.ok) {
-        // Ném lỗi nếu server trả về lỗi (vd: 400, 500)
-        throw new Error(`API call failed with status: ${response.status}`);
-      }
-
-      // Nếu thành công
-      alert("Orders have been grouped successfully!");
-
-      // Kích hoạt useEffect để tải lại dữ liệu mới nhất
-      setUpdateTrigger((prev) => prev + 1);
-    } catch (error) {
-      console.error("Failed to group submitted orders:", error);
-      alert(`Error grouping orders: ${error.message}`);
-    } finally {
-      setIsGrouping(false); // Dừng loading dù thành công hay thất bại
     }
-  };
+
+    fetchProductionData()
+  }, [selectedCategory, selectedDate, updateTrigger])
+
+  // --- CLIENT-SIDE FILTERING (Fix lỗi search) ---
+  const filteredData = useMemo(() => {
+    if (!searchOrderCode.trim()) return productionData;
+
+    const lowerKeyword = searchOrderCode.toLowerCase().trim();
+
+    return productionData.map(category => {
+        // 1. Lấy danh sách DateGroups (Safe Get)
+        const dateGroups = category.dateGroups || category.DateGroups || [];
+
+        // 2. Lọc trong từng DateGroup
+        const filteredDateGroups = dateGroups.map(dateGroup => {
+            // Lấy danh sách OrderGroups (Safe Get)
+            const orderGroups = dateGroup.orderGroups || dateGroup.OrderGroups || [];
+
+            // 3. Lọc Order theo OrderCode
+            const filteredOrders = orderGroups.filter(order => {
+                const code = order.orderCode || order.OrderCode || "";
+                return code.toLowerCase().includes(lowerKeyword);
+            });
+
+            // Nếu không còn order nào trong ngày này thì bỏ qua
+            if (filteredOrders.length === 0) return null;
+
+            // Trả về DateGroup mới với danh sách order đã lọc
+            return {
+                ...dateGroup,
+                orderGroups: filteredOrders, // Gán vào cả 2 case để an toàn
+                OrderGroups: filteredOrders
+            };
+        }).filter(group => group !== null); // Loại bỏ các ngày trống
+
+        // Nếu Category này không còn ngày nào có đơn phù hợp thì bỏ qua
+        if (filteredDateGroups.length === 0) return null;
+
+        // Trả về Category mới với danh sách ngày đã lọc
+        return {
+            ...category,
+            dateGroups: filteredDateGroups,
+            DateGroups: filteredDateGroups
+        };
+    }).filter(cat => cat !== null); // Loại bỏ category trống
+
+  }, [productionData, searchOrderCode]);
+
+
+  const handleGroupSubmit = async () => {
+    setIsGrouping(true)
+    try {
+      const response = await fetch(`${apiClient.defaults.baseURL}/api/plan/group-submitted`, { method: "POST" })
+      if (!response.ok) throw new Error(`API call failed: ${response.status}`)
+      alert("Orders have been grouped successfully!")
+      setUpdateTrigger((prev) => prev + 1)
+    } catch (error) {
+      alert(`Error grouping orders: ${error.message}`)
+    } finally {
+      setIsGrouping(false)
+    }
+  }
 
   const handleUpdateStatus = async (planDetailId, newStatus) => {
     try {
@@ -169,351 +120,426 @@ export default function NeedsProductionPage() {
         `${apiClient.defaults.baseURL}/api/plan/update-status/${planDetailId}?newStatus=${newStatus}`,
         {
           method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-          },
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error(`API call failed with status: ${response.status}`);
-      }
-
-      setUpdateTrigger((prev) => prev + 1);
+          headers: { "Content-Type": "application/json" },
+        },
+      )
+      if (!response.ok) throw new Error(`API failed: ${response.status}`)
+      setUpdateTrigger((prev) => prev + 1)
     } catch (error) {
-      console.error("Failed to update status:", error);
-      alert(`Error updating status: ${error.message}`);
+      alert(`Error updating status: ${error.message}`)
     }
-  };
+  }
 
-  const handleMarkProduced = async (detail) => {
-    await handleUpdateStatus(detail.planDetailId, 8);
-  };
-
-  const handleReproduction = async (detail) => {
-    await handleUpdateStatus(detail.planDetailId, 7);
-  };
-
+  // --- HELPER FUNCTIONS ---
   const getUniqueCategories = () => {
+    if (!productionData) return [];
     const categories = productionData.map((item) => ({
-      id: item.categoryId,
-      name: item.categoryName,
-    }));
-    return [...new Map(categories.map((item) => [item.id, item])).values()];
-  };
+      id: item.categoryId || item.CategoryId,
+      name: item.categoryName || item.CategoryName,
+    }))
+    return [...new Map(categories.map((item) => [item.id, item])).values()]
+  }
 
+  const getOrderGroups = (dateGroup) => dateGroup.orderGroups || dateGroup.OrderGroups || [];
+  const getDetails = (orderGroup) => orderGroup.details || orderGroup.Details || [];
+
+  // Helper Clear Filter
+  const clearFilters = () => {
+      setSelectedCategory(null);
+      setSelectedDate("");
+      setSearchOrderCode("");
+  }
+
+  // 1. Helper hiển thị Badge cho cột Status
+  const renderStatusBadge = (status) => {
+    switch (status) {
+        case 6: // READY_PROD
+            return (
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-700 border border-slate-200">
+                    <Clock className="w-3 h-3" />
+                    Ready
+                </span>
+            );
+        case 7: // IN_PROD
+            return (
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200">
+                    <Activity className="w-3 h-3 animate-pulse" />
+                    In Prod
+                </span>
+            );
+        case 8: // FINISHED
+            return (
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-green-50 text-green-700 border border-green-200">
+                    <CheckCircle className="w-3 h-3" />
+                    Finished
+                </span>
+            );
+        case 9: // QC_DONE
+            return (
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-teal-50 text-teal-700 border border-teal-200">
+                    <CheckCircle className="w-3 h-3" />
+                    QC Pass
+                </span>
+            );
+        case 10: // QC_FAIL
+            return (
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-red-50 text-red-700 border border-red-200">
+                    <XCircle className="w-3 h-3" />
+                    QC Fail
+                </span>
+            );
+        case 11: // PROD_REWORK
+            return (
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-orange-50 text-orange-700 border border-orange-200">
+                    <RotateCcw className="w-3 h-3" />
+                    Rework
+                </span>
+            );
+        default:
+            return (
+                <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
+                    Unknown ({status})
+                </span>
+            );
+    }
+  }
+
+  // 2. Helper hiển thị Button cho cột Action
+  const renderActionButton = (status, planDetailId) => {
+    switch (status) {
+        case 6: // READY_PROD
+            return (
+                <button 
+                    onClick={() => handleUpdateStatus(planDetailId, 7)}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-md shadow-sm transition-colors w-full justify-center"
+                >
+                    <Play className="w-3.5 h-3.5 fill-current" />
+                    Start
+                </button>
+            );
+        case 7: // IN_PROD
+            return (
+                <button 
+                    onClick={() => handleUpdateStatus(planDetailId, 8)}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-md shadow-sm transition-colors w-full justify-center"
+                >
+                    <CheckCircle className="w-3.5 h-3.5" />
+                    Finish
+                </button>
+            );
+        case 10: // QC_FAIL
+            return (
+                <button 
+                    onClick={() => handleUpdateStatus(planDetailId, 7)} // Quay lại in_prod
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-xs font-semibold rounded-md shadow-sm transition-colors w-full justify-center"
+                >
+                    <RotateCcw className="w-3.5 h-3.5" />
+                    Re-Do
+                </button>
+            );
+        case 11: // PROD_REWORK
+            return (
+                <button 
+                    onClick={() => handleUpdateStatus(planDetailId, 7)} // Quay lại in_prod
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-orange-600 hover:bg-orange-700 text-white text-xs font-semibold rounded-md shadow-sm transition-colors w-full justify-center"
+                >
+                    <RotateCcw className="w-3.5 h-3.5" />
+                    Restart
+                </button>
+            );
+        default:
+            return null;
+    }
+  }
+
+  // --- RENDER UI ---
   return (
-    <div className="flex h-screen overflow-hidden">
+    <div className="flex h-screen bg-slate-50 overflow-hidden font-sans">
       <StaffSidebar />
-
       <div className="flex-1 flex flex-col overflow-hidden">
         <StaffHeader />
-
-        <main className="flex-1 overflow-y-auto bg-blue-50 p-6">
-          <div className="max-w-7xl mx-auto">
-            <div className="mb-8">
-              <div className="bg-white p-4 sm:p-6 rounded-lg border-2 border-blue-200 shadow-sm">
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
-                  <div>
-                    <h1 className="text-lg sm:text-xl font-semibold text-blue-800">
-                      Needs Production
-                    </h1>
-                    <p className="text-sm sm:text-base text-blue-600 mt-1">
-                      Orders waiting to be produced
-                    </p>
-                  </div>
-
-                  {/* 3. Thêm nút "Group Submit" vào đây */}
-                  <div className="mt-4 sm:mt-0">
-                    <button
-                      onClick={handleGroupSubmit}
-                      disabled={isGrouping}
-                      className="inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:bg-gray-400 disabled:cursor-not-allowed"
-                    >
-                      <Layers className="h-5 w-5 mr-2" />
-                      {isGrouping ? "Grouping..." : "Group Submitted Orders"}
-                    </button>
-                  </div>
+        
+        <main className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 p-4 sm:p-6">
+          <div className="max-w-screen-2xl mx-auto space-y-6">
+            
+            {/* 1. TOP HEADER */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div>
+                    <h1 className="text-2xl font-bold text-slate-800">Production Queue</h1>
+                    <p className="text-sm text-slate-500">Manage items waiting for manufacturing</p>
                 </div>
-              </div>
+                
+                <button
+                    onClick={handleGroupSubmit}
+                    disabled={isGrouping}
+                    className={`inline-flex items-center px-4 py-2.5 rounded-lg text-sm font-medium text-white transition-all shadow-sm
+                    ${isGrouping ? "bg-slate-400 cursor-not-allowed" : "bg-blue-600 hover:bg-blue-700"}`}
+                >
+                    <Layers className={`h-4 w-4 mr-2 ${isGrouping ? "animate-spin" : ""}`} />
+                    {isGrouping ? "Processing..." : "Group Orders"}
+                </button>
             </div>
 
-            {/* Filters */}
-            <div className="bg-white p-4 rounded-lg shadow-sm border border-blue-100 mb-8 flex items-center flex-wrap gap-4">
-              <FilterIcon />
-              <h3 className="text-md font-semibold text-slate-700 mr-4">
-                Filters:
-              </h3>
+            {/* 2. FILTER BAR */}
+            <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col md:flex-row items-center gap-4">
+                <div className="flex items-center gap-2 text-slate-700 font-semibold min-w-[80px]">
+                    <Filter className="w-5 h-5 text-slate-500" />
+                    Filters:
+                </div>
+                <div className="hidden md:block w-px h-8 bg-slate-200 mx-2"></div>
 
-              <select
-                value={selectedCategory || ""}
-                onChange={(e) =>
-                  setSelectedCategory(
-                    e.target.value ? Number.parseInt(e.target.value) : null
-                  )
-                }
-                className="bg-blue-50 border border-blue-100 rounded-md shadow-sm p-2 text-sm text-slate-700 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              >
-                <option value="">All Product Types</option>
-                {getUniqueCategories().map((cat) => (
-                  <option key={cat.id} value={cat.id}>
-                    {cat.name}
-                  </option>
-                ))}
-              </select>
+                <div className="flex flex-col md:flex-row items-center gap-3 w-full md:w-auto flex-1">
+                    <select
+                        value={selectedCategory || ""}
+                        onChange={(e) => setSelectedCategory(e.target.value ? Number.parseInt(e.target.value) : null)}
+                        className="w-full md:w-[200px] bg-slate-50 border border-slate-200 text-slate-700 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2.5"
+                    >
+                        <option value="">All Product Types</option>
+                        {getUniqueCategories().map((cat) => (
+                        <option key={cat.id} value={cat.id}>{cat.name}</option>
+                        ))}
+                    </select>
 
-              <input
-                type="date"
-                value={selectedDate}
-                onChange={(e) => setSelectedDate(e.target.value)}
-                className="bg-blue-50 border border-blue-100 rounded-md shadow-sm p-2 text-sm text-slate-700 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              />
-              <button
-                onClick={() => {
-                  setSelectedCategory(null);
-                  setSelectedDate("");
-                }}
-                className="text-sm text-blue-600 hover:text-blue-800 hover:underline ml-auto pr-2"
-              >
-                Clear Filters
-              </button>
+                    <input
+                        type="date"
+                        value={selectedDate}
+                        onChange={(e) => setSelectedDate(e.target.value)}
+                        className="w-full md:w-[160px] bg-slate-50 border border-slate-200 text-slate-700 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2.5"
+                    />
+
+                    {/* Search Input */}
+                    <div className="relative w-full md:w-[250px]">
+                        <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                            <Search className="w-4 h-4 text-slate-400" />
+                        </div>
+                        <input 
+                            type="text" 
+                            className="w-full bg-slate-50 border border-slate-200 text-slate-700 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block pl-10 p-2.5" 
+                            placeholder="Search Order Code..."
+                            value={searchOrderCode}
+                            onChange={(e) => setSearchOrderCode(e.target.value)}
+                        />
+                    </div>
+                </div>
+
+                {(selectedCategory || selectedDate || searchOrderCode) && (
+                    <button
+                        onClick={clearFilters}
+                        className="text-sm font-medium text-blue-600 hover:text-blue-800 hover:underline whitespace-nowrap ml-auto"
+                    >
+                        Clear Filters
+                    </button>
+                )}
             </div>
 
-            {/* Content Area */}
+            {/* 3. List Data (RENDER FILTERED DATA) */}
             <div className="space-y-8">
               {isLoading ? (
-                <div className="text-center py-10 bg-white rounded-lg shadow-md border border-blue-100">
-                  <p className="text-slate-500">Loading...</p>
-                </div>
-              ) : error ? (
-                <div className="text-center py-10 bg-white rounded-lg shadow-md border border-blue-100">
-                  <p className="text-red-500 font-semibold">{error}</p>
-                </div>
-              ) : productionData.length === 0 ? (
-                <div className="text-center py-10 bg-white rounded-lg shadow-md border border-blue-100">
-                  <p className="text-slate-500">No orders found.</p>
+                <div className="flex justify-center py-20"><div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600"></div></div>
+              ) : filteredData.length === 0 ? (
+                <div className="text-center py-20 bg-white rounded-xl border border-slate-200 shadow-sm">
+                    <div className="flex flex-col items-center justify-center text-slate-400">
+                        <Search className="w-12 h-12 mb-3 opacity-20" />
+                        <p className="text-lg font-medium text-slate-500">No orders found.</p>
+                        <p className="text-sm">Try adjusting your filters or search criteria.</p>
+                    </div>
                 </div>
               ) : (
-                productionData.map((category) => (
-                  <div key={category.categoryId}>
-                    <h2 className="text-2xl font-bold text-slate-800">
-                      {category.categoryName}
-                      <span className="text-lg font-medium text-slate-600 ml-2">
-                        ({category.totalItems} orders)
-                      </span>
-                    </h2>
-                    <div className="mt-4 space-y-6">
-                      {category.dateGroups.map((dateGroup) => (
-                        <div
-                          key={dateGroup.groupDate}
-                          className="bg-white rounded-xl shadow-md overflow-hidden border border-blue-100"
-                        >
-                          <div className="bg-slate-200 p-3">
-                            <h3 className="font-bold text-slate-900">
-                              {new Date(dateGroup.groupDate).toLocaleDateString(
-                                "en-US",
-                                {
-                                  month: "long",
-                                  day: "2-digit",
-                                  year: "numeric",
-                                }
-                              )}
-                              <span className="font-normal ml-2">
-                                ({dateGroup.itemCount} items)
-                              </span>
-                            </h3>
-                          </div>
-                          <div className="overflow-x-auto">
-                            <table className="min-w-full text-sm">
-                              <thead className="bg-blue-50">
-                                <tr>
-                                  <th className="p-3 text-left font-semibold text-slate-700 w-12">
-                                    #
-                                  </th>
-                                  <th className="p-3 text-left font-semibold text-slate-700 w-24">
-                                    Image
-                                  </th>
-                                  <th className="p-3 text-left font-semibold text-slate-700">
-                                    Name
-                                  </th>
-                                  <th className="p-3 text-center font-semibold text-slate-700">
-                                    Quantity
-                                  </th>
-                                  <th className="p-3 text-left font-semibold text-slate-700">
-                                    Note
-                                  </th>
-                                  <th className="p-3 text-center font-semibold text-slate-700">
-                                    Documents
-                                  </th>
-                                  <th className="p-3 text-left font-semibold text-slate-700">
-                                    Status
-                                  </th>
-                                  <th className="p-3 text-left font-semibold text-slate-700">
-                                    Action
-                                  </th>
-                                </tr>
-                              </thead>
-                              <tbody className="divide-y divide-blue-100">
-                                {dateGroup.details.map((detail, index) => (
-                                  <tr
-                                    key={detail.planDetailId}
-                                    className="hover:bg-blue-50 transition-colors"
-                                  >
-                                    <td className="p-3 text-center text-slate-500">
-                                      {index + 1}
-                                    </td>
-                                    <td className="p-3">
-                                      <img
-                                        src={
-                                          detail.imageUrl ||
-                                          "https://placehold.co/100x100/e2e8f0/adb5bd?text=N/A" ||
-                                          "/placeholder.svg" ||
-                                          "/placeholder.svg" ||
-                                          "/placeholder.svg" ||
-                                          "/placeholder.svg" ||
-                                          "/placeholder.svg" ||
-                                          "/placeholder.svg"
-                                        }
-                                        alt={detail.customerName}
-                                        className="w-16 h-16 object-cover rounded-md border border-blue-100"
-                                      />
-                                    </td>
-                                    <td className="p-3">
-                                      <div className="font-bold text-slate-800">
-                                        {detail.customerName}
-                                      </div>
-                                      <div className="text-xs text-slate-500">
-                                        {detail.orderCode}
-                                      </div>
-                                    </td>
-                                    <td className="p-3 text-center font-medium text-slate-700">
-                                      {detail.quantity}
-                                    </td>
-                                    <td className="p-3 text-slate-600 max-w-xs">
-                                      {/* Hiển thị Note (nếu có) */}
-                                      {detail.noteOrEngravingContent ? (
-                                        <div
-                                          className="truncate"
-                                          title={detail.noteOrEngravingContent}
-                                        >
-                                          {detail.noteOrEngravingContent}
-                                        </div>
-                                      ) : (
-                                        <span className="text-slate-400 italic">
-                                          N/A
-                                        </span>
-                                      )}
-
-                                      {/* Hiển thị Reason (nếu có) */}
-                                      {detail.reason && (
-                                        <div
-                                          className="mt-2 text-xs text-red-700 bg-red-50 border border-red-200 rounded-md p-2"
-                                          title={detail.reason}
-                                        >
-                                          <strong>QC Reject Reason:</strong>{" "}
-                                          {detail.reason}
-                                        </div>
-                                      )}
-                                    </td>
-                                    <td className="p-3">
-                                      <div className="flex flex-wrap gap-2 justify-center">
-                                        <a
-                                          href={detail.productionFileUrl}
-                                          target="_blank"
-                                          rel="noopener noreferrer"
-                                          className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-800 hover:underline text-xs"
-                                        >
-                                          <DownloadIcon /> File
-                                        </a>
-                                        <a
-                                          href={detail.thankYouCardUrl}
-                                          target="_blank"
-                                          rel="noopener noreferrer"
-                                          className="inline-flex items-center gap-1 text-green-600 hover:text-green-800 hover:underline text-xs"
-                                        >
-                                          <CardIcon /> Card
-                                        </a>
-                                        <button className="inline-flex items-center gap-1 text-purple-600 hover:text-purple-800 text-xs">
-                                          <LabelIcon /> Label
-                                        </button>
-                                        <a 
-                                          href={`/staff/qr-code/${detail.orderDetailId}`} // <-- URL MỚI ĐÃ ÁP DỤNG
-                                          target="_blank"
-                                          rel="noopener noreferrer"
-                                          className="inline-flex items-center gap-1 text-orange-600 hover:text-orange-800 hover:underline text-xs">
-                                          <QrCodeIcon /> QR
-                                      </a>
-                                      </div>
-                                    </td>
-                                    <td className="p-3">
-                                      {detail.statusOrder === 6 && (
-                                        <span className="inline-flex items-center bg-slate-100 text-slate-800 text-xs font-medium px-2.5 py-0.5 rounded-full">
-                                          <span className="w-2 h-2 me-1 bg-slate-500 rounded-full"></span>
-                                          Waiting for Production
-                                        </span>
-                                      )}
-                                      {detail.statusOrder === 11 || detail.statusOrder===10 && (
-                                        <span className="inline-flex items-center bg-red-100 text-red-800 text-xs font-medium px-2.5 py-0.5 rounded-full">
-                                          <span className="w-2 h-2 me-1 bg-red-500 rounded-full"></span>
-                                          Production Failed
-                                        </span>
-                                      )}
-                                      {detail.statusOrder === 7 && (
-                                        <span className="inline-flex items-center bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded-full">
-                                          <span className="w-2 h-2 me-1 bg-blue-500 rounded-full"></span>
-                                          Production In Progress
-                                        </span>
-                                      )}
-                                      {detail.statusOrder === 8 && (
-                                        <span className="inline-flex items-center bg-green-100 text-green-800 text-xs font-medium px-2.5 py-0.5 rounded-full">
-                                          <span className="w-2 h-2 me-1 bg-green-500 rounded-full"></span>
-                                          Completed
-                                        </span>
-                                      )}
-                                    </td>
-                                    <td className="p-3">
-                                      {detail.statusOrder === 6 && (
-                                        <button
-                                          onClick={() =>
-                                            handleUpdateStatus(
-                                              detail.planDetailId,
-                                              7
-                                            )
-                                          }
-                                          className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition font-medium text-sm"
-                                        >
-                                          Start Production
-                                        </button>
-                                      )}
-                                      {detail.statusOrder === 11 || detail.statusOrder===10 && (
-                                        <button
-                                          onClick={() =>
-                                            handleReproduction(detail)
-                                          }
-                                          className="bg-orange-500 text-white px-4 py-2 rounded-md hover:bg-orange-600 transition font-medium text-sm"
-                                        >
-                                          Reproduce
-                                        </button>
-                                      )}
-                                      {detail.statusOrder === 7 && (
-                                        <button
-                                          onClick={() =>
-                                            handleMarkProduced(detail)
-                                          }
-                                          className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition font-medium text-sm"
-                                        >
-                                          Mark as Produced
-                                        </button>
-                                      )}
-                                    </td>
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
-                          </div>
-                        </div>
-                      ))}
+                filteredData.map((category, catIndex) => (
+                  <div key={category.categoryId || category.CategoryId || catIndex} className="space-y-4">
+                    
+                    {/* Category Name */}
+                    <div className="flex items-center gap-2 px-2 pt-4">
+                        <span className="h-6 w-1 bg-blue-500 rounded-full"></span>
+                        <h2 className="text-lg font-bold text-slate-800">
+                            {category.categoryName || category.CategoryName}
+                        </h2>
+                        <span className="text-xs font-semibold bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">
+                            {category.totalItems || category.TotalItems} items
+                        </span>
                     </div>
+
+                    {(category.dateGroups || category.DateGroups || []).map((dateGroup, dateIndex) => {
+                        const orderGroups = getOrderGroups(dateGroup);
+
+                        return (
+                        <div key={dateIndex}>
+                             {/* Date Header */}
+                            <div className="mb-2 ml-2 text-sm font-semibold text-slate-500 flex items-center gap-2 mt-4">
+                                <Calendar className="w-4 h-4" />
+                                {new Date(dateGroup.groupDate || dateGroup.GroupDate).toLocaleDateString("en-US", { weekday: 'short', month: 'long', day: 'numeric' })}
+                                <span className="text-xs font-normal text-slate-400">({dateGroup.itemCount || dateGroup.ItemCount} items)</span>
+                            </div>
+
+                            {/* TABLE */}
+                            <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                                <table className="w-full text-sm text-left">
+                                    <thead className="bg-slate-50 text-slate-500 border-b border-slate-200">
+                                        <tr>
+                                            <th className="px-4 py-3 font-medium w-12 text-center">#</th>
+                                            <th className="px-4 py-3 font-medium min-w-[300px]">Item Detail</th>
+                                            <th className="px-4 py-3 font-medium w-[250px]">Customer / Order</th>
+                                            <th className="px-4 py-3 font-medium text-center w-20">Qty</th>
+                                            <th className="px-4 py-3 font-medium text-center w-32">Status</th>
+                                            <th className="px-4 py-3 font-medium">Notes</th>
+                                            <th className="px-4 py-3 font-medium text-center">Files</th>
+                                            <th className="px-4 py-3 font-medium text-right w-[140px]">Action</th>
+                                        </tr>
+                                    </thead>
+                                    
+                                    {orderGroups.length > 0 ? (
+                                        orderGroups.map((group, groupIndex) => {
+                                            const details = getDetails(group);
+                                            const customerName = group.customerName || group.CustomerName || "N/A";
+                                            const orderCode = group.orderCode || group.OrderCode || "N/A";
+                                            const orderId = group.orderId || group.OrderId;
+
+                                            return (
+                                            <tbody key={orderId || groupIndex} className="border-b border-slate-100 last:border-0 hover:bg-slate-50/30 transition-colors group">
+                                                {details.map((detail, index) => {
+                                                    const d_planDetailId = detail.planDetailId || detail.PlanDetailId;
+                                                    const d_imageUrl = detail.imageUrl || detail.ImageUrl;
+                                                    const d_productName = detail.productName || detail.ProductName;
+                                                    const d_sku = detail.sku || detail.Sku;
+                                                    const d_reason = detail.reason || detail.Reason;
+                                                    const d_qty = detail.quantity || detail.Quantity;
+                                                    const d_note = detail.noteOrEngravingContent || detail.NoteOrEngravingContent;
+                                                    const d_file = detail.productionFileUrl || detail.ProductionFileUrl;
+                                                    const d_card = detail.thankYouCardUrl || detail.ThankYouCardUrl;
+                                                    const d_orderDetailId = detail.orderDetailId || detail.OrderDetailId;
+                                                    const d_status = detail.statusOrder || detail.StatusOrder; 
+
+                                                    return (
+                                                    <tr key={d_planDetailId}>
+                                                        
+                                                        {/* STT */}
+                                                        {index === 0 && (
+                                                            <td className="px-4 py-4 text-center align-top border-r border-transparent group-hover:border-slate-200" rowSpan={details.length}>
+                                                                <span className="text-slate-400 font-mono text-xs">{groupIndex + 1}</span>
+                                                            </td>
+                                                        )}
+
+                                                        {/* Product Info */}
+                                                        <td className="px-4 py-4 align-top">
+                                                            <div className="flex gap-4">
+                                                                <div className="relative h-20 w-20 flex-shrink-0 rounded-lg border border-slate-200 bg-slate-100 overflow-hidden">
+                                                                    <img
+                                                                        src={d_imageUrl || "/placeholder.svg"} 
+                                                                        alt={d_productName}
+                                                                        className="h-full w-full object-cover"
+                                                                        onError={(e) => {
+                                                                            e.target.onerror = null; 
+                                                                            e.target.src = "https://via.placeholder.com/150?text=No+Image"; 
+                                                                        }}
+                                                                    />
+                                                                </div>
+                                                                <div className="flex flex-col justify-start py-1">
+                                                                    <h3 className="text-base font-bold text-slate-800 line-clamp-2 leading-tight">
+                                                                        {d_productName || "No Name"}
+                                                                    </h3>
+                                                                    <div className="mt-1.5 flex flex-wrap gap-2">
+                                                                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-600 border border-slate-200 font-mono">
+                                                                            {d_sku || "NO-SKU"}
+                                                                        </span>
+                                                                        
+                                                                        {d_reason && (
+                                                                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-50 text-red-600 border border-red-100">
+                                                                                <AlertTriangle className="w-3 h-3 mr-1" />
+                                                                                {d_reason}
+                                                                            </span>
+                                                                        )}
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </td>
+
+                                                        {/* Customer / Order Info */}
+                                                        {index === 0 && (
+                                                            <td className="px-4 py-4 align-top border-l border-r border-transparent group-hover:border-slate-100" rowSpan={details.length}>
+                                                                <div className="flex flex-col gap-2">
+                                                                    <div className="flex items-center gap-2">
+                                                                        <div className="h-6 w-6 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center">
+                                                                            <User className="h-3.5 w-3.5" />
+                                                                        </div>
+                                                                        <span className="font-semibold text-slate-700 text-sm">{customerName}</span>
+                                                                    </div>
+                                                                    
+                                                                    <div className="flex items-center gap-1 bg-slate-100 border border-slate-200 px-2 py-1.5 rounded-md w-fit max-w-full">
+                                                                        <Tag className="w-3 h-3 text-slate-400 flex-shrink-0" />
+                                                                        <span className="text-xs font-mono text-slate-600 truncate max-w-[140px]" title={orderCode}>
+                                                                            {orderCode}
+                                                                        </span>
+                                                                        <button 
+                                                                            onClick={() => navigator.clipboard.writeText(orderCode)}
+                                                                            className="ml-1 text-slate-400 hover:text-blue-600" title="Copy Order ID"
+                                                                        >
+                                                                            <Copy className="w-3 h-3" />
+                                                                        </button>
+                                                                    </div>
+                                                                </div>
+                                                            </td>
+                                                        )}
+
+                                                        {/* Quantity */}
+                                                        <td className="px-4 py-4 align-top text-center pt-8">
+                                                            <span className="font-bold text-slate-700 bg-slate-100 px-3 py-1 rounded-md">x{d_qty}</span>
+                                                        </td>
+
+                                                        {/* Status */}
+                                                        <td className="px-4 py-4 align-top text-center pt-8">
+                                                            {renderStatusBadge(d_status)}
+                                                        </td>
+
+                                                        {/* Notes */}
+                                                        <td className="px-4 py-4 align-top pt-6">
+                                                            {d_note ? (
+                                                                <div className="flex items-start gap-2 bg-yellow-50 text-yellow-800 text-xs p-2 rounded border border-yellow-200">
+                                                                    <StickyNote className="w-3 h-3 mt-0.5 flex-shrink-0" />
+                                                                    <span className="italic">{d_note}</span>
+                                                                </div>
+                                                            ) : (
+                                                                <span className="text-slate-300 text-xs italic">--</span>
+                                                            )}
+                                                        </td>
+
+                                                        {/* Files */}
+                                                        <td className="px-4 py-4 align-top text-center pt-6">
+                                                            <div className="flex items-center justify-center gap-1.5">
+                                                                {d_file && (
+                                                                    <a href={d_file} target="_blank" title="Download Design" className="p-2 text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition border border-blue-100">
+                                                                        <Download className="w-4 h-4" />
+                                                                    </a>
+                                                                )}
+                                                                {d_card && (
+                                                                    <a href={d_card} target="_blank" title="Thank You Card" className="p-2 text-emerald-600 bg-emerald-50 hover:bg-emerald-100 rounded-lg transition border border-emerald-100">
+                                                                        <CreditCard className="w-4 h-4" />
+                                                                    </a>
+                                                                )}
+                                                                <a href={`/staff/qr-code/${d_orderDetailId}`} title="View QR" className="p-2 text-slate-600 bg-slate-50 hover:bg-slate-100 rounded-lg transition border border-slate-200">
+                                                                    <QrCode className="w-4 h-4" />
+                                                                </a>
+                                                            </div>
+                                                        </td>
+
+                                                        {/* Action Buttons */}
+                                                        <td className="px-4 py-4 align-top text-right pt-6">
+                                                            {renderActionButton(d_status, d_planDetailId)}
+                                                        </td>
+                                                    </tr>
+                                                )})}
+                                            </tbody>
+                                        )})
+                                    ) : (
+                                        <tbody>
+                                            <tr>
+                                                <td colSpan="8" className="text-center py-6 text-slate-400 italic">No items available.</td>
+                                            </tr>
+                                        </tbody>
+                                    )}
+                                </table>
+                            </div>
+                        </div>
+                    )})}
                   </div>
                 ))
               )}
@@ -522,5 +548,5 @@ export default function NeedsProductionPage() {
         </main>
       </div>
     </div>
-  );
+  )
 }

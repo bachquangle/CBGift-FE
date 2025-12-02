@@ -36,6 +36,7 @@ import {
   ChevronRight,
   Trash2,
   RotateCcw,
+  EyeOff,
 } from "lucide-react";
 
 import { useToast } from "@/hooks/use-toast";
@@ -71,9 +72,9 @@ export default function ManageCatalog() {
   // -------------------------
   async function fetchCategories() {
     try {
-      const res = await fetch(
-        `${apiClient.defaults.baseURL}/api/Categories/public`
-      );
+      const res = await fetch(`${apiClient.defaults.baseURL}/api/Categories/public`, {
+        credentials: "include",
+      });
 
       if (!res.ok) throw new Error("Failed to fetch categories");
 
@@ -104,7 +105,15 @@ export default function ManageCatalog() {
 
       const url = `${apiClient.defaults.baseURL}/api/Product/filter?searchTerm=${searchTerm}&category=${category}&status=${status}&page=${page}&pageSize=${itemsPerPage}`;
 
-      const res = await fetch(url, { cache: "no-store" });
+     const res = await fetch(url, {
+        method: "GET",
+        cache: "no-store",
+        credentials: "include", // gửi cookie kèm request
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+
       if (!res.ok) throw new Error("Failed to fetch product list");
 
       const data = await res.json();
@@ -159,8 +168,9 @@ export default function ManageCatalog() {
   const handleViewDetails = async (product) => {
     try {
       const res = await fetch(
-        `${apiClient.defaults.baseURL}/api/Product/${product.id}`
-      );
+        `${apiClient.defaults.baseURL}/api/Product/${product.id}`, {
+        credentials: "include",
+      });
       const data = await res.json();
 
       const mapped = {
@@ -186,10 +196,14 @@ export default function ManageCatalog() {
   // -----------------------------
   const handleSoftDelete = async (id) => {
     try {
-      const res = await fetch(
+     const res = await fetch(
         `${apiClient.defaults.baseURL}/api/Product/hidden/${id}`,
         {
           method: "DELETE",
+          credentials: "include", // gửi cookie qua server để authorize
+          headers: {
+            "Content-Type": "application/json",
+          },
         }
       );
 
@@ -212,10 +226,14 @@ export default function ManageCatalog() {
   // -----------------------------
   const handleRestore = async (id) => {
     try {
-      const res = await fetch(
+     const res = await fetch(
         `${apiClient.defaults.baseURL}/api/Product/restore/${id}`,
         {
           method: "PATCH",
+          credentials: "include", // gửi cookie để server authorize
+          headers: {
+            "Content-Type": "application/json",
+          },
         }
       );
 
@@ -399,7 +417,7 @@ export default function ManageCatalog() {
                                 variant="destructive"
                                 onClick={() => handleSoftDelete(p.id)}
                               >
-                                <Trash2 className="h-4 w-4" />
+                                <EyeOff className="h-4 w-4" />
                               </Button>
                             ) : (
                               <Button

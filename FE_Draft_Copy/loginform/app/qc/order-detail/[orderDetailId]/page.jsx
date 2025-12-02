@@ -5,8 +5,10 @@ import { useParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Printer } from "lucide-react";
+import { Loader2, Printer, Tag } from "lucide-react"; // ĐÃ SỬA: Thêm import Tag
 import apiClient from "../../../../lib/apiClient";
+import QcSidebar from "@/components/layout/qc/sidebar";
+import QcHeader from "@/components/layout/qc/header";
 
 // --- MAPPING STATUS ---
 const STATUS_MAP = {
@@ -219,111 +221,131 @@ export default function OrderDetailPage() {
     }
   };
 
-  if (loading) return <FullScreenMessage message="Loading order details..." />;
-  if (error) return <FullScreenMessage message={`Error: ${error}`} />;
-  if (!orderDetail) return <FullScreenMessage message="Order detail not found" />;
-
-  const product = orderDetail.productVariant?.product;
-  const productImageUrl = orderDetail.linkImg
+  // Prepare data for rendering
+  const product = orderDetail?.productVariant?.product;
+  const productImageUrl = orderDetail?.linkImg
     ? orderDetail.linkImg.startsWith("http")
       ? orderDetail.linkImg
       : `${apiClient.defaults.baseURL}/${orderDetail.linkImg}`
     : null;
 
-  const statusString = STATUS_MAP[orderDetail.productionStatus] || "UNKNOWN";
+  const statusString = orderDetail ? (STATUS_MAP[orderDetail.productionStatus] || "UNKNOWN") : "";
   const statusVariant = getBadgeVariant(statusString);
   const trackingCode = orderDetail?.order?.tracking || orderDetail?.trackingCode;
 
+  // --- LOGIC HIỂN THỊ MÃ ĐƠN HÀNG MỚI (ĐÃ SỬA) ---
+  const displayOrderCode = orderDetail?.order?.orderCode
+    ? (orderDetail.totalItems && orderDetail.itemIndex
+        ? `${orderDetail.order.orderCode}_${orderDetail.totalItems}IT_${orderDetail.itemIndex}`
+        : orderDetail.order.orderCode)
+    : "";
+
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <HeaderSection
-          orderDetail={orderDetail}
-          product={product}
-          statusString={statusString}
-          statusVariant={statusVariant}
-          trackingCode={trackingCode}
-          isPrinting={isPrinting}
-          onPrint={handlePrintA5}
-          router={router}
-        />
+    <div className="flex h-screen bg-slate-50 overflow-hidden font-sans">
+      <QcSidebar />
+      <div className="flex-1 flex flex-col overflow-hidden">
+        <QcHeader />
+        
+        <main className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 p-6">
+          {loading ? (
+            <FullScreenMessage message="Loading order details..." />
+          ) : error ? (
+            <FullScreenMessage message={`Error: ${error}`} />
+          ) : !orderDetail ? (
+            <FullScreenMessage message="Order detail not found" />
+          ) : (
+            <div className="max-w-7xl mx-auto">
+              {/* Header */}
+              <HeaderSection
+                orderDetail={orderDetail}
+                product={product}
+                statusString={statusString}
+                statusVariant={statusVariant}
+                trackingCode={trackingCode}
+                isPrinting={isPrinting}
+                onPrint={handlePrintA5}
+                router={router}
+                displayOrderCode={displayOrderCode} // Truyền vào Header
+              />
 
-        {/* Images */}
-        {(productImageUrl || orderDetail.linkFileDesign) && (
-          <ImagesSection productImageUrl={productImageUrl} designFile={orderDetail.linkFileDesign} />
-        )}
+              {/* Images */}
+              {(productImageUrl || orderDetail.linkFileDesign) && (
+                <ImagesSection productImageUrl={productImageUrl} designFile={orderDetail.linkFileDesign} />
+              )}
 
-        {/* Info Cards */}
-        <InfoCard title="Order Information">
-          <InfoGrid items={[
-            { label: "Order Detail ID", value: orderDetail.orderDetailId },
-            { label: "Order ID", value: orderDetail.orderId },
-            { label: "Quantity", value: orderDetail.quantity },
-            { label: "Price", value: `$${orderDetail.price.toFixed(2)}` },
-            { label: "Created Date", value: new Date(orderDetail.createdDate).toLocaleString() },
-            { label: "Production Status", value: orderDetail.productionStatus },
-            { label: "Need Design", value: orderDetail.needDesign ? "Yes" : "No" },
-            { label: "Assigned At", value: orderDetail.assignedAt ? new Date(orderDetail.assignedAt).toLocaleString() : "Not assigned" },
-            { label: "Designer ID", value: orderDetail.assignedDesignerUserId || "Not assigned" },
-          ]} />
-        </InfoCard>
+              {/* Info Cards */}
+              <InfoCard title="Order Information">
+                <InfoGrid items={[
+                  { label: "Order Detail ID", value: orderDetail.orderDetailId },
+                  { label: "Order ID", value: orderDetail.orderId },
+                  { label: "Quantity", value: orderDetail.quantity },
+                  { label: "Price", value: `$${orderDetail.price.toFixed(2)}` },
+                  { label: "Created Date", value: new Date(orderDetail.createdDate).toLocaleString() },
+                  { label: "Production Status", value: orderDetail.productionStatus },
+                  { label: "Need Design", value: orderDetail.needDesign ? "Yes" : "No" },
+                  { label: "Assigned At", value: orderDetail.assignedAt ? new Date(orderDetail.assignedAt).toLocaleString() : "Not assigned" },
+                  { label: "Designer ID", value: orderDetail.assignedDesignerUserId || "Not assigned" },
+                ]} />
+              </InfoCard>
 
-        <InfoCard title="Product Information">
-          <InfoGrid items={[
-            { label: "Product Name", value: product?.productName },
-            { label: "Product Code", value: product?.productCode },
-            { label: "Category ID", value: product?.categoryId },
-            { label: "Status", value: product?.status },
-            { label: "SKU", value: orderDetail.productVariant?.sku },
-            { label: "Accessory", value: orderDetail.accessory },
-          ]} />
-          {product?.describe && (
-            <p className="text-gray-600 mt-2">{product.describe}</p>
+              <InfoCard title="Product Information">
+                <InfoGrid items={[
+                  { label: "Product Name", value: product?.productName },
+                  { label: "Product Code", value: product?.productCode },
+                  { label: "Category ID", value: product?.categoryId },
+                  { label: "Status", value: product?.status },
+                  { label: "SKU", value: orderDetail.productVariant?.sku },
+                  { label: "Accessory", value: orderDetail.accessory },
+                ]} />
+                {product?.describe && (
+                  <p className="text-gray-600 mt-2">{product.describe}</p>
+                )}
+              </InfoCard>
+
+              <InfoCard title="Product Variant Details">
+                <InfoGrid items={[
+                  { label: "Size (inch)", value: orderDetail.productVariant?.sizeInch },
+                  { label: "Thickness (mm)", value: orderDetail.productVariant?.thicknessMm },
+                  { label: "Layer", value: orderDetail.productVariant?.layer },
+                  { label: "Custom Shape", value: orderDetail.productVariant?.customShape },
+                  { label: "Length (cm)", value: orderDetail.productVariant?.lengthCm },
+                  { label: "Height (cm)", value: orderDetail.productVariant?.heightCm },
+                  { label: "Width (cm)", value: orderDetail.productVariant?.widthCm },
+                  { label: "Weight (gram)", value: orderDetail.productVariant?.weightGram },
+                ]} />
+              </InfoCard>
+
+              <InfoCard title="Cost Breakdown">
+                <InfoGrid items={[
+                  { label: "Base Cost", value: `$${orderDetail.productVariant?.baseCost.toFixed(2)}` },
+                  { label: "Ship Cost", value: `$${orderDetail.productVariant?.shipCost.toFixed(2)}` },
+                  { label: "Extra Shipping", value: `$${orderDetail.productVariant?.extraShipping.toFixed(2)}` },
+                  { label: "Total Cost", value: `$${orderDetail.productVariant?.totalCost.toFixed(2)}`, className: "font-semibold text-lg" },
+                ]} />
+              </InfoCard>
+
+              {orderDetail.note && (
+                <InfoCard title="Notes">
+                  <p className="text-gray-700">{orderDetail.note}</p>
+                </InfoCard>
+              )}
+
+              {/* Accept / Reject Buttons */}
+              <div className="flex justify-end gap-4 mt-6 mb-10">
+                {orderDetail.productionStatus === 8 ? (
+                  <>
+                    <ActionButton label="Reject Order" onClick={handleReject} isLoading={isSubmitting} destructive />
+                    <ActionButton label="Accept Order" onClick={handleAccept} isLoading={isSubmitting} success />
+                  </>
+                ) : orderDetail.productionStatus === 9 ? (
+                  <StatusMessage label="Already Accepted" success />
+                ) : orderDetail.productionStatus === 10 ? (
+                  <StatusMessage label="Already Rejected" destructive />
+                ) : null}
+              </div>
+            </div>
           )}
-        </InfoCard>
-
-        <InfoCard title="Product Variant Details">
-          <InfoGrid items={[
-            { label: "Size (inch)", value: orderDetail.productVariant?.sizeInch },
-            { label: "Thickness (mm)", value: orderDetail.productVariant?.thicknessMm },
-            { label: "Layer", value: orderDetail.productVariant?.layer },
-            { label: "Custom Shape", value: orderDetail.productVariant?.customShape },
-            { label: "Length (cm)", value: orderDetail.productVariant?.lengthCm },
-            { label: "Height (cm)", value: orderDetail.productVariant?.heightCm },
-            { label: "Width (cm)", value: orderDetail.productVariant?.widthCm },
-            { label: "Weight (gram)", value: orderDetail.productVariant?.weightGram },
-          ]} />
-        </InfoCard>
-
-        <InfoCard title="Cost Breakdown">
-          <InfoGrid items={[
-            { label: "Base Cost", value: `$${orderDetail.productVariant?.baseCost.toFixed(2)}` },
-            { label: "Ship Cost", value: `$${orderDetail.productVariant?.shipCost.toFixed(2)}` },
-            { label: "Extra Shipping", value: `$${orderDetail.productVariant?.extraShipping.toFixed(2)}` },
-            { label: "Total Cost", value: `$${orderDetail.productVariant?.totalCost.toFixed(2)}`, className: "font-semibold text-lg" },
-          ]} />
-        </InfoCard>
-
-        {orderDetail.note && (
-          <InfoCard title="Notes">
-            <p className="text-gray-700">{orderDetail.note}</p>
-          </InfoCard>
-        )}
-
-        {/* Accept / Reject Buttons */}
-        <div className="flex justify-end gap-4">
-          {orderDetail.productionStatus === 8 ? (
-            <>
-              <ActionButton label="Reject Order" onClick={handleReject} isLoading={isSubmitting} destructive />
-              <ActionButton label="Accept Order" onClick={handleAccept} isLoading={isSubmitting} success />
-            </>
-          ) : orderDetail.productionStatus === 9 ? (
-            <StatusMessage label="Already Accepted" success />
-          ) : orderDetail.productionStatus === 10 ? (
-            <StatusMessage label="Already Rejected" destructive />
-          ) : null}
-        </div>
+        </main>
       </div>
     </div>
   );
@@ -331,19 +353,29 @@ export default function OrderDetailPage() {
 
 /* --- COMPONENTS --- */
 const FullScreenMessage = ({ message }) => (
-  <div className="flex items-center justify-center min-h-screen">
-    <div className="text-lg text-gray-600">{message}</div>
+  <div className="flex items-center justify-center h-full">
+    <div className="text-lg text-gray-500 font-medium">{message}</div>
   </div>
 );
 
-const HeaderSection = ({ orderDetail, product, statusString, statusVariant, trackingCode, isPrinting, onPrint, router }) => (
-  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 gap-4">
+// ĐÃ SỬA: Nhận displayOrderCode làm prop
+const HeaderSection = ({ orderDetail, product, statusString, statusVariant, trackingCode, isPrinting, onPrint, router, displayOrderCode }) => (
+  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 gap-4 bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
     <div className="flex-grow">
-      <h1 className="text-3xl font-bold text-gray-900">Order Detail #{orderDetail.orderDetailId}</h1>
-      <p className="text-gray-600 mt-1 text-sm sm:text-base">Order ID: {orderDetail.orderId} | Product: {product?.productName || "N/A"}</p>
-      <div className="mt-2 flex items-center gap-2">
-        <Badge variant={statusVariant} className="text-sm px-3 py-1">Status: {statusString}</Badge>
-        {trackingCode && <span className="text-sm text-gray-500 font-mono bg-gray-100 px-2 py-0.5 rounded border border-gray-200">{trackingCode}</span>}
+      {/* Hiển thị Mã Đơn Hàng Mới */}
+      <h1 className="text-2xl font-bold text-slate-800">
+        Order Code: {displayOrderCode || orderDetail.order.orderCode}
+      </h1>
+      <p className="text-slate-500 mt-1 text-sm sm:text-base">
+        Order Detail # <span className="font-medium text-slate-700">{orderDetail.orderDetailId}</span> | Product: <span className="font-medium text-slate-700">{product?.productName || "N/A"}</span>
+      </p>
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        <Badge variant={statusVariant} className="text-sm px-3 py-1">{statusString}</Badge>
+        {trackingCode && (
+          <span className="text-sm text-slate-600 font-mono bg-slate-100 px-2 py-0.5 rounded border border-slate-200 flex items-center gap-1">
+            <Tag className="w-3 h-3"/> {trackingCode}
+          </span>
+        )}
       </div>
     </div>
     <div className="flex gap-3">
@@ -355,34 +387,43 @@ const HeaderSection = ({ orderDetail, product, statusString, statusVariant, trac
           className="gap-2 bg-blue-600 hover:bg-blue-700 text-white shadow-sm"
         >
           {isPrinting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Printer className="h-4 w-4" />}
-          In Label
+          Print Label
         </Button>
       )}
-      <Button onClick={() => router.back()} variant="outline" className="gap-2 flex-shrink-0">← Back</Button>
+      <Button onClick={() => router.back()} variant="outline" className="gap-2 flex-shrink-0 bg-white hover:bg-slate-50">
+        Back
+      </Button>
     </div>
   </div>
 );
 
 const ImagesSection = ({ productImageUrl, designFile }) => (
-  <Card className="p-6 mb-6">
-    <h2 className="text-xl font-semibold mb-4">Images</h2>
+  <Card className="p-6 mb-6 border-slate-200 shadow-sm">
+    <h2 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
+        <span className="w-1 h-6 bg-blue-500 rounded-full"></span>
+        Images & Files
+    </h2>
     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
       {productImageUrl && (
-        <div>
-          <p className="font-medium mb-2 text-gray-700">Product Image</p>
-          <a href={productImageUrl} target="_blank" rel="noopener noreferrer">
-            <img src={productImageUrl} alt="Product" className="w-full h-80 object-cover rounded-lg border border-gray-200 hover:opacity-90 transition-opacity cursor-pointer" />
+        <div className="bg-slate-50 p-4 rounded-lg border border-slate-100">
+          <p className="font-medium mb-3 text-slate-700">Product Image</p>
+          <a href={productImageUrl} target="_blank" rel="noopener noreferrer" className="block relative group overflow-hidden rounded-lg border border-slate-200">
+            <img src={productImageUrl} alt="Product" className="w-full h-64 object-cover hover:scale-105 transition-transform duration-300" />
+            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center">
+                <span className="opacity-0 group-hover:opacity-100 bg-white/90 text-slate-800 text-xs px-3 py-1 rounded-full font-medium shadow-sm transition-opacity">View Full Size</span>
+            </div>
           </a>
-          <p className="text-sm text-gray-500 mt-2">Click to view full size</p>
         </div>
       )}
       {designFile && (
-        <div>
-          <p className="font-medium mb-2 text-gray-700">Design File</p>
-          <a href={designFile} target="_blank" rel="noopener noreferrer">
-            <img src={designFile} alt="Design file" className="w-full h-80 object-cover rounded-lg border border-gray-200 hover:opacity-90 transition-opacity cursor-pointer" />
+        <div className="bg-slate-50 p-4 rounded-lg border border-slate-100">
+          <p className="font-medium mb-3 text-slate-700">Design File</p>
+          <a href={designFile} target="_blank" rel="noopener noreferrer" className="block relative group overflow-hidden rounded-lg border border-slate-200">
+            <img src={designFile} alt="Design file" className="w-full h-64 object-cover hover:scale-105 transition-transform duration-300" />
+             <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center">
+                <span className="opacity-0 group-hover:opacity-100 bg-white/90 text-slate-800 text-xs px-3 py-1 rounded-full font-medium shadow-sm transition-opacity">View Full Size</span>
+            </div>
           </a>
-          <p className="text-sm text-gray-500 mt-2">Click to view full size</p>
         </div>
       )}
     </div>
@@ -390,14 +431,17 @@ const ImagesSection = ({ productImageUrl, designFile }) => (
 );
 
 const InfoCard = ({ title, children }) => (
-  <Card className="p-6 mb-6">
-    <h2 className="text-xl font-semibold mb-4">{title}</h2>
+  <Card className="p-6 mb-6 border-slate-200 shadow-sm">
+    <h2 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
+        <span className="w-1 h-6 bg-blue-500 rounded-full"></span>
+        {title}
+    </h2>
     {children}
   </Card>
 );
 
 const InfoGrid = ({ items }) => (
-  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-y-6 gap-x-8">
     {items.map((item, idx) => (
       <InfoItem key={idx} label={item.label} value={item.value} className={item.className} />
     ))}
@@ -405,9 +449,9 @@ const InfoGrid = ({ items }) => (
 );
 
 const InfoItem = ({ label, value, className = "" }) => (
-  <div className={className}>
-    <p className="text-sm text-gray-500 mb-1">{label}</p>
-    <p className="font-medium text-gray-900">{value ?? "N/A"}</p>
+  <div className={`flex flex-col ${className}`}>
+    <span className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">{label}</span>
+    <span className="text-sm font-semibold text-slate-900 break-words">{value ?? "N/A"}</span>
   </div>
 );
 
@@ -415,7 +459,13 @@ const ActionButton = ({ label, onClick, isLoading, destructive, success }) => (
   <Button
     onClick={onClick}
     size="lg"
-    className={`px-8 ${destructive ? "bg-red-600 hover:bg-red-700 text-white" : ""} ${success ? "bg-green-600 hover:bg-green-700 text-white" : ""}`}
+    className={`px-6 font-medium shadow-sm transition-all ${
+        destructive 
+        ? "bg-white text-red-600 border border-red-200 hover:bg-red-50 hover:border-red-300" 
+        : success 
+            ? "bg-emerald-600 text-white hover:bg-emerald-700 hover:shadow-md" 
+            : ""
+    }`}
     disabled={isLoading}
   >
     {isLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : label}
@@ -423,7 +473,15 @@ const ActionButton = ({ label, onClick, isLoading, destructive, success }) => (
 );
 
 const StatusMessage = ({ label, success, destructive }) => (
-  <div className={`px-8 py-3 rounded-md font-medium ${success ? "bg-green-100 text-green-700" : ""} ${destructive ? "bg-red-100 text-red-700" : ""}`}>
+  <div className={`px-6 py-3 rounded-lg font-semibold text-sm flex items-center gap-2 border ${
+      success 
+      ? "bg-emerald-50 text-emerald-700 border-emerald-200" 
+      : destructive 
+        ? "bg-red-50 text-red-700 border-red-200" 
+        : ""
+  }`}>
+    {success && <div className="w-2 h-2 rounded-full bg-emerald-500"></div>}
+    {destructive && <div className="w-2 h-2 rounded-full bg-red-500"></div>}
     {label}
   </div>
 );

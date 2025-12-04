@@ -25,7 +25,21 @@ export default function NotificationBell() {
   const scrollContainerRef = useRef(null);
   const PAGE_SIZE = 10;
 
-  // --- CÁC HÀM FETCH API GIỮ NGUYÊN NHƯ CŨ ---
+  // --- HÀM HELPER ĐỂ XỬ LÝ GIỜ ---
+  const parseUtcDate = (dateString) => {
+      if (!dateString) return new Date();
+      
+      // Nếu chuỗi thời gian server trả về không có 'Z' (UTC marker) 
+      // và không có dấu '+' (Timezone offset), ta thủ công thêm 'Z' vào.
+      // Điều này ép trình duyệt hiểu: "Đây là giờ UTC (London), hãy tự quy đổi sang giờ VN khi hiển thị".
+      if (!dateString.endsWith("Z") && !dateString.includes("+")) {
+          return new Date(dateString + "Z");
+      }
+      
+      return new Date(dateString);
+  };
+
+  // --- CÁC HÀM FETCH API ---
   const fetchUnreadCount = async () => {
     try {
       const res = await apiClient.get("/api/Notification/unread-count");
@@ -63,10 +77,7 @@ export default function NotificationBell() {
   };
 
   const handleReadNotification = async (notification) => {
-    if (notification.redirectUrl) {
-       // window.location.href = notification.redirectUrl; 
-    }
-
+    // Logic redirect...
     if (notification.isRead) return;
 
     try {
@@ -184,17 +195,15 @@ export default function NotificationBell() {
                   onClick={() => handleReadNotification(notification)}
                   className={`flex flex-col gap-1 p-3.5 text-sm transition-all cursor-pointer ${
                     !notification.isRead 
-                        // CHƯA ĐỌC: Nền xanh rất nhạt, Chữ đen đậm
                         ? "bg-blue-50 hover:bg-blue-100" 
-                        // ĐÃ ĐỌC: Nền trắng, Chữ xám
                         : "bg-white hover:bg-gray-50"
                   }`}
                 >
                   <div className="flex justify-between items-start gap-2">
                     <span className={`text-sm ${
                         !notification.isRead 
-                        ? "font-bold text-gray-900" // Tiêu đề đậm đen khi chưa đọc
-                        : "font-medium text-gray-600" // Tiêu đề xám khi đã đọc
+                        ? "font-bold text-gray-900" 
+                        : "font-medium text-gray-600"
                     }`}>
                       {notification.title || "Hệ thống"}
                     </span>
@@ -205,17 +214,18 @@ export default function NotificationBell() {
                   
                   <p className={`text-xs line-clamp-3 leading-relaxed ${
                       !notification.isRead 
-                      ? "text-gray-800 font-medium" // Nội dung đậm hơn khi chưa đọc
-                      : "text-gray-500" // Nội dung nhạt đi khi đã đọc
+                      ? "text-gray-800 font-medium" 
+                      : "text-gray-500" 
                   }`}>
                     {notification.message || notification.content}
                   </p>
                   
+                  {/* --- SỬA Ở ĐÂY: DÙNG HÀM parseUtcDate --- */}
                   <span className={`text-[11px] mt-1 ${
-                       !notification.isRead ? "text-blue-600 font-medium" : "text-gray-400"
+                        !notification.isRead ? "text-blue-600 font-medium" : "text-gray-400"
                   }`}>
                     {notification.createdAt 
-                      ? formatDistanceToNow(new Date(notification.createdAt), { addSuffix: true, locale: vi }) 
+                      ? formatDistanceToNow(parseUtcDate(notification.createdAt), { addSuffix: true, locale: vi }) 
                       : "Vừa xong"}
                   </span>
                 </div>

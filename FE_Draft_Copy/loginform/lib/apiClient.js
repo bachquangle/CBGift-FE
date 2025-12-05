@@ -3,8 +3,8 @@ import axios from "axios";
 // 1. Đọc biến môi trường (từ .env.local hoặc DigitalOcean)
 //const apiURL = process.env.NEXT_PUBLIC_API_URL;
 
-const apiURL = "https://cb-gift-app-xsgw5.ondigitalocean.app";
-// const apiURL = "https://localhost:7015";
+//const apiURL = "https://cb-gift-app-xsgw5.ondigitalocean.app";
+const apiURL = "https://localhost:7015";
 
 // const apiURL = "https://cb-gift-app-xsgw5.ondigitalocean.app";
 //const apiURL = "https://localhost:7015";

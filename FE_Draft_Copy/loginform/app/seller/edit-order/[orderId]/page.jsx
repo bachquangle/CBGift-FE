@@ -124,7 +124,6 @@ export default function EditOrderPage() {
   const [productsError, setProductsError] = useState("");
   const [productSearchTerm, setProductSearchTerm] = useState(""); // This seems to be for the old product list, might be redundant with catalog search
   // const [productItemsPerPage, setProductItemsPerPage] = useState(5) // Not used in current logic, potentially legacy
-  // const [productCurrentPage, setProductCurrentPage] = useState(1) // Not used in current logic, potentially legacy
 
   // Step 3: Catalog Search & Filtering States
   const [searchTerm, setSearchTerm] = useState("");
@@ -182,23 +181,113 @@ export default function EditOrderPage() {
   const [expandedProducts, setExpandedProducts] = useState({});
   const [activeTTS, setActiveTTS] = useState(false);
   const [isOrderIdSet, setIsOrderIdSet] = useState(true);
+  const [orderCodeGoc, setOrderCodeGoc] = useState("");
 
   // New state for editing product
   const [editingProductId, setEditingProductId] = useState(null);
   const [editingProductConfig, setEditingProductConfig] = useState({});
 
-  const handleEditProduct = (product) => {
+  const [editingProductDetail, setEditingProductDetail] = useState(null);
+
+  // ADDED: uploadImage function for Step 4 file uploads
+  const uploadImage = async (file, onProgress) => {
+    const formData = new FormData();
+    formData.append("File", file);
+
+    try {
+      // Simulate progress updates while uploading
+      let currentProgress = 0;
+      const progressInterval = setInterval(() => {
+        if (currentProgress < 90) {
+          currentProgress += Math.random() * 30;
+          if (onProgress) onProgress(Math.min(currentProgress, 90));
+        }
+      }, 200);
+
+      const res = await fetch(
+        `${apiClient.defaults.baseURL}/api/images/upload`,
+        {
+          method: "POST",
+          credentials: "include",
+          body: formData,
+        }
+      );
+
+      clearInterval(progressInterval);
+
+      if (!res.ok) {
+        const errText = await res.text();
+        throw new Error(`Upload failed: ${res.status} - ${errText}`);
+      }
+
+      const data = await res.json();
+      if (onProgress) onProgress(100);
+      console.log("[v0] Upload success:", data);
+      return data.url || data.secureUrl || data.path || null;
+    } catch (err) {
+      console.error("[v0] Upload error:", err);
+      Swal.fire("Error", "Upload failed: " + err.message, "error");
+      return null;
+    }
+  };
+
+  // Dòng ~39: Hàm handleEditProduct đã được sửa
+  const handleEditProduct = async (product) => {
+    // 1. Dùng variantId của sản phẩm để gọi API mới
+    const variantIdToFetch = product.variantId;
+
+    // Nếu variantId bị thiếu (không nên xảy ra), dừng lại.
+    if (!variantIdToFetch) {
+      Swal.fire("Error", "Product variant ID is missing.", "error");
+      return;
+    }
+
     setEditingProductId(product.id);
+
+    // Tính toán lại giá đơn vị ban đầu (unit price)
+    const unitPrice = product.price / product.quantity;
+
+    // 2. Thiết lập trạng thái ban đầu của modal
     setEditingProductConfig({
       variantId: product.variantId,
       size: product.size,
-      price: product.price, // This seems to be price per unit from currentOrderProducts
+      price: unitPrice, // Sử dụng giá đơn vị đã tính
       linkImg: product.linkImg || "",
       linkThanksCard: product.linkThanksCard || "",
       linkFileDesign: product.linkFileDesign || "",
       quantity: product.quantity,
       note: product.note || "",
+      ...product,
+      linkImgPreview: product.linkImg,
+      linkThanksCardPreview: product.linkThanksCard,
+      linkFileDesignPreview: product.linkFileDesign,
     });
+
+    setEditingProductDetail(null); // Reset detail trước khi fetch
+
+    // 3. Gọi API LẤY CHI TIẾT SẢN PHẨM/VARIANTS BẰNG VARIANT ID
+    try {
+      const res = await fetch(
+        `${apiClient.defaults.baseURL}/api/Product/by-variant/${variantIdToFetch}`,
+        {
+          credentials: "include",
+        }
+      );
+      if (!res.ok)
+        throw new Error("Failed to fetch product details for editing");
+      const data = await res.json();
+
+      // data chính là đối tượng ProductDto đầy đủ, chứa ProductId và Variants
+      setEditingProductDetail(data.data || data);
+    } catch (error) {
+      console.error("Error fetching product details for editing:", error);
+      Swal.fire(
+        "Error",
+        "Failed to load product configuration details",
+        "error"
+      );
+      setEditingProductId(null); // Đóng modal nếu lỗi
+    }
   };
 
   const handleSaveEditedProduct = async () => {
@@ -207,28 +296,39 @@ export default function EditOrderPage() {
     try {
       const updatedProducts = currentOrderProducts.map((item) => {
         if (item.id === editingProductId) {
-          // When saving, we need to recalculate the price based on the new quantity and the unit price
-          // Also, need to update other fields from editingProductConfig
-          // Find the selected variant from the original product data if available, otherwise use editingProductConfig.price as unit price
-          const originalProduct = currentOrderProducts.find(
-            (p) => p.id === editingProductId
-          ); // Find the product from currentOrderProducts
-          const variant = originalProduct?.variants?.find(
+          // Lấy variant từ editingProductDetail (đã được fetch khi mở modal)
+          const variant = editingProductDetail?.variants?.find(
             (v) =>
               v.productVariantId.toString() ===
               editingProductConfig.variantId?.toString()
           );
 
-          const unitPrice = variant?.totalCost || editingProductConfig.price; // Use variant price or the price from editingProductConfig if variant not found or price is manually set
+          // Sử dụng giá đơn vị (unitPrice) từ variant mới, hoặc giá cũ nếu không tìm thấy
+          // 1. SỬA: unitPrice (giá đơn vị) phải là BASE COST
+          const unitPrice = variant?.baseCost || editingProductConfig.price;
+          // 2. TÍNH TỔNG GIÁ: Base Cost * Quantity
           const totalPrice = unitPrice * editingProductConfig.quantity;
 
           return {
             ...item,
-            ...editingProductConfig, // Apply all edited fields
+            ...editingProductConfig,
+
+            // Quantity + price updated
             quantity: editingProductConfig.quantity,
-            price: totalPrice, // Update the total price for this item
-            variantId: editingProductConfig.variantId, // Ensure variantId is updated
-            // Preserve other original fields like productId, productName, baseCost, shipCost, extraShipping if not being edited
+            price: totalPrice,
+            variantId: editingProductConfig.variantId,
+
+            // Ảnh UPDATED
+            linkImg: editingProductConfig.linkImg ?? item.linkImg,
+            linkThanksCard:
+              editingProductConfig.linkThanksCard ?? item.linkThanksCard,
+            linkFileDesign:
+              editingProductConfig.linkFileDesign ?? item.linkFileDesign,
+
+            // Costs
+            shipCost: variant?.shipCost || item.shipCost,
+            extraShipping: variant?.extraShipping || item.extraShipping,
+            baseCost: variant?.baseCost || item.baseCost,
           };
         }
         return item;
@@ -237,6 +337,7 @@ export default function EditOrderPage() {
       setCurrentOrderProducts(updatedProducts);
       setEditingProductId(null);
       setEditingProductConfig({});
+      setEditingProductDetail(null); // Xóa chi tiết sản phẩm sau khi lưu (Quan trọng)
 
       Swal.fire({
         icon: "success",
@@ -267,6 +368,7 @@ export default function EditOrderPage() {
         );
         if (!res.ok) throw new Error("Failed to load order");
         const data = await res.json();
+        setOrderCodeGoc(data.orderCode || data.OrderCode || "");
 
         // Set customer info with existing data
         setCustomerInfo({
@@ -311,10 +413,11 @@ export default function EditOrderPage() {
   }, [orderId, router]);
 
   // Fetch existing order products
+  // Fetch existing order products
   useEffect(() => {
     const loadOrderProducts = async () => {
       try {
-        if (!params.orderId) return; // Use params.orderId here, as orderId is derived from it
+        if (!params.orderId) return;
         const response = await fetch(
           `${apiClient.defaults.baseURL}/api/Order/${params.orderId}`,
           {
@@ -332,26 +435,42 @@ export default function EditOrderPage() {
         }
 
         const data = await response.json();
-        // Map API response to currentOrderProducts
-        const products = data.details.map((item) => ({
-          id: item.orderDetailID, // Use the correct ID from the API
-          productId: item.productId, // Added productId
-          variantId: item.variantId, // Added variantId
-          productName: item.productName,
-          quantity: item.quantity,
-          size: item.size || "N/A", // Ensure size is handled
-          price: item.price, // Ensure price is handled (this is the total price for the item)
-          linkImg: item.linkImg, // Added linkImg
-          linkThanksCard: item.linkThanksCard, // Added linkThanksCard
-          linkFileDesign: item.linkFileDesign, // Added linkFileDesign
-          note: item.note || "", // Ensure note is handled
-          // Added for getDetailedCostBreakdown to use
-          shipCost: item.shipCost || 0,
-          extraShipping: item.extraShipping || 0,
-          baseCost: item.baseCost || item.price - (item.shipCost || 0), // Calculate base if not available
-          // Add variants if available to correctly map back prices during editing
-          variants: item.variants || [], // Assuming variants are returned for existing items
-        }));
+
+        // 1. Map và làm giàu dữ liệu (Data Enrichment)
+        const productsWithDetailsPromises = data.details.map(async (item) => {
+          const variantId = item.productVariantID;
+
+          // 2. Gọi API để lấy chi phí chính xác và productId
+          const { productId, variantDetails } = await fetchVariantDetails(
+            variantId
+          );
+
+          return {
+            id: item.orderDetailID,
+            // Lấy productId từ API chi tiết
+            productId: productId || item.productId,
+            variantId: item.productVariantID,
+            productName: item.productName,
+            quantity: item.quantity,
+            size: item.size || "N/A",
+            price: item.price,
+            linkImg: item.linkImg,
+            linkThanksCard: item.linkThanksCard,
+            linkFileDesign: item.linkFileDesign,
+            note: item.note || "",
+
+            // 3. GÁN CHI PHÍ CHÍNH XÁC TỪ FETCH API
+            shipCost: variantDetails.shipCost,
+            extraShipping: variantDetails.extraShipping,
+            baseCost: variantDetails.baseCost,
+
+            // 4. Mảng variants đầy đủ (được dùng khi chỉnh sửa)
+            variants: variantDetails.variants || [],
+          };
+        });
+
+        // Chờ tất cả các cuộc gọi API hoàn thành
+        const products = await Promise.all(productsWithDetailsPromises);
         setCurrentOrderProducts(products);
       } catch (error) {
         console.error("Error loading order products:", error);
@@ -476,6 +595,43 @@ export default function EditOrderPage() {
     }
   }
 
+  // ADDED: Hàm phụ trợ để lấy thông tin chi tiết variant
+  const fetchVariantDetails = async (variantId) => {
+    if (!variantId) return { productId: null, variantDetails: {} };
+    try {
+      const res = await fetch(
+        `${apiClient.defaults.baseURL}/api/Product/by-variant/${variantId}`,
+        {
+          credentials: "include",
+        }
+      );
+      if (!res.ok) {
+        console.warn(`Failed to fetch details for variant ${variantId}`);
+        return { productId: null, variantDetails: {} };
+      }
+      const data = await res.json();
+
+      // Tìm variant cụ thể (vì API trả về TẤT CẢ variants)
+      const selectedVariant = (data.variants || []).find(
+        (v) => v.productVariantId === variantId
+      );
+
+      return {
+        productId: data.productId || null,
+        // Trả về Product Details (BaseCost, ShipCost, etc.) của variant đó
+        variantDetails: {
+          shipCost: selectedVariant?.shipCost || 0,
+          extraShipping: selectedVariant?.extraShipping || 0,
+          baseCost: selectedVariant?.baseCost || 0,
+          variants: data.variants || [], // To keep the full list if needed later
+        },
+      };
+    } catch (err) {
+      console.error(`Error fetching details for variant ${variantId}:`, err);
+      return { productId: null, variantDetails: {} };
+    }
+  };
+
   // Fetch catalog products when filters change
   useEffect(() => {
     if (currentStep === 3) {
@@ -520,54 +676,62 @@ export default function EditOrderPage() {
         [fileType]: { isUploading: true, progress: 0 },
       }));
 
-      const formData = new FormData();
-      formData.append("file", file);
-
-      const xhr = new XMLHttpRequest();
-      xhr.upload.addEventListener("progress", (e) => {
-        if (e.lengthComputable) {
-          const progress = Math.round((e.loaded / e.total) * 100);
-          setUploadProgress((prev) => ({
-            ...prev,
-            [fileType]: { ...prev[fileType], progress },
-          }));
-        }
+      const uploadedUrl = await uploadImage(file, (progress) => {
+        console.log("[v0] Upload progress update:", { fileType, progress });
+        setUploadProgress((prev) => ({
+          ...prev,
+          [fileType]: { isUploading: true, progress },
+        }));
       });
 
-      xhr.addEventListener("load", () => {
-        if (xhr.status === 200) {
-          const responseData = JSON.parse(xhr.responseText);
-          const url = responseData.url;
-          console.log("[v0] File uploaded:", { fileType, url });
-          setCurrentProductConfig((prev) => ({
-            ...prev,
-            [fileType]: url,
-          }));
+      if (uploadedUrl) {
+        console.log("[v0] Setting config with uploaded URL:", {
+          fileType,
+          uploadedUrl,
+        });
+        setCurrentProductConfig((prev) => ({
+          ...prev,
+          [fileType]: uploadedUrl,
+        }));
+
+        // Set preview URL
+        const previewUrl = URL.createObjectURL(file);
+        setCurrentProductConfig((prev) => ({
+          ...prev,
+          [`${fileType}Preview`]: previewUrl,
+        }));
+
+        setUploadProgress((prev) => ({
+          ...prev,
+          [fileType]: { isUploading: false, progress: 100 },
+        }));
+
+        // Clear progress after a brief delay
+        setTimeout(() => {
           setUploadProgress((prev) => ({
             ...prev,
             [fileType]: { isUploading: false, progress: 0 },
           }));
-        }
-      });
-
-      xhr.addEventListener("error", () => {
-        Swal.fire("Error", "Failed to upload file", "error");
+        }, 500);
+      } else {
+        console.log("[v0] Upload returned null URL");
         setUploadProgress((prev) => ({
           ...prev,
           [fileType]: { isUploading: false, progress: 0 },
         }));
-      });
-
-      xhr.open("POST", `${apiClient.defaults.baseURL}/api/images/upload`);
-      xhr.withCredentials = true;
-      xhr.send(formData);
-    } catch (err) {
-      console.error("Error uploading file:", err);
-      Swal.fire("Error", "Failed to upload file", "error");
+      }
+    } catch (error) {
+      console.error("[v0] File upload error:", error);
+      Swal.fire("Error", "Upload failed. Please try again.", "error");
+      setUploadProgress((prev) => ({
+        ...prev,
+        [fileType]: { isUploading: false, progress: 0 },
+      }));
     }
   };
 
   const handleRemoveUploadedFile = (fileType) => {
+    console.log("[v0] Removing file:", fileType);
     setCurrentProductConfig((prev) => ({
       ...prev,
       [fileType]: null,
@@ -583,62 +747,95 @@ export default function EditOrderPage() {
   };
 
   // ADDED: File upload handler for edit modal
+
+  // Dòng ~588: Thay thế toàn bộ hàm handleEditFileUpload
+
   const handleEditFileUpload = async (fieldName, e) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    // 🔥 FIX 1: Tạo URL Object cho PREVIEW ngay lập tức (trước upload)
+    const previewUrl = URL.createObjectURL(file);
+
+    // CẬP NHẬT CONFIG với URL preview và bắt đầu uploading
+    setEditingProductConfig((prev) => ({
+      ...prev,
+      // URL file tạm thời để hiển thị thumbnail
+      [`${fieldName}Preview`]: previewUrl,
+      // Xóa URL vĩnh viễn (linkImg) trong khi upload để tránh nhầm lẫn
+      [fieldName]: null,
+    }));
 
     setEditUploadProgress((prev) => ({
       ...prev,
       [fieldName]: { isUploading: true, progress: 0 },
     }));
 
-    try {
-      const formData = new FormData();
-      formData.append("file", file);
+    const formData = new FormData();
+    formData.append("file", file);
 
-      const xhr = new XMLHttpRequest();
+    const xhr = new XMLHttpRequest();
 
-      xhr.upload.addEventListener("progress", (event) => {
-        if (event.lengthComputable) {
-          const percentComplete = (event.loaded / event.total) * 100;
-          setEditUploadProgress((prev) => ({
-            ...prev,
-            [fieldName]: { isUploading: true, progress: percentComplete },
-          }));
-        }
-      });
+    xhr.upload.addEventListener("progress", (event) => {
+      if (event.lengthComputable) {
+        const percentComplete = (event.loaded / event.total) * 100;
+        setEditUploadProgress((prev) => ({
+          ...prev,
+          [fieldName]: { isUploading: true, progress: percentComplete },
+        }));
+      }
+    });
 
-      xhr.addEventListener("load", () => {
-        if (xhr.status === 200) {
-          const response = JSON.parse(xhr.responseText);
-          setEditingProductConfig((prev) => ({
-            ...prev,
-            [fieldName]: response.url,
-          }));
-          setEditUploadProgress((prev) => ({
-            ...prev,
-            [fieldName]: { isUploading: false, progress: 100 },
-          }));
-        }
-      });
+    xhr.onload = () => {
+      if (xhr.status === 200) {
+        // Hủy URL Object tạm thời để tránh memory leak
+        if (previewUrl) URL.revokeObjectURL(previewUrl);
 
-      xhr.addEventListener("error", () => {
+        const response = JSON.parse(xhr.responseText);
+        const uploadedUrl = response.url || response.secureUrl || response.path;
+
+        // 🔥 FIX 2: Cập nhật URL vĩnh viễn sau khi upload thành công
+        setEditingProductConfig((prev) => ({
+          ...prev,
+          [fieldName]: uploadedUrl, // <--- URL VĨNH VIỄN
+          [`${fieldName}Preview`]: null, // Xóa URL preview
+        }));
+
         setEditUploadProgress((prev) => ({
           ...prev,
           [fieldName]: { isUploading: false, progress: 0 },
         }));
-        alert("Upload failed");
-      });
+      } else {
+        Swal.fire("Error", "Upload failed", "error");
+        setEditUploadProgress((prev) => ({
+          ...prev,
+          [fieldName]: { isUploading: false, progress: 0 },
+        }));
+        // Xóa preview nếu lỗi
+        setEditingProductConfig((prev) => ({
+          ...prev,
+          [fieldName]: null, // Đảm bảo URL vĩnh viễn là null
+          [`${fieldName}Preview`]: null,
+        }));
+      }
+    };
 
-      xhr.open("POST", "/api/upload"); // Assuming /api/upload is the correct endpoint for the backend
-      xhr.send(formData);
-    } catch (error) {
+    xhr.onerror = () => {
+      Swal.fire("Error", "Network error during upload", "error");
       setEditUploadProgress((prev) => ({
         ...prev,
         [fieldName]: { isUploading: false, progress: 0 },
       }));
-      alert("Upload failed");
-    }
+      setEditingProductConfig((prev) => ({
+        ...prev,
+        [fieldName]: null,
+        [`${fieldName}Preview`]: null,
+      }));
+    };
+
+    xhr.open("POST", `${apiClient.defaults.baseURL}/api/images/upload`);
+    xhr.withCredentials = true;
+    xhr.send(formData);
   };
 
   // ADDED: Handler to remove uploaded files in edit modal
@@ -830,14 +1027,12 @@ export default function EditOrderPage() {
     const existingItemsCosts = currentOrderProducts.map((item) => ({
       id: item.id,
       name: item.productName,
-      qty: item.quantity,
-      price: item.price, // This is the total price for the item in the order
+      baseCost: item.baseCost || 0,
       shipCost: item.shipCost || 0,
       extraShipping: item.extraShipping || 0,
-      baseCost: item.baseCost || item.price - (item.shipCost || 0), // Calculate base cost if not explicitly stored
-      totalBaseCost:
-        (item.baseCost || item.price - (item.shipCost || 0)) * item.quantity,
-      totalPrice: item.price * item.quantity, // Total price of this existing item
+      quantity: item.quantity,
+      totalBaseCost: (item.baseCost || 0) * item.quantity,
+      totalPrice: item.price, // This is the total price for the item in the order
     }));
 
     const newItemsCosts = cartProducts.map((item) =>
@@ -897,7 +1092,7 @@ export default function EditOrderPage() {
         baseCost: item.baseCost || item.price - (item.shipCost || 0), // Calculate base cost if not explicitly stored
         totalBaseCost:
           (item.baseCost || item.price - (item.shipCost || 0)) * item.quantity,
-        totalPrice: item.price * item.quantity, // Total price of this existing item
+        totalPrice: item.price, // Total price of this existing item
       };
     });
 
@@ -946,13 +1141,27 @@ export default function EditOrderPage() {
       allItems.find((item) => item.extraShipping === maxExtraShipping)?.name ||
       "N/A";
 
-    // Calculate total quantity for extra shipping calculation (only new items count for extra shipping)
-    const totalQtyNewItems = newItemsCosts.reduce(
-      (sum, item) => sum + item.qty,
-      0
-    );
-    const extraShippingTotal =
-      maxExtraShipping > 0 ? maxExtraShipping * (totalQtyNewItems - 1) : 0;
+    // Calculate Total Quantity of ALL items (không dùng trong logic mới này)
+    const totalQtyAllItems = allItems.reduce((sum, item) => sum + item.qty, 0);
+
+    // SỬA ĐỔI QUAN TRỌNG: Logic tính Extra Shipping Total và Order Total
+    let calculatedOrderTotal;
+    let extraShippingTotal = 0; // Khởi tạo Extra Shipping Total
+
+    // ÁP DỤNG Extra Shipping Max nếu Total Quantity > 1
+    if (totalQtyAllItems > 1) {
+      extraShippingTotal = maxExtraShipping;
+    }
+
+    if (allItems.length === 1) {
+      const singleItem = allItems[0];
+
+      calculatedOrderTotal =
+        singleItem.totalBaseCost + singleItem.shipCost + extraShippingTotal; // <--- CỘNG extraShippingTotal
+    } else {
+      calculatedOrderTotal =
+        totalBaseCostAll + maxShipCost + extraShippingTotal;
+    }
 
     return {
       existingItems: existingItemsCosts,
@@ -962,20 +1171,20 @@ export default function EditOrderPage() {
       maxShipCost: maxShipCost, // Base shipping cost
       maxExtraShipping: maxExtraShipping, // Extra shipping per unit after the first
       maxExtraProductName: maxExtraProductName,
-      extraShippingTotal: extraShippingTotal,
-      orderTotal: totalBaseCostAll + maxShipCost + extraShippingTotal, // This represents the subtotal before TTS
+      extraShippingTotal: extraShippingTotal, // Tổng Extra Shipping (Max value hoặc 0)
+      orderTotal: calculatedOrderTotal, // Đã áp dụng logic 2 trường hợp
     };
   };
 
   // Calculate order total (for Step 5)
   const calculateOrderTotal = () => {
-    const breakdown = getDetailedCostBreakdown(); // Use detailed breakdown
+    const breakdown = getDetailedCostBreakdown();
 
-    const totalBaseAmount = breakdown.totalBaseCost;
-    const totalShipping = breakdown.maxShipCost + breakdown.extraShippingTotal;
+    // Total = Order Total đã tính đúng (từ getDetailedCostBreakdown) + TTS
     const totalTTS = activeTTS ? 1.0 : 0;
 
-    return totalBaseAmount + totalShipping + totalTTS;
+    // Sử dụng breakdown.orderTotal đã tính đúng logic 1 hoặc >1 sản phẩm
+    return breakdown.orderTotal + totalTTS;
   };
 
   // Handle next step
@@ -1040,9 +1249,10 @@ export default function EditOrderPage() {
   };
 
   // Handle save order
+  // Dòng ~226: Hàm handleSaveOrder
   const handleSaveOrder = async () => {
     try {
-      // Validation before saving
+      // Validation (giữ nguyên)
       if (
         !customerInfo.name ||
         !customerInfo.phone ||
@@ -1060,7 +1270,7 @@ export default function EditOrderPage() {
         return;
       }
 
-      const totalItemsCount = currentOrderProducts.length + cartProducts.length; // Total items that will be in the order after removals and additions
+      const totalItemsCount = currentOrderProducts.length + cartProducts.length;
       if (totalItemsCount === 0) {
         Swal.fire("Error", "Order must contain at least one product", "error");
         return;
@@ -1068,77 +1278,116 @@ export default function EditOrderPage() {
 
       setIsSaving(true);
 
+      // Lấy Order Total đã tính đúng
+      const finalOrderTotal = getDetailedCostBreakdown().orderTotal;
+
+      // 1. Chuẩn bị Order Details Update (TẤT CẢ items hiện tại)
+      // Bao gồm cả items CŨ (đã cập nhật) và items MỚI (từ cartProducts)
+      const orderDetailsUpdate = [
+        // A. EXISTING ITEMS (Order Detail ID > 0)
+        ...currentOrderProducts.map((item) => ({
+          // OrderDetailID phải là id của OrderDetail
+          orderDetailID: item.id,
+          productVariantID: item.variantId,
+          quantity: item.quantity,
+          price: item.price, // Dùng tổng giá (Base Cost * Qty)
+          linkImg: item.linkImg,
+          linkThanksCard: item.linkThanksCard,
+          linkDesign: item.linkFileDesign,
+          note: item.note,
+          // Backend sẽ tự tính lại TotalCost, BaseCost, ShipCost nếu cần
+          // Nếu bạn muốn gửi các trường này để lưu (tùy vào logic backend):
+          shipCost: item.shipCost,
+          extraShipping: item.extraShipping,
+          baseCost: item.baseCost,
+          productionStatus: 0, // Giá trị mặc định nếu không được edit
+        })),
+        // B. NEW ITEMS (Order Detail ID = 0)
+        ...cartProducts.map((item) => ({
+          orderDetailID: 0, // Báo hiệu item mới
+          productVariantID: item.config.variantId,
+          quantity: item.config.quantity,
+          price: item.totalPrice, // Dùng tổng giá (Base Cost * Qty)
+          linkImg: item.config.linkImg,
+          linkThanksCard: item.config.linkThanksCard,
+          linkDesign: item.config.linkFileDesign,
+          note: item.config.note,
+          // Lấy chi phí từ variant của sản phẩm mới (dù có thể bị ghi đè bởi backend)
+          shipCost: item.config.shipCost || 0,
+          extraShipping: item.config.extraShipping || 0,
+          baseCost: item.config.baseCost || 0,
+          productionStatus: 0,
+        })),
+      ];
+
+      const finalOrderTotalWithTTS = calculateOrderTotal();
+
+      // 2. Tạo Payload cho API UpdateOrder
       const payload = {
-        orderId: Number.parseInt(orderId), // Ensure orderId is a number
-        customerName: customerInfo.name,
-        phone: customerInfo.phone,
-        email: customerInfo.email,
-        address: customerInfo.address,
-        address1: customerInfo.address1,
-        provinceId: customerInfo.provinceId,
-        provinceName: customerInfo.provinceName,
-        districtId: customerInfo.districtId,
-        districtName: customerInfo.districtName,
-        wardId: customerInfo.wardId,
-        wardName: customerInfo.wardName,
-        items: [
-          // Include existing items that were NOT removed
-          ...currentOrderProducts.map((item) => ({
-            orderDetailId: item.id, // Important for updating existing items
-            productId: item.productId,
-            variantId: item.variantId,
-            quantity: item.quantity,
-            price: item.price, // This is the total price for the item as stored in currentOrderProducts
-            linkImg: item.linkImg, // Preserve existing images
-            linkThanksCard: item.linkThanksCard,
-            linkFileDesign: item.linkFileDesign,
-            note: item.note,
-            shipCost: item.shipCost, // Include shipping costs for existing items
-            extraShipping: item.extraShipping, // Include extra shipping costs for existing items
-            baseCost: item.baseCost, // Include base cost for existing items
-          })),
-          // Include newly added items from cartProducts (manual selection)
-          ...cartProducts.map((item) => {
-            const variant = item.product.variants?.find(
-              (v) => v.productVariantId === item.config.variantId
-            );
-            return {
-              productId: item.product.productId,
-              variantId: item.config.variantId,
-              quantity: item.config.quantity,
-              // The price here should be the calculated price for the new item configuration
-              price: item.totalPrice, // Use pre-calculated total price for the item
-              linkImg: item.config.linkImg,
-              linkThanksCard: item.config.linkThanksCard,
-              linkFileDesign: item.config.linkFileDesign,
-              note: item.config.note,
-              shipCost: variant?.shipCost || 0, // Add calculated shipping costs for new items
-              extraShipping: variant?.extraShipping || 0, // Add calculated extra shipping for new items
-              baseCost: variant?.baseCost || 0, // Add calculated base cost for new items
-            };
-          }),
-        ],
-        removedProductIds: removedProductIds, // Send the list of IDs for products removed from the order
-        totalAmount: calculateOrderTotal(), // Calculate the final total amount
-        activeTTS,
+        customerInfo: {
+          name: customerInfo.name,
+          phone: customerInfo.phone,
+          email: customerInfo.email,
+          address: `${customerInfo.address}${
+            customerInfo.wardName ? `, ${customerInfo.wardName}` : ""
+          }${
+            customerInfo.districtName ? `, ${customerInfo.districtName}` : ""
+          }${
+            customerInfo.provinceName ? `, ${customerInfo.provinceName}` : ""
+          }`,
+          address1: customerInfo.address1,
+          // Cần có các trường ZipCode, ShipState, ShipCountry nếu DTO yêu cầu
+          zipCode: "",
+          shipState: customerInfo.provinceName, // Tạm gán State bằng Province Name
+          shipCity: customerInfo.districtName, // Tạm gán City bằng District Name
+          shipCountry: "Vietnam",
+        },
+        orderUpdate: {
+          // Cập nhật thông tin Order chính
+          orderCode: orderCodeGoc, // Sử dụng orderId (params)
+          activeTTS: activeTTS,
+          // Bạn có thể giữ lại các trường khác nếu cần cập nhật
+          tracking: "",
+          productionStatus: "Pending",
+          paymentStatus: "Unpaid",
+          toProvinceId: Number(customerInfo.provinceId),
+          toDistrictId: Number(customerInfo.districtId),
+          toWardCode: customerInfo.wardId,
+          totalCost: finalOrderTotalWithTTS,
+        },
+        // Gửi danh sách đã đồng bộ hóa
+        orderDetailsUpdate: orderDetailsUpdate,
+        // Tổng tiền (Order.TotalAmount) sẽ được backend tính lại,
+        // nhưng ta gửi giá trị TỪ FE để kiểm tra/đồng bộ nếu cần:
+        // totalAmount: calculateOrderTotal(),
       };
 
+      console.log("Final TotalCost being sent:", payload.orderUpdate.totalCost);
+
+      // 3. Gọi API Update Order mới
       const res = await fetch(
-        `${apiClient.defaults.baseURL}/api/Order/edit-order`,
+        `${apiClient.defaults.baseURL}/api/Order/update-order/${orderId}`, // <-- SỬ DỤNG API MỚI
         {
-          method: "POST",
+          method: "PUT", // <-- Dùng PUT
           headers: { "Content-Type": "application/json" },
           credentials: "include",
-          body: JSON.JSON.stringify(payload),
+          body: JSON.stringify(payload),
+          // <-- Đảm bảo gọi JSON.stringify đúng
         }
       );
 
+      // 4. Xử lý phản hồi
       if (res.ok) {
         Swal.fire("Success", "Order updated successfully", "success");
         router.push("/seller/manage-order");
       } else {
-        const errorData = await res.json();
-        throw new Error(errorData.message || "Failed to save order");
+        const errorText = await res.text();
+        let errorMessage = errorText;
+        try {
+          const errorData = JSON.parse(errorText);
+          errorMessage = errorData.message || errorText;
+        } catch {}
+        throw new Error(errorMessage || "Failed to save order");
       }
     } catch (err) {
       console.error("Error saving order:", err);
@@ -1520,6 +1769,7 @@ export default function EditOrderPage() {
                 <h4 className="font-semibold text-gray-900 truncate">
                   {item.productName}
                 </h4>
+
                 <div className="flex gap-4 mt-2 text-sm text-gray-600">
                   <span>
                     Quantity:{" "}
@@ -1529,12 +1779,13 @@ export default function EditOrderPage() {
                     Size: <span className="font-medium">{item.size}</span>
                   </span>
                   <span>
-                    Price:{" "}
+                    BaseCost:{" "}
                     <span className="font-medium">
-                      ${item.price?.toFixed(2)}
+                      ${item.baseCost?.toFixed(2)}
                     </span>
                   </span>
                 </div>
+
                 {item.note && (
                   <p className="text-sm text-gray-500 mt-2">
                     Note: {item.note}
@@ -1548,16 +1799,15 @@ export default function EditOrderPage() {
                   size="sm"
                   onClick={() => handleEditProduct(item)}
                   className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
-                  title={`Edit ${item.productName}`}
                 >
                   <Pencil className="w-4 h-4" />
                 </Button>
+
                 <Button
                   variant="ghost"
                   size="sm"
                   onClick={() => handleRemoveCurrentProduct(item.id)}
                   className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                  title={`Remove ${item.productName} from order`}
                 >
                   <Trash2 className="w-4 h-4" />
                 </Button>
@@ -1567,6 +1817,7 @@ export default function EditOrderPage() {
         </div>
       )}
 
+      {/* --- MODAL EDIT --- */}
       {editingProductId && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg shadow-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
@@ -1576,6 +1827,7 @@ export default function EditOrderPage() {
                 onClick={() => {
                   setEditingProductId(null);
                   setEditingProductConfig({});
+                  setEditingProductDetail(null); // Clear detail state on close
                 }}
                 className="text-gray-500 hover:text-gray-700"
               >
@@ -1584,53 +1836,72 @@ export default function EditOrderPage() {
             </div>
 
             <div className="p-6 space-y-4">
-              {/* Product Info */}
-              {currentOrderProducts.find((p) => p.id === editingProductId) && (
-                <div className="bg-blue-50 p-4 rounded-lg border border-blue-100 mb-4">
-                  <div className="flex items-center gap-4">
-                    <img
-                      src={
-                        currentOrderProducts.find(
-                          (p) => p.id === editingProductId
-                        )?.linkImg ||
-                        "/placeholder.svg" ||
-                        "/placeholder.svg" ||
-                        "/placeholder.svg"
-                      }
-                      alt="Product"
-                      className="w-16 h-16 object-cover rounded"
-                    />
-                    <div>
-                      <h4 className="font-semibold text-gray-900">
-                        {
-                          currentOrderProducts.find(
-                            (p) => p.id === editingProductId
-                          )?.productName
-                        }
-                      </h4>
+              {(() => {
+                const editingProduct = currentOrderProducts.find(
+                  (p) => p.id === editingProductId
+                );
+                if (!editingProduct) return null;
+
+                return (
+                  <div className="bg-blue-50 p-4 rounded-lg border border-blue-100 mb-4">
+                    <div className="flex items-center gap-4">
+                      <img
+                        src={editingProduct.linkImg || "/placeholder.svg"}
+                        className="w-16 h-16 object-cover rounded"
+                        alt="Product"
+                      />
+                      <div>
+                        <h4 className="font-semibold text-gray-900">
+                          {editingProduct.productName}
+                        </h4>
+                      </div>
                     </div>
                   </div>
-                </div>
-              )}
+                );
+              })()}
 
+              {/* --- FORM INPUTS GRID --- */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Size */}
+                {/* SIZE */}
                 <div>
                   <Label htmlFor="edit-size">Size *</Label>
-                  <Input
-                    id="edit-size"
-                    value={editingProductConfig.size || ""}
-                    onChange={(e) =>
+
+                  <Select
+                    value={editingProductConfig.variantId?.toString() || ""}
+                    onValueChange={(value) => {
+                      // SỬA: Dùng editingProductDetail để tìm variant mới
+                      const selected = editingProductDetail?.variants?.find(
+                        (v) => v.productVariantId.toString() === value
+                      );
+
                       setEditingProductConfig((prev) => ({
                         ...prev,
-                        size: e.target.value,
-                      }))
-                    }
-                    className="mt-1"
-                  />
+                        size: selected?.sizeInch || "",
+                        variantId: selected?.productVariantId,
+                        // SỬA: Lấy Base Cost cho price (Unit Price)
+                        price: selected?.baseCost || 0,
+                      }));
+                    }}
+                  >
+                    <SelectTrigger id="edit-size">
+                      <SelectValue placeholder="Select size" />
+                    </SelectTrigger>
+
+                    <SelectContent>
+                      {/* SỬA: Hiển thị Base Cost trong dropdown */}
+                      {(editingProductDetail?.variants ?? []).map((v) => (
+                        <SelectItem
+                          key={v.productVariantId}
+                          value={v.productVariantId.toString()}
+                        >
+                          {v.sizeInch} - ${v.baseCost.toFixed(2)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
 
-                {/* Quantity */}
+                {/* QUANTITY */}
                 <div>
                   <Label htmlFor="edit-quantity">Quantity</Label>
                   <Input
@@ -1654,69 +1925,204 @@ export default function EditOrderPage() {
                   />
                 </div>
 
-                {/* Link Image */}
+                {/* LINK IMAGE */}
                 <div>
-                  <Label htmlFor="edit-thanks-card">Link Image</Label>
-                  <Input
-                    id="edit-thanks-card"
-                    type="file"
-                    accept="image/*"
-                    ref={linkImgRef}
-                    onChange={(e) =>
-                      setEditingProductConfig((prev) => ({
-                        ...prev,
-                        linkImg: e.target.value,
-                      }))
-                    }
-                    placeholder="Enter URL or file path"
-                    className="mt-1"
-                  />
+                  <Label>Link Image</Label>
+                  <div className="relative">
+                    <Input
+                      type="file"
+                      ref={editLinkImgRef}
+                      accept="image/*"
+                      onChange={(e) => handleEditFileUpload("linkImg", e)}
+                      disabled={editUploadProgress.linkImg.isUploading}
+                      className="mt-1"
+                    />
+                    {editUploadProgress.linkImg.isUploading && (
+                      <CircularProgress
+                        progress={editUploadProgress.linkImg.progress}
+                      />
+                    )}
+                  </div>
+
+                  {editingProductConfig.linkImg &&
+                    !editUploadProgress.linkImg.isUploading && (
+                      <div className="mt-2 space-y-2">
+                        <p className="text-sm text-green-600 flex items-center gap-1">
+                          Uploaded:{" "}
+                          <a
+                            href={editingProductConfig.linkImg}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="underline text-blue-600 truncate max-w-[200px]"
+                          >
+                            {editingProductConfig.linkImg.split("/").pop()}
+                          </a>
+                        </p>
+
+                        {(editingProductConfig.linkImg
+                          .toLowerCase()
+                          .endsWith(".jpg") ||
+                          editingProductConfig.linkImg
+                            .toLowerCase()
+                            .endsWith(".png") ||
+                          editingProductConfig.linkImg
+                            .toLowerCase()
+                            .endsWith(".jpeg")) && (
+                          <div className="relative inline-block">
+                            <img
+                              src={
+                                editingProductConfig.linkImg ||
+                                "/placeholder.svg"
+                              }
+                              className="w-20 h-20 object-cover rounded border border-gray-300 shadow-sm"
+                              alt="Uploaded Image"
+                            />
+                            <button
+                              onClick={() => handleEditRemoveFile("linkImg")}
+                              className="absolute top-0 right-0 bg-red-500 hover:bg-red-600 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold translate-x-1 -translate-y-1"
+                            >
+                              ×
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    )}
                 </div>
 
-                {/* Link Thanks Card */}
+                {/* --- LINK THANKS CARD --- */}
                 <div>
-                  <Label htmlFor="edit-thanks-card">Link Thanks Card</Label>
-                  <Input
-                    id="edit-thanks-card"
-                    type="file"
-                    accept="image/*"
-                    ref={linkImgRef}
-                    onChange={(e) =>
-                      setEditingProductConfig((prev) => ({
-                        ...prev,
-                        linkThanksCard: e.target.value,
-                      }))
-                    }
-                    placeholder="Enter URL or file path"
-                    className="mt-1"
-                  />
+                  <Label>Link Thanks Card</Label>
+                  <div className="relative">
+                    <Input
+                      type="file"
+                      ref={editLinkThanksCardRef}
+                      accept="image/*"
+                      onChange={(e) =>
+                        handleEditFileUpload("linkThanksCard", e)
+                      }
+                      disabled={editUploadProgress.linkThanksCard.isUploading}
+                      className="mt-1"
+                    />
+                    {editUploadProgress.linkThanksCard.isUploading && (
+                      <CircularProgress
+                        progress={editUploadProgress.linkThanksCard.progress}
+                      />
+                    )}
+                  </div>
+
+                  {editingProductConfig.linkThanksCard &&
+                    !editUploadProgress.linkThanksCard.isUploading && (
+                      <div className="mt-2 space-y-2">
+                        <p className="text-sm text-green-600 flex items-center gap-1">
+                          Uploaded:{" "}
+                          <a
+                            href={editingProductConfig.linkThanksCard}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="underline text-blue-600 truncate max-w-[200px]"
+                          >
+                            {editingProductConfig.linkThanksCard
+                              .split("/")
+                              .pop()}
+                          </a>
+                        </p>
+                        <div className="relative inline-block">
+                          <img
+                            src={
+                              editingProductConfig.linkThanksCard ||
+                              "/placeholder.svg"
+                            }
+                            className="w-20 h-20 object-cover rounded border border-gray-300 shadow-sm"
+                            alt="Uploaded Thanks Card"
+                          />
+                          <button
+                            onClick={() =>
+                              handleEditRemoveFile("linkThanksCard")
+                            }
+                            className="absolute top-0 right-0 bg-red-500 hover:bg-red-600 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold translate-x-1 -translate-y-1"
+                          >
+                            ×
+                          </button>
+                        </div>
+                      </div>
+                    )}
                 </div>
 
-                {/* Link File Design */}
+                {/* --- LINK FILE DESIGN --- */}
                 <div>
-                  <Label htmlFor="edit-file-design">Link File Design</Label>
-                  <Input
-                    id="edit-file-design"
-                    type="file"
-                    accept="image/*"
-                    ref={linkImgRef}
-                    onChange={(e) =>
-                      setEditingProductConfig((prev) => ({
-                        ...prev,
-                        linkFileDesign: e.target.value,
-                      }))
-                    }
-                    placeholder="Enter URL or file path"
-                    className="mt-1"
-                  />
+                  <Label>Link File Design</Label>
+                  <div className="relative">
+                    <Input
+                      type="file"
+                      ref={editLinkFileDesignRef}
+                      onChange={(e) =>
+                        handleEditFileUpload("linkFileDesign", e)
+                      }
+                      disabled={editUploadProgress.linkFileDesign.isUploading}
+                      className="mt-1"
+                    />
+                    {editUploadProgress.linkFileDesign.isUploading && (
+                      <CircularProgress
+                        progress={editUploadProgress.linkFileDesign.progress}
+                      />
+                    )}
+                  </div>
+
+                  {editingProductConfig.linkFileDesign &&
+                    !editUploadProgress.linkFileDesign.isUploading && (
+                      <div className="mt-2 space-y-2">
+                        <p className="text-sm text-green-600 flex items-center gap-1">
+                          Uploaded:{" "}
+                          <a
+                            href={editingProductConfig.linkFileDesign}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="underline text-blue-600 truncate max-w-[200px]"
+                          >
+                            {editingProductConfig.linkFileDesign
+                              .split("/")
+                              .pop()}
+                          </a>
+                        </p>
+
+                        {(editingProductConfig.linkFileDesign
+                          .toLowerCase()
+                          .endsWith(".jpg") ||
+                          editingProductConfig.linkFileDesign
+                            .toLowerCase()
+                            .endsWith(".png") ||
+                          editingProductConfig.linkFileDesign
+                            .toLowerCase()
+                            .endsWith(".jpeg")) && (
+                          <div className="relative inline-block">
+                            <img
+                              src={
+                                editingProductConfig.linkFileDesign ||
+                                "/placeholder.svg"
+                              }
+                              className="w-20 h-20 object-cover rounded border border-gray-300 shadow-sm"
+                              alt="Uploaded Design File"
+                            />
+                            <button
+                              onClick={() =>
+                                handleEditRemoveFile("linkFileDesign")
+                              }
+                              className="absolute top-0 right-0 bg-red-500 hover:bg-red-600 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold translate-x-1 -translate-y-1"
+                            >
+                              ×
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    )}
                 </div>
               </div>
 
-              {/* Note */}
+              {/* --- NOTE --- */}
               <div>
-                <Label htmlFor="edit-note">Note</Label>
+                <Label>Note</Label>
                 <Textarea
-                  id="edit-note"
+                  rows={3}
                   value={editingProductConfig.note || ""}
                   onChange={(e) =>
                     setEditingProductConfig((prev) => ({
@@ -1725,25 +2131,26 @@ export default function EditOrderPage() {
                     }))
                   }
                   placeholder="Enter any additional notes"
-                  rows={3}
                   className="mt-1"
                 />
               </div>
 
-              {/* Buttons */}
+              {/* --- ACTION BUTTONS --- */}
               <div className="flex gap-3 justify-end pt-4 border-t">
                 <button
                   onClick={() => {
                     setEditingProductId(null);
                     setEditingProductConfig({});
+                    setEditingProductDetail(null); // Clear detail state on close
                   }}
-                  className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 font-medium"
+                  className="px-4 py-2 border rounded-lg hover:bg-gray-50"
                 >
                   Cancel
                 </button>
+
                 <button
                   onClick={handleSaveEditedProduct}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
                 >
                   Save Changes
                 </button>
@@ -1981,7 +2388,7 @@ export default function EditOrderPage() {
                       ...prev,
                       size: selected?.sizeInch || "",
                       variantId: selected?.productVariantId,
-                      price: selected?.totalCost || 0,
+                      price: selected?.baseCost || 0,
                     }));
                   }}
                 >
@@ -2000,7 +2407,7 @@ export default function EditOrderPage() {
                         key={v.productVariantId}
                         value={v.productVariantId.toString()}
                       >
-                        {v.sizeInch} - ${v.totalCost.toFixed(2)}
+                        {v.sizeInch} - ${v.baseCost.toFixed(2)}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -2021,35 +2428,51 @@ export default function EditOrderPage() {
                     className="mt-1"
                   />
                   {editUploadProgress.linkImg.isUploading && (
-                    <div className="mt-2 text-sm text-gray-600">
-                      Uploading...{" "}
-                      {Math.round(editUploadProgress.linkImg.progress)}%
-                    </div>
+                    <CircularProgress
+                      progress={editUploadProgress.linkImg.progress}
+                    />
                   )}
                 </div>
                 {editingProductConfig.linkImg &&
                   !editUploadProgress.linkImg.isUploading && (
                     <div className="mt-2 space-y-2">
-                      <p className="text-xs text-green-600 font-medium">
+                      <p className="text-sm text-green-600 flex items-center gap-1">
                         Uploaded:{" "}
-                        {editingProductConfig.linkImg.split("/").pop()}
-                      </p>
-                      <div className="relative w-16 h-16 inline-block">
-                        <img
-                          src={
-                            editingProductConfig.linkImg || "/placeholder.svg"
-                          }
-                          alt="Uploaded image"
-                          className="w-full h-full object-cover rounded border border-gray-300"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => handleEditRemoveFile("linkImg")}
-                          className="absolute -top-2 -right-2 bg-red-500 hover:bg-red-600 text-white rounded-full w-5 h-5 flex items-center justify-center text-sm font-bold"
+                        <a
+                          href={editingProductConfig.linkImg}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="underline text-blue-600 truncate max-w-[200px]"
                         >
-                          ×
-                        </button>
-                      </div>
+                          {editingProductConfig.linkImg.split("/").pop()}
+                        </a>
+                      </p>
+                      {(editingProductConfig.linkImg
+                        .toLowerCase()
+                        .endsWith(".jpg") ||
+                        editingProductConfig.linkImg
+                          .toLowerCase()
+                          .endsWith(".png") ||
+                        editingProductConfig.linkImg
+                          .toLowerCase()
+                          .endsWith(".jpeg")) && (
+                        <div className="relative inline-block">
+                          <img
+                            src={
+                              editingProductConfig.linkImg || "/placeholder.svg"
+                            }
+                            className="w-20 h-20 object-cover rounded border border-gray-300 shadow-sm"
+                            alt="Uploaded Image"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => handleEditRemoveFile("linkImg")}
+                            className="absolute top-0 right-0 bg-red-500 hover:bg-red-600 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold translate-x-1 -translate-y-1"
+                          >
+                            ×
+                          </button>
+                        </div>
+                      )}
                     </div>
                   )}
               </div>
@@ -2068,32 +2491,38 @@ export default function EditOrderPage() {
                     className="mt-1"
                   />
                   {editUploadProgress.linkThanksCard.isUploading && (
-                    <div className="mt-2 text-sm text-gray-600">
-                      Uploading...{" "}
-                      {Math.round(editUploadProgress.linkThanksCard.progress)}%
-                    </div>
+                    <CircularProgress
+                      progress={editUploadProgress.linkThanksCard.progress}
+                    />
                   )}
                 </div>
                 {editingProductConfig.linkThanksCard &&
                   !editUploadProgress.linkThanksCard.isUploading && (
                     <div className="mt-2 space-y-2">
-                      <p className="text-xs text-green-600 font-medium">
+                      <p className="text-sm text-green-600 flex items-center gap-1">
                         Uploaded:{" "}
-                        {editingProductConfig.linkThanksCard.split("/").pop()}
+                        <a
+                          href={editingProductConfig.linkThanksCard}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="underline text-blue-600 truncate max-w-[200px]"
+                        >
+                          {editingProductConfig.linkThanksCard.split("/").pop()}
+                        </a>
                       </p>
-                      <div className="relative w-16 h-16 inline-block">
+                      <div className="relative inline-block">
                         <img
                           src={
                             editingProductConfig.linkThanksCard ||
                             "/placeholder.svg"
                           }
-                          alt="Uploaded thanks card"
-                          className="w-full h-full object-cover rounded border border-gray-300"
+                          className="w-20 h-20 object-cover rounded border border-gray-300 shadow-sm"
+                          alt="Uploaded Thanks Card"
                         />
                         <button
                           type="button"
                           onClick={() => handleEditRemoveFile("linkThanksCard")}
-                          className="absolute -top-2 -right-2 bg-red-500 hover:bg-red-600 text-white rounded-full w-5 h-5 flex items-center justify-center text-sm font-bold"
+                          className="absolute top-0 right-0 bg-red-500 hover:bg-red-600 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold translate-x-1 -translate-y-1"
                         >
                           ×
                         </button>
@@ -2115,19 +2544,26 @@ export default function EditOrderPage() {
                     className="mt-1"
                   />
                   {editUploadProgress.linkFileDesign.isUploading && (
-                    <div className="mt-2 text-sm text-gray-600">
-                      Uploading...{" "}
-                      {Math.round(editUploadProgress.linkFileDesign.progress)}%
-                    </div>
+                    <CircularProgress
+                      progress={editUploadProgress.linkFileDesign.progress}
+                    />
                   )}
                 </div>
                 {editingProductConfig.linkFileDesign &&
                   !editUploadProgress.linkFileDesign.isUploading && (
                     <div className="mt-2 space-y-2">
-                      <p className="text-xs text-green-600 font-medium">
+                      <p className="text-sm text-green-600 flex items-center gap-1">
                         Uploaded:{" "}
-                        {editingProductConfig.linkFileDesign.split("/").pop()}
+                        <a
+                          href={editingProductConfig.linkFileDesign}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="underline text-blue-600 truncate max-w-[200px]"
+                        >
+                          {editingProductConfig.linkFileDesign.split("/").pop()}
+                        </a>
                       </p>
+
                       {(editingProductConfig.linkFileDesign
                         .toLowerCase()
                         .endsWith(".jpg") ||
@@ -2137,21 +2573,21 @@ export default function EditOrderPage() {
                         editingProductConfig.linkFileDesign
                           .toLowerCase()
                           .endsWith(".jpeg")) && (
-                        <div className="relative w-16 h-16 inline-block">
+                        <div className="relative inline-block">
                           <img
                             src={
                               editingProductConfig.linkFileDesign ||
                               "/placeholder.svg"
                             }
-                            alt="Uploaded design"
-                            className="w-full h-full object-cover rounded border border-gray-300"
+                            className="w-20 h-20 object-cover rounded border border-gray-300 shadow-sm"
+                            alt="Uploaded Design File"
                           />
                           <button
                             type="button"
                             onClick={() =>
                               handleEditRemoveFile("linkFileDesign")
                             }
-                            className="absolute -top-2 -right-2 bg-red-500 hover:bg-red-600 text-white rounded-full w-5 h-5 flex items-center justify-center text-sm font-bold"
+                            className="absolute top-0 right-0 bg-red-500 hover:bg-red-600 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold translate-x-1 -translate-y-1"
                           >
                             ×
                           </button>
@@ -2261,7 +2697,7 @@ export default function EditOrderPage() {
                   key={v.productVariantId}
                   value={v.productVariantId.toString()}
                 >
-                  {v.sizeInch} - ${v.totalCost.toFixed(2)}
+                  {v.sizeInch} - ${v.baseCost.toFixed(2)}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -2410,6 +2846,12 @@ export default function EditOrderPage() {
                     <img
                       src={
                         currentProductConfig.linkFileDesign ||
+                        "/placeholder.svg" ||
+                        "/placeholder.svg" ||
+                        "/placeholder.svg" ||
+                        "/placeholder.svg" ||
+                        "/placeholder.svg" ||
+                        "/placeholder.svg" ||
                         "/placeholder.svg"
                       }
                       alt="Uploaded file design preview"
@@ -2714,6 +3156,7 @@ export default function EditOrderPage() {
                                   "/placeholder.svg" ||
                                   "/placeholder.svg" ||
                                   "/placeholder.svg" ||
+                                  "/placeholder.svg" ||
                                   "/placeholder.svg"
                                 }
                                 alt="File Design"
@@ -2768,7 +3211,7 @@ export default function EditOrderPage() {
                       {item.name} (Qty: {item.qty}):
                     </span>
                     <span className="text-gray-900">
-                      ${item.totalPrice.toFixed(2)}
+                      ${item.baseCost.toFixed(2)}
                     </span>
                   </div>
                 ))}
@@ -2778,9 +3221,12 @@ export default function EditOrderPage() {
                   </span>
                   <span className="text-gray-900">
                     $
-                    {getDetailedCostBreakdown()
-                      .existingItems.reduce((sum, i) => sum + i.shipCost, 0)
-                      .toFixed(2)}
+                    {Math.max(
+                      ...getDetailedCostBreakdown().existingItems.map(
+                        (i) => i.shipCost
+                      ),
+                      0
+                    ).toFixed(2)}
                   </span>
                 </div>
               </div>
@@ -2851,18 +3297,17 @@ export default function EditOrderPage() {
                 ${getDetailedCostBreakdown().maxShipCost.toFixed(2)}
               </span>
             </div>
-            {getDetailedCostBreakdown().maxExtraShipping > 0 &&
-              cartProducts.length > 0 && (
-                <div className="flex justify-between text-sm font-medium">
-                  <span className="text-gray-700">
-                    Extra Shipping (Max from{" "}
-                    {getDetailedCostBreakdown().maxExtraProductName}):
-                  </span>
-                  <span className="text-gray-900">
-                    ${getDetailedCostBreakdown().extraShippingTotal.toFixed(2)}
-                  </span>
-                </div>
-              )}
+            {getDetailedCostBreakdown().extraShippingTotal > 0 && (
+              <div className="flex justify-between text-sm font-medium">
+                <span className="text-gray-700">
+                  Extra Shipping (Max from{" "}
+                  {getDetailedCostBreakdown().maxExtraProductName}):
+                </span>
+                <span className="text-gray-900">
+                  ${getDetailedCostBreakdown().extraShippingTotal.toFixed(2)}
+                </span>
+              </div>
+            )}
             <div className="border-t border-gray-200 pt-3 flex justify-between text-base font-bold">
               <span className="text-gray-900">Order Total:</span>
               <span className="text-blue-600 text-lg">
@@ -2907,42 +3352,16 @@ export default function EditOrderPage() {
   );
 
   // Render Step 5: Review & Confirm Order
+  // Dòng ~608: Render Step 5: Review & Confirm Order
   const renderStep5 = () => {
-    const breakdown = getDetailedCostBreakdown(); // Use the new detailed breakdown function
+    const breakdown = getDetailedCostBreakdown(); // Lấy breakdown đã tính toán đúng
 
-    // Calculate the total price of new items added to the cart
-    const cartItemsTotalPrice = cartProducts.reduce(
-      (sum, item) => sum + item.totalPrice,
-      0
-    );
+    // Final Total = Order Total đã tính đúng (từ Step 4) + TTS
+    const finalTotal = breakdown.orderTotal + (activeTTS ? 1.0 : 0);
 
-    // Calculate the total price of existing items in the order
-    const existingItemsTotalPrice = currentOrderProducts.reduce(
-      (sum, item) => sum + item.price * item.quantity,
-      0
-    );
-
-    // Calculate the actual shipping cost based on the logic
-    const totalQtyOfNewItems = cartProducts.reduce(
-      (sum, item) => sum + item.config.quantity,
-      0
-    );
-    let calculatedShippingCost = 0;
-    if (cartProducts.length > 0) {
-      // Base shipping is the max of the highest shipCost from newly added items
-      calculatedShippingCost += breakdown.maxShipCost;
-      // Add extra shipping for subsequent units of new items
-      if (totalQtyOfNewItems > 1) {
-        calculatedShippingCost += breakdown.extraShippingTotal;
-      }
-    }
-
-    // Final total is the sum of existing items total price, new items total price, calculated shipping, and TTS if active
-    const finalTotal =
-      existingItemsTotalPrice +
-      cartItemsTotalPrice +
-      calculatedShippingCost +
-      (activeTTS ? 1.0 : 0);
+    // Tổng số sản phẩm (để hiển thị tiêu đề)
+    const totalProductsCount =
+      currentOrderProducts.length + cartProducts.length;
 
     return (
       <div className="space-y-4">
@@ -2996,7 +3415,7 @@ export default function EditOrderPage() {
         <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
           <div className="flex justify-between items-center mb-3">
             <h4 className="font-semibold text-gray-900">
-              All Products ({currentOrderProducts.length + cartProducts.length})
+              All Products ({totalProductsCount})
             </h4>
             <Button
               variant="outline"
@@ -3036,8 +3455,9 @@ export default function EditOrderPage() {
                       </div>
                     </div>
                     <div className="flex-shrink-0 ml-4">
+                      {/* Hiển thị giá tổng (price) đã lưu trong currentOrderProducts */}
                       <p className="font-medium text-gray-900">
-                        ${item.price?.toFixed(2) || "0.00"}
+                        ${item.baseCost?.toFixed(2) || "0.00"}
                       </p>
                     </div>
                   </div>
@@ -3072,6 +3492,7 @@ export default function EditOrderPage() {
                       </div>
                     </div>
                     <div className="flex-shrink-0 ml-4">
+                      {/* Hiển thị totalPrice đã tính trong handleAddToCart */}
                       <p className="font-medium text-gray-900">
                         ${item.totalPrice.toFixed(2)}
                       </p>

@@ -75,7 +75,7 @@ import {
   ArrowUp,
   ArrowDown,
   ChevronDown,
-  Copy,        
+  Copy,
   Check,
 } from "lucide-react";
 import { format } from "date-fns";
@@ -578,7 +578,7 @@ export default function ManageOrder() {
           // orderDate: new Date(order.orderDate).toISOString().split("T")[0],
           orderDate: new Date(order.orderDate).toLocaleDateString("en-CA"),
           customerName: order.customerName,
-          tracking : order.tracking,
+          tracking: order.tracking,
           phone: order.phone || "",
           email: order.email || "",
           paymentStatus: order.paymentStatus || "",
@@ -1014,7 +1014,11 @@ export default function ManageOrder() {
         Name: customerInfo.name,
         Phone: customerInfo.phone,
         Email: customerInfo.email,
-        Address: customerInfo.address,
+        Address: `${customerInfo.address}${
+          customerInfo.wardName ? `, ${customerInfo.wardName}` : ""
+        }${customerInfo.districtName ? `, ${customerInfo.districtName}` : ""}${
+          customerInfo.provinceName ? `, ${customerInfo.provinceName}` : ""
+        }`,
         Address1: customerInfo.address1,
 
         // Tên địa lý (BE lưu vào EndCustomer)
@@ -1546,23 +1550,23 @@ export default function ManageOrder() {
     }
   };
   const handleCopyTracking = async (trackingCode) => {
-    if (!trackingCode || trackingCode === 'N/A') return;
+    if (!trackingCode || trackingCode === "N/A") return;
 
     try {
       await navigator.clipboard.writeText(trackingCode);
       setCopiedTrackingId(trackingCode); // Đặt mã tracking hiện tại là đã copy
-      
+
       // Reset trạng thái sau 2 giây
-      setTimeout(() => setCopiedTrackingId(null), 2000); 
+      setTimeout(() => setCopiedTrackingId(null), 2000);
     } catch (err) {
-      console.error('Failed to copy text: ', err);
+      console.error("Failed to copy text: ", err);
       // Có thể hiển thị Swal.fire thông báo lỗi
       Swal.fire({
-          icon: "error",
-          title: "Copy Failed",
-          text: "Lỗi khi truy cập clipboard.",
-          timer: 1500,
-          showConfirmButton: false,
+        icon: "error",
+        title: "Copy Failed",
+        text: "Lỗi khi truy cập clipboard.",
+        timer: 1500,
+        showConfirmButton: false,
       });
     }
   };
@@ -2074,29 +2078,36 @@ whitespace-nowrap"
                                 <TableCell className="font-medium text-slate-900 whitespace-nowrap">
                                   {/* Bọc mã tracking và nút copy trong một div flex */}
                                   <div className="flex items-center gap-1">
-                                      
-                                      {/* Mã Tracking */}
-                                      <span className="text-gray-700">
-                                          {order.tracking}
-                                      </span>
-                                      
-                                      {/* NÚT COPY */}
-                                      {order.tracking && order.tracking !== 'N/A' && (
-                                          <button
-                                              onClick={() => handleCopyTracking(order.tracking)}
-                                              type="button"
-                                              className="p-0 h-auto w-auto bg-transparent border-none cursor-pointer focus:outline-none transition-colors"
-                                              title={copiedTrackingId === order.tracking ? "Đã sao chép!" : "Sao chép mã tracking"}
-                                          >
-                                              {copiedTrackingId === order.tracking ? (
-                                                  <Check className="h-4 w-4 text-green-500" />
-                                              ) : (
-                                                  <Copy className="h-4 w-4 text-gray-500 hover:text-blue-500" />
-                                              )}
-                                          </button>
+                                    {/* Mã Tracking */}
+                                    <span className="text-gray-700">
+                                      {order.tracking}
+                                    </span>
+
+                                    {/* NÚT COPY */}
+                                    {order.tracking &&
+                                      order.tracking !== "N/A" && (
+                                        <button
+                                          onClick={() =>
+                                            handleCopyTracking(order.tracking)
+                                          }
+                                          type="button"
+                                          className="p-0 h-auto w-auto bg-transparent border-none cursor-pointer focus:outline-none transition-colors"
+                                          title={
+                                            copiedTrackingId === order.tracking
+                                              ? "Đã sao chép!"
+                                              : "Sao chép mã tracking"
+                                          }
+                                        >
+                                          {copiedTrackingId ===
+                                          order.tracking ? (
+                                            <Check className="h-4 w-4 text-green-500" />
+                                          ) : (
+                                            <Copy className="h-4 w-4 text-gray-500 hover:text-blue-500" />
+                                          )}
+                                        </button>
                                       )}
                                   </div>
-                              </TableCell>
+                                </TableCell>
                                 <TableCell className="font-medium text-slate-900 whitespace-nowrap">
                                   {order.totalAmount}
                                 </TableCell>
@@ -2172,7 +2183,8 @@ whitespace-nowrap"
                                             </Button>
                                           )}
 
-                                          {order.status !== "DRAFT" && (
+                                          {order.status ===
+                                            "CHANGE_ADDRESS" && (
                                             <Button
                                               variant="ghost"
                                               size="sm"

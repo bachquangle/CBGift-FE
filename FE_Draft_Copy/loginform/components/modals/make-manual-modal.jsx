@@ -248,12 +248,9 @@ export default function MakeManualModal({ isOpen, onClose }) {
   const fetchProvinces = async () => {
     setLoadingProvinces(true);
     try {
-      const res = await fetch(
-        `${apiClient.defaults.baseURL}/api/Location/provinces`,
-        {
-          credentials: "include",
-        }
-      );
+      const res = await fetch(`https://localhost:7015/api/Location/provinces`, {
+        credentials: "include",
+      });
 
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
@@ -277,7 +274,7 @@ export default function MakeManualModal({ isOpen, onClose }) {
     setLoadingDistricts(true);
     try {
       const res = await fetch(
-        `${apiClient.defaults.baseURL}/api/Location/districts/${provinceId}`,
+        `https://localhost:7015/api/Location/districts/${provinceId}`,
         { credentials: "include" }
       );
 
@@ -302,7 +299,7 @@ export default function MakeManualModal({ isOpen, onClose }) {
     setLoadingWards(true);
     try {
       const res = await fetch(
-        `${apiClient.defaults.baseURL}/api/Location/wards/${districtId}`,
+        `https://localhost:7015/api/Location/wards/${districtId}`,
         { credentials: "include" }
       );
 
@@ -384,53 +381,24 @@ export default function MakeManualModal({ isOpen, onClose }) {
   const calculateOrderTotal = () => {
     if (cartProducts.length === 0) return 0;
 
-    let totalBaseCost = 0;
-    let shipCost = 0;
-    let maxExtraShipping = 0;
-    let maxBaseShipCost = 0;
-    let totalQty = 0;
+    const breakdown = getOrderCostBreakdown(); // Lấy breakdown đã tính toán chuẩn
 
-    cartProducts.forEach((item, index) => {
-      const variant = item.product.variants?.find(
-        (v) => v.productVariantId === item.config.variantId
-      );
+    let total = breakdown.totalBase; // Bắt đầu bằng Total Base Cost
 
-      const baseCost = variant?.baseCost ?? 0;
-      const shipCost_variant = variant?.shipCost ?? 0;
-      const extraShipping = variant?.extraShipping ?? 0;
-      const baseShipCost = variant?.shipCost ?? 0; // ⭐ NEW
-      const qty = item.config.quantity || 1;
+    // 1. CỘNG BASE SHIP COST CAO NHẤT (Đã sửa lỗi double counting)
+    total += breakdown.maxBaseShipCost;
 
-      totalBaseCost += baseCost * qty;
+    // 2. CỘNG EXTRA SHIPPING (Theo logic của Edit Order: 1 lần Max Extra Shipping nếu tổng Qty > 1)
+    const totalQty = cartProducts.reduce(
+      (sum, item) => sum + item.config.quantity,
+      0
+    );
 
-      if (cartProducts.length === 1 && index === 0) {
-        shipCost = shipCost_variant;
-      }
-
-      // max extra ship
-      if (extraShipping > maxExtraShipping) {
-        maxExtraShipping = extraShipping;
-      }
-
-      // ⭐ NEW — GET MAX BASE SHIP COST
-      if (baseShipCost > maxBaseShipCost) {
-        maxBaseShipCost = baseShipCost;
-      }
-
-      totalQty += qty;
-    });
-
-    let total = totalBaseCost + shipCost;
-
-    if (cartProducts.length > 1) {
-      total += (totalQty - 1) * maxExtraShipping;
-    } else {
-      total += (totalQty - 1) * maxExtraShipping;
+    if (totalQty > 1) {
+      total += breakdown.maxExtraShipping; // Chỉ cộng 1 lần Max Extra Shipping
     }
 
-    // ⭐ NEW — ADD BASE SHIP COST
-    total += maxBaseShipCost;
-
+    // 3. CỘNG TTS (GIỮ NGUYÊN)
     if (activeTTS) {
       total += 1.0;
     }
@@ -446,11 +414,11 @@ export default function MakeManualModal({ isOpen, onClose }) {
         shipCost: 0,
         maxExtraShipping: 0,
         maxExtraProductName: "",
+        maxBaseShipCost: 0, // Thêm maxBaseShipCost
       };
     }
 
     let totalBase = 0;
-    let shipCost = 0;
     let maxExtraShipping = 0;
     let maxBaseShipCost = 0;
     let maxExtraProductName = "";
@@ -464,13 +432,9 @@ export default function MakeManualModal({ isOpen, onClose }) {
       const baseShipCost = variant?.shipCost ?? 0;
       const extraShipping = variant?.extraShipping ?? 0;
       const qty = item.config.quantity || 1;
+      const totalBaseCost = baseCost * qty; // Tính totalBaseCost cho từng item
 
-      const itemBaseCost = baseCost * qty;
-      totalBase += itemBaseCost;
-
-      if (cartProducts.length === 1 && index === 0) {
-        shipCost = shipCost_variant;
-      }
+      totalBase += totalBaseCost; // Add item's totalBaseCost to the overall totalBase
 
       if (extraShipping > maxExtraShipping) {
         maxExtraShipping = extraShipping;
@@ -484,17 +448,21 @@ export default function MakeManualModal({ isOpen, onClose }) {
       return {
         id: item.id,
         name: item.product.productName,
-        baseCost,
-        qty,
-        totalBaseCost: itemBaseCost,
-        extraShipping,
+        baseCost: baseCost,
+        qty: qty,
+        totalBaseCost: totalBaseCost, // Add totalBaseCost to item
+        shipCost: shipCost_variant,
+        extraShipping: extraShipping,
       };
     });
+
+    // If there's only one item, its shipCost is the total shipCost
+    const shipCost = cartProducts.length === 1 ? breakdownItems[0].shipCost : 0;
 
     return {
       items: breakdownItems,
       totalBase,
-      shipCost,
+      shipCost, // This will be 0 if multiple items, handled by maxBaseShipCost later
       maxExtraShipping,
       maxExtraProductName,
       maxBaseShipCost,
@@ -1355,6 +1323,7 @@ export default function MakeManualModal({ isOpen, onClose }) {
                         "/placeholder.svg?height=128&width=256&query=product" ||
                         "/placeholder.svg" ||
                         "/placeholder.svg" ||
+                        "/placeholder.svg" ||
                         "/placeholder.svg"
                       }
                       alt={p.productName}
@@ -1659,6 +1628,7 @@ export default function MakeManualModal({ isOpen, onClose }) {
                     <img
                       src={
                         currentProductConfig.linkThanksCard ||
+                        "/placeholder.svg" ||
                         "/placeholder.svg"
                       }
                       alt="Thanks Card Preview"
@@ -1726,6 +1696,7 @@ export default function MakeManualModal({ isOpen, onClose }) {
                     <img
                       src={
                         currentProductConfig.linkFileDesign ||
+                        "/placeholder.svg" ||
                         "/placeholder.svg"
                       }
                       alt="Design File Preview"
@@ -2040,6 +2011,7 @@ export default function MakeManualModal({ isOpen, onClose }) {
                                   "/placeholder.svg" ||
                                   "/placeholder.svg" ||
                                   "/placeholder.svg" ||
+                                  "/placeholder.svg" ||
                                   "/placeholder.svg"
                                 }
                                 alt="File Design"
@@ -2083,7 +2055,7 @@ export default function MakeManualModal({ isOpen, onClose }) {
                       <div className="flex justify-between text-sm ml-3">
                         <span className="text-gray-600">Base Cost:</span>
                         <span className="font-medium text-gray-900">
-                          ${item.baseCost.toFixed(2)}
+                          ${item.totalBaseCost.toFixed(2)}
                         </span>
                       </div>
                       <div className="flex justify-between text-sm ml-3">
@@ -2092,6 +2064,21 @@ export default function MakeManualModal({ isOpen, onClose }) {
                           ${getOrderCostBreakdown().shipCost.toFixed(2)}
                         </span>
                       </div>
+                      {getOrderCostBreakdown().maxExtraShipping > 0 &&
+                        item.qty > 1 && (
+                          <div className="flex justify-between text-sm ml-3">
+                            <span className="text-gray-600">
+                              Extra Shipping:
+                            </span>
+                            <span className="font-medium text-gray-900">
+                              $
+                              {(
+                                getOrderCostBreakdown().maxExtraShipping *
+                                (item.qty - 1)
+                              ).toFixed(2)}
+                            </span>
+                          </div>
+                        )}
                     </div>
                   ))}
                   <div className="border-t border-slate-300 pt-2 flex justify-between font-semibold">
@@ -2101,6 +2088,11 @@ export default function MakeManualModal({ isOpen, onClose }) {
                       {(
                         getOrderCostBreakdown().totalBase +
                         getOrderCostBreakdown().shipCost +
+                        (getOrderCostBreakdown().maxExtraShipping > 0 &&
+                        cartProducts[0].config.quantity > 1
+                          ? getOrderCostBreakdown().maxExtraShipping *
+                            (cartProducts[0].config.quantity - 1)
+                          : 0) +
                         (activeTTS ? 1.0 : 0)
                       ).toFixed(2)}
                     </span>

@@ -724,13 +724,13 @@ export default function PrinterBillPage() {
                     </Popover>
                   </div>
                 </div>
-                <div className="flex flex-wrap gap-2 w-full lg:w-auto">
+                {/* <div className="flex flex-wrap gap-2 w-full lg:w-auto">
                   <Button variant="outline" onClick={handleExport}>
                     <FileDown className="h-4 w-4 mr-2" />
                     <span className="hidden sm:inline">Export file</span>
                     <span className="sm:hidden">Export</span>
                   </Button>
-                </div>
+                </div> */}
               </div>
             </div>
 

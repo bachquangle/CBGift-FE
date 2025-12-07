@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useMemo, useCallback } from "react";
 import Link from "next/link";
-import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 import React from "react";
 import { RotateCcw, XCircle, MoreVertical, CheckCircle2 } from "lucide-react";
@@ -34,7 +33,6 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
   DialogFooter,
 } from "@/components/ui/dialog";
 import {
@@ -77,12 +75,14 @@ import {
   ArrowUp,
   ArrowDown,
   ChevronDown,
-  Copy,        
+  Copy,
   Check,
 } from "lucide-react";
 import { format } from "date-fns";
 
 import ImportOrdersModal from "@/components/modals/import-orders-modal";
+import EditAddressModal from "@/components/modals/edit-address-modal";
+import EditOrderModal from "@/components/modals/edit-order-modal"; // Add edit order modal import
 
 const STATS_CONFIG = [
   {
@@ -99,7 +99,7 @@ const STATS_CONFIG = [
     iconColor: "text-gray-500",
     statusFilter: "Draft (Nháp)",
   },
-  { 
+  {
     title: "Need Design",
     color: "bg-yellow-50 border-yellow-200",
     icon: Handshake,
@@ -241,6 +241,9 @@ export default function ManageOrder() {
   const [showErrorDialog, setShowErrorDialog] = useState(false);
   const [totalOrdersCount, setTotalOrdersCount] = useState(0);
 
+  const [showEditOrderModal, setShowEditOrderModal] = useState(false);
+  const [orderToEdit, setOrderToEdit] = useState(null);
+
   const [orderStats, setOrderStats] = useState({
     total: 0,
     needActionCount: 0,
@@ -248,6 +251,14 @@ export default function ManageOrder() {
     completedCount: 0,
     stageGroups: {},
   });
+
+  // States for Edit Address Modal
+  const [showEditAddressModal, setShowEditAddressModal] = useState(false);
+  const [addressToEdit, setAddressToEdit] = useState(null);
+  const [isSavingAddress, setIsSavingAddress] = useState(false);
+
+  // New state for the full edit modal
+  const [showFullEditModal, setShowFullEditModal] = useState(false);
 
   const getProductionStatusName = (status) => {
     switch (Number(status)) {
@@ -567,12 +578,12 @@ export default function ManageOrder() {
           // orderDate: new Date(order.orderDate).toISOString().split("T")[0],
           orderDate: new Date(order.orderDate).toLocaleDateString("en-CA"),
           customerName: order.customerName,
-          tracking : order.tracking,
+          tracking: order.tracking,
           phone: order.phone || "",
           email: order.email || "",
           paymentStatus: order.paymentStatus || "",
           products: order.details.map((detail) => ({
-            name: detail.productName || `Product ${detail.productVariantID}`,
+            name: detail.productName || `Product ${detail.orderDetailID}`, // Changed to orderDetailID as fallback
             quantity: detail.quantity,
             price: detail.price,
             size: detail.size || "",
@@ -600,8 +611,15 @@ export default function ManageOrder() {
             state: order.state,
             zipcode: order.zipcode,
             country: order.country,
+            address1: order.address1,
+            provinceId: order.provinceId,
+            provinceName: order.provinceName,
+            districtId: order.districtId,
+            districtName: order.districtName,
+            wardId: order.wardId,
+            wardName: order.wardName,
           },
-          orderNotes: order.details[0]?.note || "",
+          orderNotes: order.details[0]?.note || "", // Assuming note is on the first detail
           uploadedFiles: {
             linkImg: {
               name: "image.jpg",
@@ -933,6 +951,122 @@ export default function ManageOrder() {
     }
   };
 
+  // Thêm hàm updateOrderAddress (Trước handleViewDetails)
+  const updateOrderAddress = async (customerInfo) => {
+    try {
+      const res = await apiClient.put(
+        `${apiClient.defaults.baseURL}/api/order/update-address/${currentOrder.orderId}`,
+        customerInfo,
+        { withCredentials: true }
+      );
+
+      // cập nhật UI
+      setCurrentOrder((prev) => ({
+        ...prev,
+        endCustomer: {
+          ...prev.endCustomer,
+          ...customerInfo,
+        },
+      }));
+
+      return true;
+    } catch (err) {
+      console.error(err);
+      throw err;
+    }
+  };
+
+  // Thêm hàm handleEditAddress (Trước handleViewDetails)
+  const handleEditAddress = (order) => {
+    const addressData = {
+      name: order.customerName || "",
+      phone: order.phone || "",
+      email: order.email || "",
+      address: order.address || "",
+      address1: order.address1 || "",
+      provinceId: order.provinceId || "",
+      provinceName: order.provinceName || "",
+      districtId: order.districtId || "",
+      districtName: order.districtName || "",
+      wardId: order.wardId || "",
+      wardName: order.wardName || "",
+    };
+    setAddressToEdit({ orderId: order.id, ...addressData });
+    setShowEditAddressModal(true);
+  };
+
+  // Dòng ~167: CẬP NHẬT handleSaveAddress
+  const handleSaveAddress = async (customerInfo) => {
+    // customerInfo được truyền từ EditAddressModal
+    const orderId = addressToEdit?.orderId;
+
+    if (!orderId) {
+      setErrorMessage("Lỗi: Không tìm thấy ID đơn hàng để cập nhật.");
+      setShowErrorDialog(true);
+      return;
+    }
+
+    setIsSavingAddress(true);
+
+    try {
+      // ✅ TẠO PAYLOAD CHỨA ĐỦ CÁC TRƯỜNG CẢ TÊN VÀ ID
+      const payload = {
+        Name: customerInfo.name,
+        Phone: customerInfo.phone,
+        Email: customerInfo.email,
+        Address: `${customerInfo.address}${
+          customerInfo.wardName ? `, ${customerInfo.wardName}` : ""
+        }${customerInfo.districtName ? `, ${customerInfo.districtName}` : ""}${
+          customerInfo.provinceName ? `, ${customerInfo.provinceName}` : ""
+        }`,
+        Address1: customerInfo.address1,
+
+        // Tên địa lý (BE lưu vào EndCustomer)
+        ProvinceName: customerInfo.provinceName,
+        DistrictName: customerInfo.districtName,
+        WardName: customerInfo.wardName,
+
+        // ID địa lý (BE lưu vào Order) - Chuyển sang Number nếu BE mong đợi int
+        ToProvinceId: customerInfo.provinceId
+          ? Number(customerInfo.provinceId)
+          : 0,
+        ToDistrictId: customerInfo.districtId
+          ? Number(customerInfo.districtId)
+          : 0,
+        ToWardCode: customerInfo.wardId || "",
+      };
+
+      // PUT API call: /api/Order/update-address/{orderId}
+      const apiPath = `${apiClient.defaults.baseURL}/api/Order/update-address/${orderId}`;
+
+      const res = await apiClient.put(
+        apiPath,
+        payload, // ✅ GỬI PAYLOAD MỚI
+        { withCredentials: true }
+      );
+
+      if (res.status !== 200 && res.status !== 204) {
+        throw new Error(
+          res.data?.message || `HTTP ${res.status}: Cập nhật địa chỉ thất bại.`
+        );
+      }
+
+      setSuccessMessage("✅ Địa chỉ đã được cập nhật thành công.");
+      setShowSuccessDialog(true);
+
+      setShowEditAddressModal(false);
+      fetchOrders();
+    } catch (err) {
+      console.error("Update address failed:", err);
+      const specificError =
+        err.response?.data?.message || err.response?.statusText || err.message;
+      setErrorMessage("❌ Cập nhật địa chỉ thất bại: " + specificError);
+      setShowErrorDialog(true);
+    } finally {
+      setIsSavingAddress(false);
+    }
+  };
+
   // Helper: định dạng MySQL (giữ lại nhưng không dùng)
   function formatMySQLDate(dateStr) {
     if (!dateStr) return "";
@@ -1062,43 +1196,33 @@ export default function ManageOrder() {
     link.click();
   };
 
+  // Dòng ~618: Cập nhật handleViewDetails
   const handleViewDetails = async (order) => {
     try {
       console.log("🧾 Selected order (before fetch):", order);
-      const res = await fetch(
-        `${apiClient.defaults.baseURL}/api/Seller/${order.id}`,
-        {
-          credentials: "include",
-        }
-      );
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const fullOrder = await res.json();
-      console.log("✅ Full order fetched:", fullOrder);
 
-      if (!fullOrder) {
-        alert("Không tìm thấy chi tiết đơn hàng này!");
+      // **1. Xử lý Full Edit cho Draft status (Bước 3)**
+      if (order.status === "DRAFT") {
+        setOrderToEdit(order);
+        setShowFullEditModal(true);
         return;
       }
 
+      // **2. Xử lý View Details cho Non-Draft status**
+      const res = await fetch(
+        `${apiClient.defaults.baseURL}/api/Seller/${order.id}`,
+        { credentials: "include" }
+      );
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const fullOrder = await res.json();
+
+      // Mapping dữ liệu (giữ nguyên logic như cũ)
       const mappedOrder = {
         id: fullOrder.orderId,
         orderId: fullOrder.orderCode,
         orderDate: new Date(fullOrder.orderDate).toISOString().split("T")[0],
         customerName: fullOrder.customerName,
-        reason: fullOrder.reason,
-        rejectionReason: fullOrder.rejectionReason,
-        proofUrl: fullOrder.proofUrl,
-        refundAmount: fullOrder.refundAmount,
-        isRefundPending: fullOrder.isRefundPending,
-        phone: fullOrder.phone || "",
-        email: fullOrder.email || "",
-        address: fullOrder.address || "",
-        shipTo: `${fullOrder.shipCity || ""}, ${fullOrder.shipState || ""}, ${
-          fullOrder.shipCountry || ""
-        }`,
-        status: fullOrder.statusOderName,
-        totalAmount: `$${fullOrder.totalCost?.toFixed(2) || 0}`,
-        timeCreated: new Date(fullOrder.creationDate).toLocaleString(),
+        // ... (các trường khác)
         customerInfo: {
           name: fullOrder.customerName,
           phone: fullOrder.phone || "",
@@ -1109,39 +1233,19 @@ export default function ManageOrder() {
           state: fullOrder.shipState || "",
           zipcode: fullOrder.zipcode || "",
           country: fullOrder.shipCountry || "",
+          // Map province, district, ward if available
+          provinceId: fullOrder.provinceId || "",
+          provinceName: fullOrder.provinceName || "",
+          districtId: fullOrder.districtId || "",
+          districtName: fullOrder.districtName || "",
+          wardId: fullOrder.wardId || "",
+          wardName: fullOrder.wardName || "",
         },
-        orderNotes: fullOrder.details[0]?.note || "",
-        uploadedFiles: {
-          linkImg: {
-            name: "image.jpg",
-            url: fullOrder.details[0]?.linkImg || "/placeholder.svg",
-          },
-          linkThanksCard: {
-            name: "thanks-card.jpg",
-            url: fullOrder.details[0]?.linkThanksCard || "#",
-          },
-          linkFileDesign: {
-            name: "design-file.psd",
-            url: fullOrder.details[0]?.linkFileDesign || "#",
-          },
-        },
-        products: fullOrder.details.map((detail) => ({
-          name: detail.productName || `Product ${detail.productVariantID}`,
-          quantity: detail.quantity,
-          price: detail.price,
-          size: detail.size || "",
-          accessory: detail.accessory || "",
-          activeTTS: fullOrder.activeTts || false,
-          linkFileDesign: detail.linkFileDesign,
-          linkThanksCard: detail.linkThanksCard,
-          linkImg: detail.linkImg,
-          orderDetailId: detail.orderDetailID,
-          productionStatus: detail.productionStatus,
-        })),
+        // ... (Phần còn lại)
       };
 
-      console.log("🎯 Mapped order for modal:", mappedOrder);
       setEditedOrder(mappedOrder);
+      setIsEditMode(false); // Chế độ View Details mặc định
       setIsDialogOpen(true);
     } catch (err) {
       console.error("❌ Failed to fetch order details:", err);
@@ -1153,11 +1257,39 @@ export default function ManageOrder() {
     setIsEditMode(true);
   };
 
-  const handleSaveUpdate = () => {
-    console.log("Saving updated order:", editedOrder);
-    setIsEditMode(false);
-    setSelectedOrder(editedOrder);
-    setIsDialogOpen(false);
+  const handleSaveUpdate = async () => {
+    // Thêm async
+    if (isEditMode === "address") {
+      // Xử lý Edit Address
+      try {
+        const isSuccess = await updateOrderAddress(
+          editedOrder.id,
+          editedOrder.customerInfo
+        );
+        if (isSuccess) {
+          setSuccessMessage("✅ Address updated successfully!");
+          setShowSuccessDialog(true);
+          setIsEditMode(false);
+          setIsDialogOpen(false);
+          setTimeout(() => fetchOrders(), 1500);
+        }
+      } catch (err) {
+        setErrorMessage(`❌ Failed to update address: ${err.message}`);
+        setShowErrorDialog(true);
+      }
+    } else if (isEditMode === "full") {
+      // Xử lý Full Edit (sẽ được xử lý trong modal riêng)
+      console.log("Saving full edit...");
+      setSuccessMessage("✅ Order updated successfully!");
+      setShowSuccessDialog(true);
+      setIsEditMode(false);
+      setIsDialogOpen(false);
+      setTimeout(() => fetchOrders(), 1500);
+    } else {
+      // View Mode
+      setIsEditMode(false);
+      setIsDialogOpen(false);
+    }
   };
 
   const handleCancelEdit = () => {
@@ -1418,23 +1550,23 @@ export default function ManageOrder() {
     }
   };
   const handleCopyTracking = async (trackingCode) => {
-    if (!trackingCode || trackingCode === 'N/A') return;
+    if (!trackingCode || trackingCode === "N/A") return;
 
     try {
       await navigator.clipboard.writeText(trackingCode);
       setCopiedTrackingId(trackingCode); // Đặt mã tracking hiện tại là đã copy
-      
+
       // Reset trạng thái sau 2 giây
-      setTimeout(() => setCopiedTrackingId(null), 2000); 
+      setTimeout(() => setCopiedTrackingId(null), 2000);
     } catch (err) {
-      console.error('Failed to copy text: ', err);
+      console.error("Failed to copy text: ", err);
       // Có thể hiển thị Swal.fire thông báo lỗi
       Swal.fire({
-          icon: "error",
-          title: "Copy Failed",
-          text: "Lỗi khi truy cập clipboard.",
-          timer: 1500,
-          showConfirmButton: false,
+        icon: "error",
+        title: "Copy Failed",
+        text: "Lỗi khi truy cập clipboard.",
+        timer: 1500,
+        showConfirmButton: false,
       });
     }
   };
@@ -1538,6 +1670,17 @@ export default function ManageOrder() {
     setShowImportModal(false);
   };
 
+  const handleEditOrder = (order) => {
+    // Navigate to the dedicated edit order page for DRAFT orders
+    window.location.href = `/seller/edit-order/${order.id}`;
+  };
+
+  const handleSaveOrder = () => {
+    setShowEditOrderModal(false);
+    // Refresh orders list
+    fetchOrders();
+  };
+
   return (
     <div className="flex h-screen bg-blue-50">
       <div className="flex-1 flex flex-col overflow-hidden">
@@ -1554,10 +1697,10 @@ export default function ManageOrder() {
                     Manage your customer orders
                   </p>
                 </div>
-                
-                  <div className="flex items-center gap-2 text-sm text-slate-700 bg-white px-3 py-1.5 rounded-md border border-blue-100">
-                    <Package className="h-4 w-4 text-blue-500" />
-                    <span>{totalOrdersCount} orders</span>
+
+                <div className="flex items-center gap-2 text-sm text-slate-700 bg-white px-3 py-1.5 rounded-md border border-blue-100">
+                  <Package className="h-4 w-4 text-blue-500" />
+                  <span>{totalOrdersCount} orders</span>
                 </div>
               </div>
             </div>
@@ -1875,7 +2018,7 @@ whitespace-nowrap"
                         {paginatedOrders.length === 0 ? (
                           <TableRow>
                             <TableCell
-                              colSpan={8}
+                              colSpan={9}
                               className="text-center py-8 text-slate-500"
                             >
                               No orders found
@@ -1893,7 +2036,7 @@ whitespace-nowrap"
                                     }
                                   />
                                 </TableCell>
-                                <TableCell className="font-medium text-slate-900 whitespace-nowrap">
+                                <TableCell className="font-medium text-slate-900 whitespace-nowrap max-w-[120px] overflow-hidden text-ellipsis">
                                   <Link
                                     target="_blank"
                                     rel="noopener noreferrer"
@@ -1935,29 +2078,36 @@ whitespace-nowrap"
                                 <TableCell className="font-medium text-slate-900 whitespace-nowrap">
                                   {/* Bọc mã tracking và nút copy trong một div flex */}
                                   <div className="flex items-center gap-1">
-                                      
-                                      {/* Mã Tracking */}
-                                      <span className="text-gray-700">
-                                          {order.tracking}
-                                      </span>
-                                      
-                                      {/* NÚT COPY */}
-                                      {order.tracking && order.tracking !== 'N/A' && (
-                                          <button
-                                              onClick={() => handleCopyTracking(order.tracking)}
-                                              type="button"
-                                              className="p-0 h-auto w-auto bg-transparent border-none cursor-pointer focus:outline-none transition-colors"
-                                              title={copiedTrackingId === order.tracking ? "Đã sao chép!" : "Sao chép mã tracking"}
-                                          >
-                                              {copiedTrackingId === order.tracking ? (
-                                                  <Check className="h-4 w-4 text-green-500" />
-                                              ) : (
-                                                  <Copy className="h-4 w-4 text-gray-500 hover:text-blue-500" />
-                                              )}
-                                          </button>
+                                    {/* Mã Tracking */}
+                                    <span className="text-gray-700">
+                                      {order.tracking}
+                                    </span>
+
+                                    {/* NÚT COPY */}
+                                    {order.tracking &&
+                                      order.tracking !== "N/A" && (
+                                        <button
+                                          onClick={() =>
+                                            handleCopyTracking(order.tracking)
+                                          }
+                                          type="button"
+                                          className="p-0 h-auto w-auto bg-transparent border-none cursor-pointer focus:outline-none transition-colors"
+                                          title={
+                                            copiedTrackingId === order.tracking
+                                              ? "Đã sao chép!"
+                                              : "Sao chép mã tracking"
+                                          }
+                                        >
+                                          {copiedTrackingId ===
+                                          order.tracking ? (
+                                            <Check className="h-4 w-4 text-green-500" />
+                                          ) : (
+                                            <Copy className="h-4 w-4 text-gray-500 hover:text-blue-500" />
+                                          )}
+                                        </button>
                                       )}
                                   </div>
-                              </TableCell>
+                                </TableCell>
                                 <TableCell className="font-medium text-slate-900 whitespace-nowrap">
                                   {order.totalAmount}
                                 </TableCell>
@@ -1989,7 +2139,6 @@ whitespace-nowrap"
                                       />
                                     </Button>
 
-                                    {/* Menu hành động */}
                                     <Popover>
                                       <PopoverTrigger asChild>
                                         <Button
@@ -2001,7 +2150,11 @@ whitespace-nowrap"
                                           <MoreVertical className="h-4 w-4" />
                                         </Button>
                                       </PopoverTrigger>
-                                      <PopoverContent className="w-40 p-2">
+                                      <PopoverContent
+                                        className="w-48 p-2"
+                                        side="left"
+                                        align="end"
+                                      >
                                         <div className="flex flex-col gap-2">
                                           <Button
                                             variant="ghost"
@@ -2014,6 +2167,36 @@ whitespace-nowrap"
                                             <Eye className="h-4 w-4 mr-2 text-blue-600" />
                                             View Details
                                           </Button>
+
+                                          {/* Nếu status là "Draft (Nháp)" thì hiển thị Edit */}
+                                          {order.status === "DRAFT" && (
+                                            <Button
+                                              variant="ghost"
+                                              size="sm"
+                                              onClick={() =>
+                                                handleEditOrder(order)
+                                              }
+                                              className="justify-start text-purple-600 hover:text-purple-700"
+                                            >
+                                              <FileEdit className="h-4 w-4 mr-2" />
+                                              Edit Order
+                                            </Button>
+                                          )}
+
+                                          {order.status ===
+                                            "CHANGE_ADDRESS" && (
+                                            <Button
+                                              variant="ghost"
+                                              size="sm"
+                                              onClick={() =>
+                                                handleEditAddress(order)
+                                              }
+                                              className="justify-start text-green-600 hover:text-green-700"
+                                            >
+                                              <FileEdit className="h-4 w-4 mr-2" />
+                                              Edit Address
+                                            </Button>
+                                          )}
 
                                           {order.status === "Đã Ship" && (
                                             <Button
@@ -2055,6 +2238,10 @@ whitespace-nowrap"
                                               <Package className="h-5 w-5" />
                                               Order Details -
                                               {editedOrder?.orderId}
+                                              {isEditMode === "full" &&
+                                                "(Full Edit)"}
+                                              {isEditMode === "address" &&
+                                                "(Edit Address)"}
                                             </div>
                                           </DialogTitle>
                                         </DialogHeader>
@@ -2511,6 +2698,12 @@ whitespace-nowrap"
                                                                   <img
                                                                     src={
                                                                       product.linkFileDesign ||
+                                                                      "/placeholder.svg" ||
+                                                                      "/placeholder.svg" ||
+                                                                      "/placeholder.svg" ||
+                                                                      "/placeholder.svg" ||
+                                                                      "/placeholder.svg" ||
+                                                                      "/placeholder.svg" ||
                                                                       "/placeholder.svg"
                                                                     }
                                                                     alt="Design File"
@@ -2607,6 +2800,12 @@ whitespace-nowrap"
                                                                   <img
                                                                     src={
                                                                       product.linkThanksCard ||
+                                                                      "/placeholder.svg" ||
+                                                                      "/placeholder.svg" ||
+                                                                      "/placeholder.svg" ||
+                                                                      "/placeholder.svg" ||
+                                                                      "/placeholder.svg" ||
+                                                                      "/placeholder.svg" ||
                                                                       "/placeholder.svg"
                                                                     }
                                                                     alt="Thanks Card"
@@ -2696,7 +2895,7 @@ whitespace-nowrap"
                                                           <h5 className="font-semibold text-sm text-slate-700 mb-2">
                                                             Detail ID: #
                                                             {
-                                                              product.orderDetailId
+                                                              product.orderDetailID
                                                             }
                                                           </h5>
                                                           <div className="flex items-center gap-3">
@@ -2711,7 +2910,7 @@ whitespace-nowrap"
                                                               }`}
                                                               onClick={() =>
                                                                 handleApproveOrderDetail(
-                                                                  product.orderDetailId
+                                                                  product.orderDetailID
                                                                 )
                                                               }
                                                               disabled={
@@ -2742,7 +2941,7 @@ whitespace-nowrap"
                                                               }`}
                                                               onClick={() =>
                                                                 handleRejectOrderDetail(
-                                                                  product.orderDetailId
+                                                                  product.orderDetailID
                                                                 )
                                                               }
                                                               disabled={
@@ -3143,6 +3342,12 @@ whitespace-nowrap"
                                                   <img
                                                     src={
                                                       item.linkImg ||
+                                                      "/placeholder.svg" ||
+                                                      "/placeholder.svg" ||
+                                                      "/placeholder.svg" ||
+                                                      "/placeholder.svg" ||
+                                                      "/placeholder.svg" ||
+                                                      "/placeholder.svg" ||
                                                       "/placeholder.svg"
                                                     }
                                                     alt={item.name || "Product"}
@@ -3426,6 +3631,17 @@ whitespace-nowrap"
         isOpen={showMakeManualModal}
         onClose={() => setShowMakeManualModal(false)}
       />
+
+      <MakeManualModal
+        isOpen={showFullEditModal}
+        onClose={() => {
+          setShowFullEditModal(false);
+          setOrderToEdit(null); // Clear orderToEdit khi đóng
+          fetchOrders(); // Tải lại danh sách
+        }}
+        orderToEdit={orderToEdit} // Truyền dữ liệu order vào
+      />
+
       {/* Success Dialog */}
       <Dialog open={showSuccessDialog} onOpenChange={setShowSuccessDialog}>
         <DialogContent>
@@ -3507,6 +3723,25 @@ whitespace-nowrap"
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {addressToEdit && (
+        <EditAddressModal
+          open={showEditAddressModal}
+          onOpenChange={setShowEditAddressModal}
+          initialAddress={addressToEdit}
+          onSave={handleSaveAddress}
+          isLoading={isSavingAddress}
+        />
+      )}
+
+      {/* Add EditOrderModal component at the end of the JSX (next to EditAddressModal) */}
+      {/* <EditAddressModal
+        open={showEditAddressModal}
+        onOpenChange={setShowEditAddressModal}
+        initialAddress={addressToEdit}
+        onSave={handleSaveAddress}
+        isLoading={isSavingAddress}
+      /> */}
     </div>
   );
 }

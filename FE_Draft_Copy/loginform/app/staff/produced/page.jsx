@@ -35,7 +35,10 @@ export default function ProducedPage() {
       params.append("status", "produced")
       
       try {
-        const response = await fetch(`${apiClient.defaults.baseURL}/api/plan/staff-view?${params.toString()}`)
+        const response = await fetch(`${apiClient.defaults.baseURL}/api/plan/staff-view?${params.toString()}`, 
+            {
+            credentials: "include"
+            });
         if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`)
         const data = await response.json()
         

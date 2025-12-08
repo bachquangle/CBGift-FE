@@ -48,7 +48,7 @@ export default function ImportOrdersModal({
   const [isLoading, setIsLoading] = useState(false); // Loading khi Upload/Validate
   const [isSubmitting, setIsSubmitting] = useState(false); // Loading khi Confirm
   const [isDownloading, setIsDownloading] = useState(false); // Loading khi tải Master Data
-
+ const [isDownloadingTemplate, setIsDownloadingTemplate] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [importResult, setImportResult] = useState(null); // Kết quả sau khi Confirm
@@ -78,36 +78,58 @@ export default function ImportOrdersModal({
   ];
 
   // --- 1. Tải Template Rỗng (Client Side) ---
-  const downloadTemplate = () => {
-    const templateData = [
-      {
-        OrderCode: "ORD-DEMO-01",
-        CustomerName: "John Doe",
-        Phone: "0987654321",
-        Email: "johndoe@example.com",
-        Address: "123 Main St",
-        Province: "Hanoi",
-        District: "Dong Da",
-        Ward: "Lang Thuong",
-        SKU: "TSHIRT-BLK-L",
-        Quantity: 2,
-        Accessory: "Gift Box",
-        Note: "Deliver during office hours",
-        LinkImg: "https://example.com/img.jpg",
-        LinkThanksCard: "",
-        LinkFileDesign: "",
-      },
-    ];
+  // const downloadTemplate = () => {
+  //   const templateData = [
+  //     {
+  //       OrderCode: "ORD-DEMO-01",
+  //       CustomerName: "John Doe",
+  //       Phone: "0987654321",
+  //       Email: "johndoe@example.com",
+  //       Address: "123 Main St",
+  //       Province: "Hanoi",
+  //       District: "Dong Da",
+  //       Ward: "Lang Thuong",
+  //       SKU: "TSHIRT-BLK-L",
+  //       Quantity: 2,
+  //       Accessory: "Gift Box",
+  //       Note: "Deliver during office hours",
+  //       LinkImg: "https://example.com/img.jpg",
+  //       LinkThanksCard: "",
+  //       LinkFileDesign: "",
+  //     },
+  //   ];
 
-    const worksheet = XLSX.utils.json_to_sheet(templateData);
-    const wscols = columns.map(() => ({ wch: 20 }));
-    worksheet["!cols"] = wscols;
+  //   const worksheet = XLSX.utils.json_to_sheet(templateData);
+  //   const wscols = columns.map(() => ({ wch: 20 }));
+  //   worksheet["!cols"] = wscols;
 
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Orders");
-    const excelBuffer = XLSX.write(workbook, { bookType: "xlsx", type: "array" });
-    const blob = new Blob([excelBuffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
-    saveAs(blob, "Order_Import_Template.xlsx");
+  //   const workbook = XLSX.utils.book_new();
+  //   XLSX.utils.book_append_sheet(workbook, worksheet, "Orders");
+  //   const excelBuffer = XLSX.write(workbook, { bookType: "xlsx", type: "array" });
+  //   const blob = new Blob([excelBuffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+  //   saveAs(blob, "Order_Import_Template.xlsx");
+  // };
+  // --- 1. Tải Template (GỌI API THAY VÌ TẠO CLIENT) ---
+  const downloadTemplate = async () => {
+    setIsDownloadingTemplate(true);
+    try {
+      // Gọi API Backend vừa viết
+      const response = await apiClient.get('/api/OrderImport/download-template', { 
+         responseType: 'blob', // Quan trọng: Báo axios nhận về file
+         credentials: "include",
+      });
+
+      // Tạo blob và tải xuống
+      const blob = new Blob([response.data], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      saveAs(blob, "Order_Import_Template.xlsx");
+      
+      toast.success("Template downloaded successfully!");
+    } catch (error) {
+      console.error("Download template failed:", error);
+      toast.error("Failed to download template.");
+    } finally {
+      setIsDownloadingTemplate(false);
+    }
   };
 
   // --- 2. Tải Master Data (Gọi API) ---
@@ -381,13 +403,25 @@ export default function ImportOrdersModal({
               {/* Grid 2 Nút Download */}
               <div className="grid grid-cols-2 gap-4">
                  {/* Step 1A */}
-                 <div className="border border-dashed border-blue-200 rounded-lg p-6 bg-blue-50/50 flex flex-col items-center justify-center text-center">
+                 {/* Step 1A: Import Template */}
+                  <div className="border border-dashed border-blue-200 rounded-lg p-6 bg-blue-50/50 flex flex-col items-center justify-center text-center">
                     <h3 className="font-semibold text-gray-700 mb-2">Step 1A: Import Template</h3>
-                    <p className="text-sm text-gray-500 mb-4">Get empty template.</p>
-                    <Button onClick={downloadTemplate} variant="outline" className="border-blue-500 text-blue-600 hover:bg-blue-50">
-                      <Download className="h-4 w-4 mr-2" /> Download Template
+                    <p className="text-sm text-gray-500 mb-4">Get template with SKU Dropdown.</p>
+                    
+                    <Button 
+                      onClick={downloadTemplate} 
+                      disabled={isDownloadingTemplate} // Disable khi đang tải
+                      variant="outline" 
+                      className="border-blue-500 text-blue-600 hover:bg-blue-50"
+                    >
+                      {isDownloadingTemplate ? (
+                        <Loader className="h-4 w-4 mr-2 animate-spin" />
+                      ) : (
+                        <Download className="h-4 w-4 mr-2" /> 
+                      )}
+                      Download Template
                     </Button>
-                 </div>
+                  </div>
 
                  {/* Step 1B */}
                  <div className="border border-dashed border-green-200 rounded-lg p-6 bg-green-50/50 flex flex-col items-center justify-center text-center">

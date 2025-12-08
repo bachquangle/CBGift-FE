@@ -322,7 +322,22 @@ export default function MakeManualModal({ isOpen, onClose }) {
       setLoadingWards(false);
     }
   };
-
+  // Hàm check trùng OrderCode từ Server
+  const checkOrderCodeExists = async (code) => {
+    try {
+      const res = await fetch(
+        `${apiClient.defaults.baseURL}/api/Order/check-code?code=${encodeURIComponent(code)}`,
+        { credentials: "include" }
+      );
+      if (!res.ok) return false; // Nếu lỗi mạng coi như không trùng để không chặn user (hoặc xử lý khác tùy bạn)
+      
+      const data = await res.json();
+      return data.exists; // Trả về true nếu đã tồn tại
+    } catch (err) {
+      console.error("Check code error:", err);
+      return false;
+    }
+  };
   const uploadImage = async (file, onProgress) => {
     const formData = new FormData();
     formData.append("File", file);
@@ -680,13 +695,31 @@ export default function MakeManualModal({ isOpen, onClose }) {
     }
   };
 
-  const handleAddToCart = () => {
+  const handleAddToCart = async () => { // 1. Thêm async
     if (!currentProduct) return;
 
+    // --- LOGIC MỚI: CHECK TRÙNG ORDER CODE ---
+    // Chỉ check khi OrderId chưa bị khóa và người dùng có nhập nội dung
+    if (!isOrderIdSet && orderId && orderId.trim().length > 0) {
+      
+      // Hiển thị loading nhẹ hoặc disable nút nếu cần thiết (optional)
+      
+      const isDuplicate = await checkOrderCodeExists(orderId.trim());
+
+      if (isDuplicate) {
+        setErrorMessage(`⚠️ Order Code "${orderId}" already exists! Please enter another code.`);
+        setShowErrorDialog(true);
+        return; // ⛔ Dừng lại: Không thêm vào giỏ, KHÔNG khóa input
+      }
+    }
+    // -----------------------------------------
+
+    // Nếu không trùng hoặc không nhập (auto generate sau), thì tiến hành khóa
     if (!isOrderIdSet) {
       setIsOrderIdSet(true);
     }
 
+    // --- LOGIC CŨ GIỮ NGUYÊN BÊN DƯỚI ---
     const productPrice = calculateProductPrice();
     const productToAdd = {
       id: Date.now(),
@@ -719,10 +752,9 @@ export default function MakeManualModal({ isOpen, onClose }) {
       activeTTS: false,
       note: "",
       productPrice: 0,
-      variantId: null, // để dropdown hiện lại
+      variantId: null,
     });
 
-    // ✅ Clear toàn bộ input file DOM refs
     if (linkImgRef.current) linkImgRef.current.value = "";
     if (linkThanksCardRef.current) linkThanksCardRef.current.value = "";
     if (linkFileDesignRef.current) linkFileDesignRef.current.value = "";

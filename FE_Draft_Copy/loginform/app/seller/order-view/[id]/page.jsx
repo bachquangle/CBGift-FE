@@ -21,11 +21,11 @@ const PRODUCTION_STATUS_MAP = {
   9: "QC_DONE",
   10: "QC_FAIL",
   11: "PROD_REWORK",
-  12: "PACKING",
-  13: "HOLD_RF",
-  14: "HOLD_RP",
-  15: "REFUND",
-  16: "REPRINT"
+  12: "SHIPPING",   // Cập nhật từ PACKING -> SHIPPING
+  13: "SHIPPED",    // Thêm mới
+  14: "HOLD_RF",    // Thêm mới
+  15: "HOLD_RP",    // Thêm mới
+  16: "REFUND"      // Thêm mới
 };
 
 // Hàm map dữ liệu từ API sang cấu trúc UI cần
@@ -42,7 +42,7 @@ const mapApiToUiData = (apiData) => {
   const shippingCost = apiData.totalCost - productionCosts; 
 
   // 2. Định nghĩa các cột mốc chính cho Timeline
-  const MAIN_PRODUCTION_STEPS = [1, 6, 7, 12, 9]; 
+  const MAIN_PRODUCTION_STEPS = [1, 3, 7, 12, 13];
 
   // --- 1. Bắt đầu Activity Log ---
   let activitiesLog = []; 

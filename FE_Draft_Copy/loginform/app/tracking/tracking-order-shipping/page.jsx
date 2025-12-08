@@ -401,7 +401,7 @@ export default function TrackingOrderShippingPage() {
                     </p>
                     
                     <div className="flex flex-wrap gap-4">
-                        <button 
+                        {/* <button 
                             onClick={() => handleUpdateStatus("ready_to_pick")}
                             disabled={isUpdating}
                             className="bg-cyan-600 hover:bg-cyan-700 disabled:opacity-50 text-white font-bold py-3 px-6 rounded-lg transition-colors flex items-center gap-2"
@@ -415,7 +415,7 @@ export default function TrackingOrderShippingPage() {
                             className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-bold py-3 px-6 rounded-lg transition-colors flex items-center gap-2"
                         >
                             🚚 Đang giao hàng
-                        </button>
+                        </button> */}
 
                         <button 
                             onClick={() => handleUpdateStatus("delivered")}

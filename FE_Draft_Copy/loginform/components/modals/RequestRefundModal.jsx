@@ -92,6 +92,7 @@ export default function RequestRefundModal({ isOpen, onClose, productDetail, onS
     };
     
     const handleSubmit = async () => { 
+        // 1. CHUẨN BỊ DỮ LIỆU
         const selectedItems = Object.entries(itemDetails)
             .filter(([id, detail]) => detail.selected && detail.amount > 0)
             .map(([id, detail]) => ({
@@ -100,62 +101,62 @@ export default function RequestRefundModal({ isOpen, onClose, productDetail, onS
             }));
 
         if (!reason || selectedItems.length === 0) {
-            alert("Vui lòng chọn ít nhất 1 sản phẩm và cung cấp lý do.");
+            alert("Please fill in the reason in detail and select at least one product.");
             return;
         }
 
-        let finalProofUrl = uploadedUrl;
-        
-        // 1. TẢI FILE LÊN NẾU CÓ VÀ CHƯA ĐƯỢC TẢI
-        if (proofFiles.length > 0 && !finalProofUrl) {
-            setIsUploading(true); // Bật trạng thái disabled của nút
+        setIsUploading(true); // Bật trạng thái loading chung
 
-            // Hiển thị Swal spinner
-            Swal.fire({
-                title: 'Uploading Proof...',
-                html: 'Please wait while your evidence is uploaded.',
-                allowOutsideClick: false,
-                showConfirmButton: false,
-                didOpen: () => Swal.showLoading()
-            });
+        try {
+            let finalProofUrl = uploadedUrl;
             
-            try {
-                // Cho phép UI repaint trước khi gọi fetch
-                await new Promise(resolve => setTimeout(resolve, 10)); 
+            // 2. UPLOAD ẢNH (NẾU CÓ)
+            if (proofFiles.length > 0 && !finalProofUrl) {
+                // Hiển thị Swal spinner riêng cho việc upload
+                Swal.fire({
+                    title: 'Uploading Proof...',
+                    html: 'Please wait while your evidence is uploaded.',
+                    allowOutsideClick: false,
+                    showConfirmButton: false,
+                    didOpen: () => Swal.showLoading()
+                });
                 
-                const url = await uploadImage(proofFiles[0]); // Chỉ upload file đầu tiên
+                const url = await uploadImage(proofFiles[0]);
                 
-                if (!url) {
-                    throw new Error("Failed to get URL after upload.");
-                }
+                if (!url) throw new Error("Failed to get URL after upload.");
                 finalProofUrl = url;
                 setUploadedUrl(url); 
-                
-                Swal.close(); // Đóng spinner sau khi upload thành công
-
-            } catch (error) {
-                Swal.close();
-                Swal.fire("Upload Failed", `Lỗi tải file: ${error.message}`, "error");
-                setIsUploading(false); // Reset trạng thái
-                return;
-            } finally {
-                setIsUploading(false); // Luôn tắt loading
+                Swal.close(); 
             }
+            
+            // 3. GỬI DỮ LIỆU (QUAN TRỌNG: Thêm await)
+            // Cần await để đảm bảo API chạy xong mới reload trang
+            await onSubmit({
+                orderId: isOrderLevel ? productDetail.id : productDetail.orderId,
+                reason: reason,
+                selectedItems: selectedItems,
+                totalRefundAmount: totalRefundAmount,
+                proofUrl: finalProofUrl,
+            });
+            
+            // 4. LOAD LẠI TRANG
+            // Hiện thông báo thành công ngắn rồi reload
+            await Swal.fire({
+                icon: 'success',
+                title: 'Success',
+                text: 'Refund request submitted successfully!',
+                timer: 1500,
+                showConfirmButton: false
+            });
+            
+            window.location.reload(); // <--- Dòng lệnh reload trang
+
+        } catch (error) {
+            console.error("Submit error:", error);
+            Swal.fire("Error", `Có lỗi xảy ra: ${error.message}`, "error");
+            setIsUploading(false); // Tắt loading nếu lỗi
         }
-        
-        // 2. GỌI HÀM SUBMIT CUỐI CÙNG (Gửi payload JSON lên component cha)
-        
-        // LƯU Ý: Component cha (OrderView.jsx) sẽ chịu trách nhiệm hiển thị spinner cho API submission.
-        onSubmit({
-            orderId: isOrderLevel ? productDetail.id : productDetail.orderId,
-            reason: reason,
-            selectedItems: selectedItems,
-            totalRefundAmount: totalRefundAmount,
-            proofUrl: finalProofUrl, // Gửi URL (string hoặc null)
-        });
-        
-        // Đóng Modal sau khi hoàn tất giao tiếp với component cha
-        onClose(); 
+        // Không cần gọi onClose() ở đây nữa vì trang sẽ reload
     };
     
     // --- RENDER ---

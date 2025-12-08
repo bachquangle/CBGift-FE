@@ -37,7 +37,10 @@ export default function NeedsProductionPage() {
       params.append("status", "needs_production")
       
       try {
-        const response = await fetch(`${apiClient.defaults.baseURL}/api/plan/staff-view?${params.toString()}`)
+        const response = await fetch(`${apiClient.defaults.baseURL}/api/plan/staff-view?${params}`, 
+            {
+            credentials: "include"
+            });
         if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`)
         const data = await response.json()
         
@@ -103,7 +106,11 @@ export default function NeedsProductionPage() {
   const handleGroupSubmit = async () => {
     setIsGrouping(true)
     try {
-      const response = await fetch(`${apiClient.defaults.baseURL}/api/plan/group-submitted`, { method: "POST" })
+      const response = await fetch(`${apiClient.defaults.baseURL}/api/plan/group-submitted`, 
+        { 
+        method: "POST", 
+        credentials: "include" 
+        })
       if (!response.ok) throw new Error(`API call failed: ${response.status}`)
       alert("Orders have been grouped successfully!")
       setUpdateTrigger((prev) => prev + 1)
@@ -121,6 +128,7 @@ export default function NeedsProductionPage() {
         {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
+          credentials: "include"
         },
       )
       if (!response.ok) throw new Error(`API failed: ${response.status}`)

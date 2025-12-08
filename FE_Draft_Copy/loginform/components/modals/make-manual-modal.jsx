@@ -255,7 +255,6 @@ export default function MakeManualModal({ isOpen, onClose }) {
         }
       );
 
-
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
       const data = await res.json();

@@ -248,9 +248,12 @@ export default function MakeManualModal({ isOpen, onClose }) {
   const fetchProvinces = async () => {
     setLoadingProvinces(true);
     try {
-      const res = await fetch(`https://localhost:7015/api/Location/provinces`, {
-        credentials: "include",
-      });
+      const res = await fetch(
+        `${apiClient.defaults.baseURL}/api/Location/provinces`,
+        {
+          credentials: "include",
+        }
+      );
 
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
@@ -274,7 +277,7 @@ export default function MakeManualModal({ isOpen, onClose }) {
     setLoadingDistricts(true);
     try {
       const res = await fetch(
-        `https://localhost:7015/api/Location/districts/${provinceId}`,
+        `${apiClient.defaults.baseURL}/api/Location/districts/${provinceId}`,
         { credentials: "include" }
       );
 
@@ -299,7 +302,7 @@ export default function MakeManualModal({ isOpen, onClose }) {
     setLoadingWards(true);
     try {
       const res = await fetch(
-        `https://localhost:7015/api/Location/wards/${districtId}`,
+        `${apiClient.defaults.baseURL}/api/Location/wards/${districtId}`,
         { credentials: "include" }
       );
 
@@ -946,6 +949,11 @@ export default function MakeManualModal({ isOpen, onClose }) {
       (w.name || w.wardName).toLowerCase().includes(searchWard.toLowerCase())
     );
 
+    const allowAddressCharacters = (value) => {
+      // Chữ thường, chữ hoa, tiếng Việt có dấu, số, khoảng trắng và các ký tự: , . - /
+      return value.replace(/[^a-zA-Z0-9À-ỹ\s,.\-\/]/g, "");
+    };
+
     return (
       <div className="space-y-4">
         <h3 className="text-lg font-semibold">
@@ -995,7 +1003,12 @@ export default function MakeManualModal({ isOpen, onClose }) {
             <Input
               id="address"
               value={customerInfo.address}
-              onChange={(e) => handleTrimmedInput("address", e.target.value)}
+              onChange={(e) =>
+                handleTrimmedInput(
+                  "address",
+                  allowAddressCharacters(e.target.value)
+                )
+              }
               placeholder="Enter address"
             />
           </div>
@@ -1006,7 +1019,12 @@ export default function MakeManualModal({ isOpen, onClose }) {
             <Input
               id="address1"
               value={customerInfo.address1}
-              onChange={(e) => handleTrimmedInput("address1", e.target.value)}
+              onChange={(e) =>
+                handleTrimmedInput(
+                  "address1",
+                  allowAddressCharacters(e.target.value)
+                )
+              }
               placeholder="Enter address line 2"
             />
           </div>

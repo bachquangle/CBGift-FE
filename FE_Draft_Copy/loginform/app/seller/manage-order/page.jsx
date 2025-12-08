@@ -82,7 +82,6 @@ import { format } from "date-fns";
 
 import ImportOrdersModal from "@/components/modals/import-orders-modal";
 import EditAddressModal from "@/components/modals/edit-address-modal";
-import EditOrderModal from "@/components/modals/edit-order-modal"; // Add edit order modal import
 
 const STATS_CONFIG = [
   {
@@ -599,7 +598,10 @@ export default function ManageOrder() {
           address: order.address || "",
           shipTo: "",
           status: order.statusOderName,
-          totalAmount: `$${order.totalCost.toFixed(2)}`,
+          totalAmount: `${new Intl.NumberFormat("vi-VN").format(
+            order.totalCost
+          )} VND`,
+
           timeCreated: new Date(order.creationDate).toLocaleString(),
           selected: false,
           customerInfo: {
@@ -954,25 +956,29 @@ export default function ManageOrder() {
   // Thêm hàm updateOrderAddress (Trước handleViewDetails)
   const updateOrderAddress = async (customerInfo) => {
     try {
+      // Ensure currentOrder is defined and has orderId
+      if (!editedOrder || !editedOrder.orderId) {
+        throw new Error("Order ID not found for updating address.");
+      }
       const res = await apiClient.put(
-        `${apiClient.defaults.baseURL}/api/order/update-address/${currentOrder.orderId}`,
+        `${apiClient.defaults.baseURL}/api/order/update-address/${editedOrder.orderId}`,
         customerInfo,
         { withCredentials: true }
       );
 
-      // cập nhật UI
-      setCurrentOrder((prev) => ({
+      // Update UI
+      setEditedOrder((prev) => ({
         ...prev,
-        endCustomer: {
-          ...prev.endCustomer,
+        customerInfo: {
+          ...prev.customerInfo,
           ...customerInfo,
         },
       }));
 
       return true;
     } catch (err) {
-      console.error(err);
-      throw err;
+      console.error("Error updating address:", err);
+      throw err; // Re-throw to be caught by the caller
     }
   };
 
@@ -1262,10 +1268,7 @@ export default function ManageOrder() {
     if (isEditMode === "address") {
       // Xử lý Edit Address
       try {
-        const isSuccess = await updateOrderAddress(
-          editedOrder.id,
-          editedOrder.customerInfo
-        );
+        const isSuccess = await updateOrderAddress(editedOrder.customerInfo); // Pass only customerInfo
         if (isSuccess) {
           setSuccessMessage("✅ Address updated successfully!");
           setShowSuccessDialog(true);
@@ -1974,7 +1977,7 @@ export default function ManageOrder() {
                             className="font-medium text-slate-700 uppercase text-xs tracking-wide whitespace-nowrap cursor-pointer hover:bg-blue-200 transition-colors"
                             onClick={() => handleSort("orderId")}
                           >
-                            Order ID {renderSortIcon("orderId")}
+                            Order CODE {renderSortIcon("orderId")}
                           </TableHead>
                           <TableHead
                             className="font-medium text-slate-700 uppercase text-xs tracking-wide whitespace-nowrap cursor-pointer hover:bg-blue-200 transition-colors"
@@ -2049,14 +2052,20 @@ whitespace-nowrap"
                                 <TableCell className="text-slate-600 whitespace-nowrap">
                                   {order.orderDate}
                                 </TableCell>
-                                <TableCell className="min-w-[200px]">
+                                <TableCell className="min-w-[200px] max-w-[200px]">
                                   <div>
-                                    <div className="font-medium text-slate-900">
+                                    <div
+                                      className="font-medium text-slate-900 truncate max-w-full"
+                                      title={order.customerName}
+                                    >
                                       {order.customerName}
                                     </div>
 
                                     {order.email && (
-                                      <div className="text-sm text-slate-500">
+                                      <div
+                                        className="text-sm text-slate-500 truncate max-w-full"
+                                        title={order.email}
+                                      >
                                         {order.email}
                                       </div>
                                     )}
@@ -2156,17 +2165,15 @@ whitespace-nowrap"
                                         align="end"
                                       >
                                         <div className="flex flex-col gap-2">
-                                          <Button
-                                            variant="ghost"
-                                            size="sm"
-                                            onClick={() =>
-                                              handleViewDetails(order)
-                                            }
-                                            className="justify-start"
+                                          <Link
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            href={`/seller/order-view/${order.id}`} // Đảm bảo đường dẫn này khớp với route trong folder app/pages của bạn
+                                            className="inline-flex items-center text-sm font-medium text-blue-600 hover:underline px-3 py-2"
                                           >
-                                            <Eye className="h-4 w-4 mr-2 text-blue-600" />
+                                            <Eye className="h-4 w-4 mr-2" />
                                             View Details
-                                          </Button>
+                                          </Link>
 
                                           {/* Nếu status là "Draft (Nháp)" thì hiển thị Edit */}
                                           {order.status === "DRAFT" && (
@@ -2704,6 +2711,7 @@ whitespace-nowrap"
                                                                       "/placeholder.svg" ||
                                                                       "/placeholder.svg" ||
                                                                       "/placeholder.svg" ||
+                                                                      "/placeholder.svg" ||
                                                                       "/placeholder.svg"
                                                                     }
                                                                     alt="Design File"
@@ -2800,6 +2808,7 @@ whitespace-nowrap"
                                                                   <img
                                                                     src={
                                                                       product.linkThanksCard ||
+                                                                      "/placeholder.svg" ||
                                                                       "/placeholder.svg" ||
                                                                       "/placeholder.svg" ||
                                                                       "/placeholder.svg" ||
@@ -3342,6 +3351,7 @@ whitespace-nowrap"
                                                   <img
                                                     src={
                                                       item.linkImg ||
+                                                      "/placeholder.svg" ||
                                                       "/placeholder.svg" ||
                                                       "/placeholder.svg" ||
                                                       "/placeholder.svg" ||

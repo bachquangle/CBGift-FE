@@ -79,57 +79,65 @@ export default function RequestReprintModal({ isOpen, onClose, productDetail, on
             }));
         
         if (!reason || selectedItems.length === 0) {
-            alert("Vui lòng điền chi tiết lý do và chọn ít nhất một sản phẩm.");
+            alert("Please fill in the reason in detail and select at least one product.");
             return;
         }
 
-        let finalProofUrl = uploadedUrl;
+        setIsUploading(true); // Bật trạng thái disabled ngay lập tức
 
-        // 1. TẢI FILE LÊN NẾU CÓ VÀ CHƯA ĐƯỢC TẢI
-        if (proofFiles.length > 0 && !finalProofUrl) {
-            setIsUploading(true); // Bật trạng thái disabled của nút
+        try {
+            let finalProofUrl = uploadedUrl;
 
-            // ✨ HIỂN THỊ SWAL LOADING SPINNER ✨
-            Swal.fire({
-                title: 'Uploading Proof...',
-                html: 'Please wait while your file is uploaded.',
-                allowOutsideClick: false,
-                showConfirmButton: false,
-                didOpen: () => Swal.showLoading()
-            });
-            
-            try {
-                // Cho phép UI repaint trước khi gọi fetch
+            // 1. TẢI FILE LÊN NẾU CÓ VÀ CHƯA ĐƯỢC TẢI
+            if (proofFiles.length > 0 && !finalProofUrl) {
+                
+                // ✨ HIỂN THỊ SWAL LOADING CHO UPLOAD ✨
+                Swal.fire({
+                    title: 'Uploading Proof...',
+                    html: 'Please wait while your file is uploaded.',
+                    allowOutsideClick: false,
+                    showConfirmButton: false,
+                    didOpen: () => Swal.showLoading()
+                });
+                
+                // Cho phép UI repaint
                 await new Promise(resolve => setTimeout(resolve, 10)); 
                 
                 const url = await uploadImage(proofFiles[0]);
                 
-                if (!url) {
-                    throw new Error("Failed to get URL after upload.");
-                }
+                if (!url) throw new Error("Failed to get URL after upload.");
+                
                 finalProofUrl = url;
                 setUploadedUrl(url); 
-                
-                Swal.close(); // Đóng spinner sau khi upload thành công
-
-            } catch (error) {
-                Swal.close();
-                Swal.fire("Upload Failed", `Lỗi tải file: ${error.message}`, "error");
-                setIsUploading(false); 
-                return;
-            } finally {
-                setIsUploading(false); 
+                Swal.close(); // Đóng spinner upload
             }
-        }
 
-        // 2. Gửi dữ liệu đơn giản hóa lên handleOrderReprintSubmit
-        onSubmit({
-            orderId: productDetail.id,
-            reason: reason, 
-            selectedItems: selectedItems,
-            proofUrl: finalProofUrl, // URL bằng chứng
-        });
-        onClose();
+            // 2. GỬI DỮ LIỆU (QUAN TRỌNG: Thêm await)
+            // Đợi API submit xong xuôi
+            await onSubmit({
+                orderId: productDetail.id,
+                reason: reason, 
+                selectedItems: selectedItems,
+                proofUrl: finalProofUrl, 
+            });
+
+            // 3. THÔNG BÁO THÀNH CÔNG & RELOAD
+            await Swal.fire({
+                icon: 'success',
+                title: 'Success',
+                text: 'Reprint request submitted successfully!',
+                timer: 1500,
+                showConfirmButton: false
+            });
+
+            window.location.reload(); // <--- Load lại trang tại đây
+
+        } catch (error) {
+            console.error("Error:", error);
+            Swal.fire("Error", `An error occurred: ${error.message}`, "error");
+            setIsUploading(false); // Mở lại nút nếu có lỗi để user thử lại
+        }
+        // Không cần onClose() vì trang sẽ reload
     };
 
     // --- RENDER ---

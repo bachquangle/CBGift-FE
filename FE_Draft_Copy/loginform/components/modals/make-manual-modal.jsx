@@ -248,9 +248,12 @@ export default function MakeManualModal({ isOpen, onClose }) {
   const fetchProvinces = async () => {
     setLoadingProvinces(true);
     try {
-      const res = await fetch(`https://localhost:7015/api/Location/provinces`, {
-        credentials: "include",
-      });
+      const res = await fetch(
+        `${apiClient.defaults.baseURL}/api/Location/provinces`,
+        {
+          credentials: "include",
+        }
+      );
 
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
@@ -274,7 +277,7 @@ export default function MakeManualModal({ isOpen, onClose }) {
     setLoadingDistricts(true);
     try {
       const res = await fetch(
-        `https://localhost:7015/api/Location/districts/${provinceId}`,
+        `${apiClient.defaults.baseURL}/api/Location/districts/${provinceId}`,
         { credentials: "include" }
       );
 
@@ -299,7 +302,7 @@ export default function MakeManualModal({ isOpen, onClose }) {
     setLoadingWards(true);
     try {
       const res = await fetch(
-        `https://localhost:7015/api/Location/wards/${districtId}`,
+        `${apiClient.defaults.baseURL}/api/Location/wards/${districtId}`,
         { credentials: "include" }
       );
 
@@ -319,7 +322,22 @@ export default function MakeManualModal({ isOpen, onClose }) {
       setLoadingWards(false);
     }
   };
-
+  // Hàm check trùng OrderCode từ Server
+  const checkOrderCodeExists = async (code) => {
+    try {
+      const res = await fetch(
+        `${apiClient.defaults.baseURL}/api/Order/check-code?code=${encodeURIComponent(code)}`,
+        { credentials: "include" }
+      );
+      if (!res.ok) return false; // Nếu lỗi mạng coi như không trùng để không chặn user (hoặc xử lý khác tùy bạn)
+      
+      const data = await res.json();
+      return data.exists; // Trả về true nếu đã tồn tại
+    } catch (err) {
+      console.error("Check code error:", err);
+      return false;
+    }
+  };
   const uploadImage = async (file, onProgress) => {
     const formData = new FormData();
     formData.append("File", file);
@@ -677,13 +695,31 @@ export default function MakeManualModal({ isOpen, onClose }) {
     }
   };
 
-  const handleAddToCart = () => {
+  const handleAddToCart = async () => { // 1. Thêm async
     if (!currentProduct) return;
 
+    // --- LOGIC MỚI: CHECK TRÙNG ORDER CODE ---
+    // Chỉ check khi OrderId chưa bị khóa và người dùng có nhập nội dung
+    if (!isOrderIdSet && orderId && orderId.trim().length > 0) {
+      
+      // Hiển thị loading nhẹ hoặc disable nút nếu cần thiết (optional)
+      
+      const isDuplicate = await checkOrderCodeExists(orderId.trim());
+
+      if (isDuplicate) {
+        setErrorMessage(`⚠️ Order Code "${orderId}" already exists! Please enter another code.`);
+        setShowErrorDialog(true);
+        return; // ⛔ Dừng lại: Không thêm vào giỏ, KHÔNG khóa input
+      }
+    }
+    // -----------------------------------------
+
+    // Nếu không trùng hoặc không nhập (auto generate sau), thì tiến hành khóa
     if (!isOrderIdSet) {
       setIsOrderIdSet(true);
     }
 
+    // --- LOGIC CŨ GIỮ NGUYÊN BÊN DƯỚI ---
     const productPrice = calculateProductPrice();
     const productToAdd = {
       id: Date.now(),
@@ -716,10 +752,9 @@ export default function MakeManualModal({ isOpen, onClose }) {
       activeTTS: false,
       note: "",
       productPrice: 0,
-      variantId: null, // để dropdown hiện lại
+      variantId: null,
     });
 
-    // ✅ Clear toàn bộ input file DOM refs
     if (linkImgRef.current) linkImgRef.current.value = "";
     if (linkThanksCardRef.current) linkThanksCardRef.current.value = "";
     if (linkFileDesignRef.current) linkFileDesignRef.current.value = "";
@@ -946,6 +981,11 @@ export default function MakeManualModal({ isOpen, onClose }) {
       (w.name || w.wardName).toLowerCase().includes(searchWard.toLowerCase())
     );
 
+    const allowAddressCharacters = (value) => {
+      // Chữ thường, chữ hoa, tiếng Việt có dấu, số, khoảng trắng và các ký tự: , . - /
+      return value.replace(/[^a-zA-Z0-9À-ỹ\s,.\-\/]/g, "");
+    };
+
     return (
       <div className="space-y-4">
         <h3 className="text-lg font-semibold">
@@ -995,7 +1035,12 @@ export default function MakeManualModal({ isOpen, onClose }) {
             <Input
               id="address"
               value={customerInfo.address}
-              onChange={(e) => handleTrimmedInput("address", e.target.value)}
+              onChange={(e) =>
+                handleTrimmedInput(
+                  "address",
+                  allowAddressCharacters(e.target.value)
+                )
+              }
               placeholder="Enter address"
             />
           </div>
@@ -1006,7 +1051,12 @@ export default function MakeManualModal({ isOpen, onClose }) {
             <Input
               id="address1"
               value={customerInfo.address1}
-              onChange={(e) => handleTrimmedInput("address1", e.target.value)}
+              onChange={(e) =>
+                handleTrimmedInput(
+                  "address1",
+                  allowAddressCharacters(e.target.value)
+                )
+              }
               placeholder="Enter address line 2"
             />
           </div>

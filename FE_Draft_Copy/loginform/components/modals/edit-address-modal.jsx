@@ -339,22 +339,7 @@ export default function EditAddressModal({
             <Input
               id="address"
               type="text"
-              value={
-                customerInfo.address ||
-                customerInfo.wardName ||
-                customerInfo.districtName ||
-                customerInfo.provinceName
-                  ? `${customerInfo.address || ""}, ${
-                      customerInfo.wardName || ""
-                    }, ${customerInfo.districtName || ""}, ${
-                      customerInfo.provinceName || ""
-                    }`
-                      .split(",")
-                      .map((s) => s.trim())
-                      .filter((s) => s.length > 0)
-                      .join(", ")
-                  : ""
-              }
+              value={customerInfo.address}
               onChange={(e) => handleTrimmedInput("address", e.target.value)}
               placeholder="Enter street address"
             />

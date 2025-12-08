@@ -9,7 +9,6 @@ import SellerInvoiceList from "@/components/invoices/seller-invoice-list";
 import SellerInvoiceDetailsModal from "@/components/invoices/seller-invoice-details-modal";
 import apiClient from "../../../lib/apiClient";
 
-
 // Component PaymentMethodSelector
 const PaymentMethodSelector = ({ invoice, onClose }) => {
   const [selectedMethod, setSelectedMethod] = useState(null);
@@ -72,9 +71,9 @@ const PaymentMethodSelector = ({ invoice, onClose }) => {
     const returnUrl = `${window.location.origin}/seller/manage-invoice`;
     const cancelUrl = window.location.href; // Quay lại trang hiện tại
     //const publicBaseUrl = " https://slyvia-nonsubordinating-sulkily.ngrok-free.dev";
-    
+
     // URL này VNPay sẽ chấp nhận VÌ NÓ LÀ PUBLIC
-  // const returnUrl = `${publicBaseUrl}/seller/manage-invoice`;
+    // const returnUrl = `${publicBaseUrl}/seller/manage-invoice`;
     const payload = {
       invoiceId: invoice.invoiceId,
       amount: amountToPay,
@@ -102,10 +101,9 @@ const PaymentMethodSelector = ({ invoice, onClose }) => {
       }
 
       const data = await response.json();
-      
+
       // [QUAN TRỌNG] Chuyển hướng người dùng đến cổng thanh toán
       window.location.href = data.paymentUrl;
-
     } catch (e) {
       setError(e.message);
       setLoading(false);
@@ -192,7 +190,7 @@ const PaymentMethodSelector = ({ invoice, onClose }) => {
 
         {/* Hiển thị lỗi nếu có */}
         {error && (
-            <p className="text-sm text-red-600 mb-2 text-center">{error}</p>
+          <p className="text-sm text-red-600 mb-2 text-center">{error}</p>
         )}
 
         <div className="flex gap-2">
@@ -326,8 +324,7 @@ export default function SellerManageInvoice() {
   };
 
   return (
-    <div className="flex h-screen bg-gray-50">
-      
+    <div className="flex h-screen bg-blue-50">
       <div className="flex-1 flex flex-col overflow-hidden">
         <main className="flex-1 overflow-y-auto p-6">
           <div className="max-w-6xl mx-auto space-y-6">

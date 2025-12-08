@@ -106,6 +106,11 @@ export default function EditOrderPage() {
   const [hoverDistrict, setHoverDistrict] = useState(null);
   const [hoverWard, setHoverWard] = useState(null);
 
+  // ADDED: State to hold selected values for provinces, districts, wards
+  const [selectedProvince, setSelectedProvince] = useState("");
+  const [selectedDistrict, setSelectedDistrict] = useState("");
+  const [selectedWard, setSelectedWard] = useState("");
+
   const filteredProvinces = provinces.filter((p) =>
     p.name.toLowerCase().includes(searchProvince.toLowerCase())
   );
@@ -375,14 +380,14 @@ export default function EditOrderPage() {
           name: data.customerName || "",
           phone: data.phone || "",
           email: data.email || "",
-          address: data.address || "",
+          address: data.address.split(",")[0],
           address1: data.address1 || "",
-          provinceId: data.provinceId || "",
-          provinceName: data.provinceName || "",
-          districtId: data.districtId || "",
-          districtName: data.districtName || "",
-          wardId: data.wardId || "",
-          wardName: data.wardName || "",
+          provinceName: data.shipState || "", // API: "Hưng Yên"
+          districtName: data.shipCity || "", // API: "Huyện Phù Cừ"
+          wardName: data.address.split(",")[1]?.trim() || "", // Tách từ chuỗi address
+          provinceId: "",
+          districtId: "",
+          wardId: "",
         });
 
         // Fetch provinces
@@ -411,6 +416,42 @@ export default function EditOrderPage() {
       fetchOrder();
     }
   }, [orderId, router]);
+
+  // Khớp Province ID
+  useEffect(() => {
+    if (
+      provinces.length > 0 &&
+      customerInfo.provinceName &&
+      !customerInfo.provinceId
+    ) {
+      const found = provinces.find((p) => p.name === customerInfo.provinceName);
+      if (found) {
+        setCustomerInfo((prev) => ({ ...prev, provinceId: found.id }));
+        fetchDistricts(found.id); // Load tiếp huyện
+      }
+    }
+  }, [provinces, customerInfo.provinceName]);
+
+  // Khớp District ID
+  useEffect(() => {
+    if (
+      districts.length > 0 &&
+      customerInfo.districtName &&
+      !customerInfo.districtId
+    ) {
+      const found = districts.find((d) => d.name === customerInfo.districtName);
+      if (found) {
+        setCustomerInfo((prev) => ({ ...prev, districtId: found.id }));
+        fetchWards(found.id); // Load tiếp xã
+      }
+    }
+  }, [districts, customerInfo.districtName]);
+
+  useEffect(() => {
+    if (customerInfo.wardId && wards.length > 0) {
+      setSelectedWard(customerInfo.wardId);
+    }
+  }, [customerInfo.wardId, wards]);
 
   // Fetch existing order products
   // Fetch existing order products
@@ -1258,9 +1299,9 @@ export default function EditOrderPage() {
         !customerInfo.phone ||
         !customerInfo.email ||
         !customerInfo.address ||
-        !customerInfo.provinceId ||
-        !customerInfo.districtId ||
-        !customerInfo.wardId
+        (!customerInfo.provinceId && !customerInfo.provinceName) ||
+        (!customerInfo.districtId && !customerInfo.districtName) ||
+        (!customerInfo.wardId && !customerInfo.wardName)
       ) {
         Swal.fire(
           "Error",
@@ -1520,45 +1561,57 @@ export default function EditOrderPage() {
                 />
                 <div className="max-h-60 overflow-y-auto">
                   {filteredProvinces.length > 0 ? (
-                    filteredProvinces.map((p) => (
-                      <button
-                        key={p.id}
-                        type="button"
-                        onClick={() => {
-                          const province = provinces.find(
-                            (pr) => pr.id?.toString() === p.id?.toString()
-                          );
-                          setCustomerInfo((prev) => ({
-                            ...prev,
-                            provinceId: province?.id || "",
-                            provinceName: province?.name || "",
-                            districtId: "",
-                            districtName: "",
-                            wardId: "",
-                            wardName: "",
-                          }));
-                          setDistricts([]);
-                          setWards([]);
-                          setOpenProvinceDropdown(false);
-                          setSearchProvince("");
-                          fetchDistricts(p.id);
-                        }}
-                        onMouseEnter={() => setHoverProvince(p.id)}
-                        onMouseLeave={() => setHoverProvince(null)}
-                        className={`w-full px-3 py-2 text-left text-sm transition-colors ${
-                          hoverProvince === p.id
-                            ? "bg-blue-100 text-blue-900"
-                            : customerInfo.provinceId?.toString() ===
-                              p.id?.toString()
-                            ? "bg-blue-50 text-blue-700"
-                            : "hover:bg-gray-50"
-                        }`}
-                      >
-                        {p.name}
-                      </button>
-                    ))
+                    filteredProvinces.map((p) => {
+                      // 1. Logic kiểm tra item này có đang được chọn hay không
+                      // Dùng toString() để tránh lỗi so sánh giữa Number (10) và String ("10")
+                      const isSelected =
+                        customerInfo.provinceId?.toString() ===
+                        p.id?.toString();
+
+                      return (
+                        <button
+                          key={p.id}
+                          type="button"
+                          onClick={() => {
+                            const province = provinces.find(
+                              (pr) => pr.id?.toString() === p.id?.toString()
+                            );
+                            setCustomerInfo((prev) => ({
+                              ...prev,
+                              provinceId: province?.id || "",
+                              provinceName: province?.name || "",
+                              districtId: "",
+                              districtName: "",
+                              wardId: "",
+                              wardName: "",
+                            }));
+                            setDistricts([]);
+                            setWards([]);
+                            setOpenProvinceDropdown(false);
+                            setSearchProvince("");
+                            fetchDistricts(p.id);
+                            setSelectedProvince(p.id);
+                          }}
+                          onMouseEnter={() => setHoverProvince(p.id)}
+                          onMouseLeave={() => setHoverProvince(null)}
+                          // 2. Logic CSS động: Bôi đậm màu xanh nếu isSelected = true
+                          className={`w-full px-3 py-2 text-left text-sm transition-colors flex items-center justify-between ${
+                            isSelected
+                              ? "bg-blue-600 text-white font-bold" // Màu khi đã chọn
+                              : hoverProvince === p.id
+                              ? "bg-blue-100 text-blue-900"
+                              : "hover:bg-gray-50 text-gray-700"
+                          }`}
+                        >
+                          <span>{p.name}</span>
+
+                          {/* 3. Hiển thị dấu tích (✓) nếu item này đã chọn */}
+                          {isSelected && <span className="font-bold">✓</span>}
+                        </button>
+                      );
+                    })
                   ) : (
-                    <div className="px-3 py-2 text-gray-500">
+                    <div className="px-3 py-2 text-gray-500 text-center">
                       No province found
                     </div>
                   )}
@@ -1625,6 +1678,8 @@ export default function EditOrderPage() {
                           setOpenDistrictDropdown(false);
                           setSearchDistrict("");
                           fetchWards(d.id);
+                          // ADDED: Update selectedDistrict
+                          setSelectedDistrict(d.id);
                         }}
                         onMouseEnter={() => setHoverDistrict(d.id)}
                         onMouseLeave={() => setHoverDistrict(null)}
@@ -1704,6 +1759,8 @@ export default function EditOrderPage() {
                           }));
                           setOpenWardDropdown(false);
                           setSearchWard("");
+                          // ADDED: Update selectedWard
+                          setSelectedWard(w.id);
                         }}
                         onMouseEnter={() => setHoverWard(w.id)}
                         onMouseLeave={() => setHoverWard(null)}
@@ -1972,6 +2029,7 @@ export default function EditOrderPage() {
                             <img
                               src={
                                 editingProductConfig.linkImg ||
+                                "/placeholder.svg" ||
                                 "/placeholder.svg"
                               }
                               className="w-20 h-20 object-cover rounded border border-gray-300 shadow-sm"
@@ -2030,6 +2088,7 @@ export default function EditOrderPage() {
                           <img
                             src={
                               editingProductConfig.linkThanksCard ||
+                              "/placeholder.svg" ||
                               "/placeholder.svg"
                             }
                             className="w-20 h-20 object-cover rounded border border-gray-300 shadow-sm"
@@ -2098,6 +2157,7 @@ export default function EditOrderPage() {
                             <img
                               src={
                                 editingProductConfig.linkFileDesign ||
+                                "/placeholder.svg" ||
                                 "/placeholder.svg"
                               }
                               className="w-20 h-20 object-cover rounded border border-gray-300 shadow-sm"
@@ -2514,6 +2574,7 @@ export default function EditOrderPage() {
                         <img
                           src={
                             editingProductConfig.linkThanksCard ||
+                            "/placeholder.svg" ||
                             "/placeholder.svg"
                           }
                           className="w-20 h-20 object-cover rounded border border-gray-300 shadow-sm"
@@ -2577,6 +2638,7 @@ export default function EditOrderPage() {
                           <img
                             src={
                               editingProductConfig.linkFileDesign ||
+                              "/placeholder.svg" ||
                               "/placeholder.svg"
                             }
                             className="w-20 h-20 object-cover rounded border border-gray-300 shadow-sm"
@@ -2846,6 +2908,7 @@ export default function EditOrderPage() {
                     <img
                       src={
                         currentProductConfig.linkFileDesign ||
+                        "/placeholder.svg" ||
                         "/placeholder.svg" ||
                         "/placeholder.svg" ||
                         "/placeholder.svg" ||
@@ -3151,6 +3214,7 @@ export default function EditOrderPage() {
                               <img
                                 src={
                                   item.config.linkFileDesign ||
+                                  "/placeholder.svg" ||
                                   "/placeholder.svg" ||
                                   "/placeholder.svg" ||
                                   "/placeholder.svg" ||
@@ -3549,7 +3613,7 @@ export default function EditOrderPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-blue-50">
       <div className="flex">
         <main className="flex-1 p-6">
           <div className="max-w-6xl mx-auto">

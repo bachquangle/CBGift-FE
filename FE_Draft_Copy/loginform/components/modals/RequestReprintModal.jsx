@@ -72,74 +72,75 @@ export default function RequestReprintModal({ isOpen, onClose, productDetail, on
     };
 
     const handleSubmit = async () => {
-        const selectedItems = Object.entries(itemSelection)
-            .filter(([id, selected]) => selected)
-            .map(([id]) => ({
-                originalOrderDetailId: Number(id)
-            }));
+    // ... (Giữ nguyên phần validate logic ban đầu) ...
+
+    const selectedItems = Object.entries(itemSelection)
+        .filter(([id, selected]) => selected)
+        .map(([id]) => ({
+            originalOrderDetailId: Number(id)
+        }));
+    
+    if (!reason || selectedItems.length === 0) {
+        Swal.fire("Validation Error", "Please fill in the reason and select at least one product.", "warning");
+        return;
+    }
+
+    setIsUploading(true);
+
+    try {
+        let finalProofUrl = uploadedUrl;
+
+        // 1. TẢI FILE LÊN (Giữ nguyên logic cũ của bạn)
+        if (proofFiles.length > 0 && !finalProofUrl) {
+            Swal.fire({
+                title: 'Uploading Proof...',
+                html: 'Please wait while your file is uploaded.',
+                allowOutsideClick: false,
+                showConfirmButton: false,
+                didOpen: () => Swal.showLoading()
+            });
+            
+            const url = await uploadImage(proofFiles[0]);
+            if (!url) throw new Error("Failed to get URL after upload.");
+            
+            finalProofUrl = url;
+            setUploadedUrl(url); 
+            Swal.close();
+        }
+
+        // 2. GỌI HÀM SUBMIT TỪ CHA (Đợi kết quả trả về)
+        await onSubmit({
+            orderId: productDetail.id, // Hoặc orderId từ props
+            reason: reason, 
+            selectedItems: selectedItems,
+            proofUrl: finalProofUrl, 
+        });
+
+        // 3. THÔNG BÁO THÀNH CÔNG
+        await Swal.fire({
+            icon: 'success',
+            title: 'Success',
+            text: 'Reprint request submitted successfully!',
+            timer: 1500,
+            showConfirmButton: false
+        });
+
+        window.location.reload(); 
+
+    } catch (error) {
+        console.error("Error:", error);
         
-        if (!reason || selectedItems.length === 0) {
-            alert("Please fill in the reason in detail and select at least one product.");
-            return;
-        }
-
-        setIsUploading(true); // Bật trạng thái disabled ngay lập tức
-
-        try {
-            let finalProofUrl = uploadedUrl;
-
-            // 1. TẢI FILE LÊN NẾU CÓ VÀ CHƯA ĐƯỢC TẢI
-            if (proofFiles.length > 0 && !finalProofUrl) {
-                
-                // ✨ HIỂN THỊ SWAL LOADING CHO UPLOAD ✨
-                Swal.fire({
-                    title: 'Uploading Proof...',
-                    html: 'Please wait while your file is uploaded.',
-                    allowOutsideClick: false,
-                    showConfirmButton: false,
-                    didOpen: () => Swal.showLoading()
-                });
-                
-                // Cho phép UI repaint
-                await new Promise(resolve => setTimeout(resolve, 10)); 
-                
-                const url = await uploadImage(proofFiles[0]);
-                
-                if (!url) throw new Error("Failed to get URL after upload.");
-                
-                finalProofUrl = url;
-                setUploadedUrl(url); 
-                Swal.close(); // Đóng spinner upload
-            }
-
-            // 2. GỬI DỮ LIỆU (QUAN TRỌNG: Thêm await)
-            // Đợi API submit xong xuôi
-            await onSubmit({
-                orderId: productDetail.id,
-                reason: reason, 
-                selectedItems: selectedItems,
-                proofUrl: finalProofUrl, 
-            });
-
-            // 3. THÔNG BÁO THÀNH CÔNG & RELOAD
-            await Swal.fire({
-                icon: 'success',
-                title: 'Success',
-                text: 'Reprint request submitted successfully!',
-                timer: 1500,
-                showConfirmButton: false
-            });
-
-            window.location.reload(); // <--- Load lại trang tại đây
-
-        } catch (error) {
-            console.error("Error:", error);
-            Swal.fire("Error", `An error occurred: ${error.message}`, "error");
-            setIsUploading(false); // Mở lại nút nếu có lỗi để user thử lại
-        }
-        // Không cần onClose() vì trang sẽ reload
+        // 👇 SỬA LẠI ĐỂ HIỆN MESSAGE BE TRỰC TIẾP 👇
+        Swal.fire({
+            icon: "error",
+            title: "Cannot Request Reprint",
+            text: error.message, // Message từ BE (VD: Item đang in dở...)
+            confirmButtonColor: "#d33"
+        });
+        
+        setIsUploading(false);
+    }
     };
-
     // --- RENDER ---
     return (
         <div className="fixed inset-0 bg-gray-600 bg-opacity-75 flex items-center justify-center z-50 p-4">

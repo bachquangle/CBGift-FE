@@ -152,9 +152,17 @@ export default function RequestRefundModal({ isOpen, onClose, productDetail, onS
             window.location.reload(); // <--- Dòng lệnh reload trang
 
         } catch (error) {
-            console.error("Submit error:", error);
-            Swal.fire("Error", `Có lỗi xảy ra: ${error.message}`, "error");
-            setIsUploading(false); // Tắt loading nếu lỗi
+        console.error("Submit error:", error);
+        
+        // 👇 SỬA LẠI ĐỂ HIỆN MESSAGE TỪ BE RÕ RÀNG 👇
+        Swal.fire({
+            icon: "error",
+            title: "Cannot Request Refund", // Tiêu đề
+            text: error.message,            // Nội dung chính xác từ BE (VD: Quá 3 ngày...)
+            confirmButtonColor: "#d33"
+        });
+        
+        setIsUploading(false); 
         }
         // Không cần gọi onClose() ở đây nữa vì trang sẽ reload
     };

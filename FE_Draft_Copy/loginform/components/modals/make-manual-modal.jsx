@@ -326,11 +326,13 @@ export default function MakeManualModal({ isOpen, onClose }) {
   const checkOrderCodeExists = async (code) => {
     try {
       const res = await fetch(
-        `${apiClient.defaults.baseURL}/api/Order/check-code?code=${encodeURIComponent(code)}`,
+        `${
+          apiClient.defaults.baseURL
+        }/api/Order/check-code?code=${encodeURIComponent(code)}`,
         { credentials: "include" }
       );
       if (!res.ok) return false; // Nếu lỗi mạng coi như không trùng để không chặn user (hoặc xử lý khác tùy bạn)
-      
+
       const data = await res.json();
       return data.exists; // Trả về true nếu đã tồn tại
     } catch (err) {
@@ -695,19 +697,21 @@ export default function MakeManualModal({ isOpen, onClose }) {
     }
   };
 
-  const handleAddToCart = async () => { // 1. Thêm async
+  const handleAddToCart = async () => {
+    // 1. Thêm async
     if (!currentProduct) return;
 
     // --- LOGIC MỚI: CHECK TRÙNG ORDER CODE ---
     // Chỉ check khi OrderId chưa bị khóa và người dùng có nhập nội dung
     if (!isOrderIdSet && orderId && orderId.trim().length > 0) {
-      
       // Hiển thị loading nhẹ hoặc disable nút nếu cần thiết (optional)
-      
+
       const isDuplicate = await checkOrderCodeExists(orderId.trim());
 
       if (isDuplicate) {
-        setErrorMessage(`⚠️ Order Code "${orderId}" already exists! Please enter another code.`);
+        setErrorMessage(
+          `⚠️ Order Code "${orderId}" already exists! Please enter another code.`
+        );
         setShowErrorDialog(true);
         return; // ⛔ Dừng lại: Không thêm vào giỏ, KHÔNG khóa input
       }

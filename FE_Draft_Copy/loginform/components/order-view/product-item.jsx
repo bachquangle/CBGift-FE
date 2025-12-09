@@ -80,6 +80,12 @@ export default function ProductItem({
                     <div className="flex-1 min-w-0">
                         <h3 className="text-lg font-semibold text-gray-900 mb-1 truncate">
                             {product.name}
+                            {/* Chỉ hiện nếu có quantity và quantity >= 1 */}
+                            {product.quantity && (
+                                <span className="ml-2 text-gray-500 font-normal text-base">
+                                    x {product.quantity}
+                                </span>
+                            )}
                         </h3>
                         <p className="text-sm text-[#384551] mb-2">
                             <span className="font-bold">SKU:</span> {product.sku}

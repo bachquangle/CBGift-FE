@@ -18,54 +18,46 @@ import { Trash2, ArrowLeft, Wallet, Printer } from 'lucide-react';
   isEligible,
   orderStatus,
 }) {
-  const getStatusBadgeColor = (status) => {
-    switch (status) {
-      // TRẠNG THÁI THÀNH CÔNG/HOÀN THÀNH
-      case "CONFIRMED":
-      case "SHIPPED":
-        return "bg-green-100 text-green-800";
-      
-      // TRẠNG THÁI ĐANG XỬ LÝ/PENDING
-      case "CREATED":
-      case "NEEDDESIGN":
-      case "DESIGNING":
-      case "READY_PROD":
-      case "INPROD":
-      case "PACKING":
-      case "CHECKDESIGNC":
-        return "bg-blue-100 text-blue-800";
+ const getStatusBadgeColor = (status) => {
+  const colors = {
+    // --- Trạng thái khởi tạo ---
+    DRAFT: "bg-gray-200 text-gray-800",
+    CREATED: "bg-blue-200 text-blue-800",
 
-      // TRẠNG THÁI NHÁP/TẠM DỪNG
-      case "DRAFT":
-      case "HOLD":
-        return "bg-yellow-100 text-yellow-800";
+    // --- Thiết kế ---
+    NEEDDESIGN: "bg-yellow-200 text-yellow-800",
+    DESIGNING: "bg-yellow-300 text-yellow-900",
+    CHECKDESIGN: "bg-amber-200 text-amber-800",
+    DESIGN_REDO: "bg-orange-300 text-orange-900",
 
-      // TRẠNG THÁI LỖI/HỦY/HOÀN TIỀN
-      case "DESIGN_REDO":
-      case "QC_FAIL":
-      case "CANCELLEDC":
-      case "REFUND":
-        return "bg-red-100 text-red-800";
-        
-      default:
-        return "bg-gray-100 text-gray-800";
-    }
+    // --- Xác nhận & sản xuất ---
+    CONFIRMED: "bg-green-200 text-green-800",
+    READY_PROD: "bg-cyan-200 text-cyan-800",
+    INPROD: "bg-cyan-300 text-cyan-900",
+    PROD_REWORK: "bg-orange-200 text-orange-800",
+
+    // --- Giai đoạn QC ---
+    FINISHED: "bg-indigo-200 text-indigo-800",
+    QC_DONE: "bg-purple-200 text-purple-800",
+    QC_FAIL: "bg-red-300 text-red-900",
+
+    // --- Vận chuyển ---
+    SHIPPING: "bg-sky-200 text-sky-800",
+    SHIPPED: "bg-green-300 text-green-900",
+
+    // --- Hold trạng thái ---
+    HOLD_RF: "bg-gray-300 text-gray-900",
+    HOLD_RP: "bg-gray-300 text-gray-900",
+
+    // --- Refund & thay đổi ---
+    REFUND: "bg-red-200 text-red-800",
+    CHANGE_ADDRESS: "bg-teal-200 text-teal-900",
   };
 
-  const getStatusLabel = (status) => {
-    switch (status) {
-      case "PENDING":
-        return "PENDING";
-      case "CANCELLED":
-        return "CANCELLED";
-      case "COMPLETED":
-        return "COMPLETED";
-      case "PROCESSING":
-        return "PROCESSING";
-      default:
-        return status;
-    }
+  return colors[status] || "bg-gray-100 text-gray-800";
   };
+
+  const getStatusLabel = (status) => status;
   const handleDisabledClick = (action) => {
         alert(`Không thể ${action}. Trạng thái đơn hàng phải là SHIPPED hoặc COMPLETED. Trạng thái hiện tại: ${orderStatus}.`);
   };
@@ -78,9 +70,12 @@ import { Trash2, ArrowLeft, Wallet, Printer } from 'lucide-react';
             <h1 className="text-xl font-semibold text-gray-900">
               Order: #{orderCode}
             </h1>
-            <Badge className={`${getStatusBadgeColor(status)} font-medium`}>
+            <div
+              className={`
+                inline-block px-3 py-1 rounded-md text-sm font-medium 
+                ${getStatusBadgeColor(status)}`}>
               {getStatusLabel(status)}
-            </Badge>
+            </div>
           </div>
           <p className="text-sm text-gray-500">
             Created at: {new Date(createdAt).toLocaleString()}

@@ -7,7 +7,9 @@ FileText, // Icon cho Draft
 CheckCircle2,  // Icon cho Confirmed
 RefreshCcw,  // Icon cho Refund/Rejected
 Circle,  // Icon mặc định
-Printer  // Icon cho Reprint
+Printer,
+Truck,
+PackageCheck  
 } from "lucide-react";
 
 export default function OrderActivity({ activities }) {
@@ -29,6 +31,13 @@ export default function OrderActivity({ activities }) {
         color: "bg-green-100 text-green-600 border-green-200",
         lineColor: "bg-green-200",
         icon: CheckCircle2,
+      };
+    }
+    if (lowerTitle.includes("delivered")) {
+      return {
+        color: "bg-indigo-100 text-indigo-600 border-indigo-200",
+        lineColor: "bg-indigo-200",
+        icon: PackageCheck,
       };
     }
 

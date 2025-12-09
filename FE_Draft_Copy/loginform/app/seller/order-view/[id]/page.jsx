@@ -64,6 +64,13 @@ const mapApiToUiData = (apiData) => {
       description: "Order confirmed & sent to production.",
     });
   }
+  if (apiData.shippedDate) {
+    activitiesLog.push({
+      date: new Date(apiData.shippedDate).toLocaleString(),
+      title: "Order Delivered",
+      description: "Order has been successfully delivered to the customer.",
+    });
+  }
 
   // --- 2. ✨ XỬ LÝ REFUND CHI TIẾT (TỔNG HỢP TỪ allRefunds) ✨ ---
   if (apiData.allRefunds && apiData.allRefunds.length > 0) {
@@ -157,6 +164,7 @@ const mapApiToUiData = (apiData) => {
         size: item.size,
         supplier: "CBGift Factory", 
         image: item.linkImg || "/placeholder.svg", 
+        quantity: item.quantity,
         printSide: item.needDesign ? "Custom" : "Standard", 
         productionCost: `${item.price?.toLocaleString()} đ`,
         priceRaw: item.price ?? 0,
@@ -222,7 +230,9 @@ export default function OrderViewPage() {
         // Sử dụng Promise.all để fetch đồng thời
         const orderPromise = fetch(`${apiClient.defaults.baseURL}/api/Order/${params.id}`, {
             method: 'GET',
-            headers: { 'Content-Type': 'application/json' }
+           
+             credentials: "include"
+            
         }).then(res => {
             if (!res.ok) throw new Error("Failed to fetch order details.");
             return res.json();
@@ -231,7 +241,7 @@ export default function OrderViewPage() {
         // --- 2. LẤY DỮ LIỆU HOẠT ĐỘNG (API MỚI) ---
         const activityPromise = fetch(`${apiClient.defaults.baseURL}/api/Order/${params.id}/activity`, {
             method: 'GET',
-            headers: { 'Content-Type': 'application/json' }
+           credentials: "include"
         }).then(res => {
             if (!res.ok) throw new Error("Failed to fetch order activity.");
             return res.json();
@@ -248,6 +258,7 @@ export default function OrderViewPage() {
             allReprints: activityDataApi.allReprints || [],
             creationDate: activityDataApi.creationDate || orderDataApi.creationDate,
             orderDate: activityDataApi.orderDate || orderDataApi.orderDate,
+            shippedDate: activityDataApi.shippedDate,
         };
         
 

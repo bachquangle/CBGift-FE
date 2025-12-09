@@ -66,34 +66,9 @@ export default function OrderView({
   // };
     // Hàm xử lý Submit Refund CẤP ORDER
   const handleOrderRefundSubmit = async (data) => {
-    // data: { orderId, reason, selectedItems, proofUrl }
+    // ... (Giữ nguyên phần chuẩn bị payload) ...
     const { orderId, reason, selectedItems, proofUrl } = data;
     
-    // let proofUrlResult = null;
-    // const proofFile = data.proofFiles?.[0];
-
-    // // 1. UPLOAD FILE NẾU CÓ
-    // if (proofFile) {
-    //     try {
-    //         Swal.fire({
-    //             title: "Uploading Proof...",
-    //             text: "Please wait while your evidence is uploaded.",
-    //             icon: "info",
-    //             allowOutsideClick: false,
-    //             showConfirmButton: false,
-    //             didOpen: () => Swal.showLoading()
-    //         });
-    //         proofUrlResult = await uploadImage(proofFile); 
-    //         if (!proofUrlResult) {
-    //              throw new Error("Failed to get URL after upload.");
-    //         }
-    //     } catch (error) {
-    //         Swal.fire("Upload Failed", `Network or server error during file upload.`, "error");
-    //         return;
-    //     }
-    // }
-
-    // 2. CẤU TRÚC PAYLOAD
     const payload = {
         orderId: Number(orderId), 
         reason: reason,
@@ -104,7 +79,7 @@ export default function OrderView({
         }))
     };
 
-    // 3. GỌI API REFUND
+    // Hiển thị loading
     Swal.fire({ 
         title: "Submitting Request...", 
         allowOutsideClick: false, 
@@ -120,75 +95,59 @@ export default function OrderView({
             credentials: 'include',
         });
 
+        // 👇 XỬ LÝ LỖI CHI TIẾT 👇
         if (!response.ok) {
-            let errorDetail = "Failed to submit request.";
+            let errorMessage = "Failed to submit request.";
             try {
                 const errorData = await response.json();
-                errorDetail = errorData.message || errorData.title || JSON.stringify(errorData.errors);
+                // Ưu tiên lấy 'message' do Controller trả về
+                errorMessage = errorData.message || JSON.stringify(errorData);
             } catch (e) {
-                // If response is not JSON, use the status text
+                // Nếu không phải JSON thì lấy statusText
+                errorMessage = response.statusText;
             }
-            throw new Error(errorDetail);
+            // Ném lỗi này ra để Modal bắt được
+            throw new Error(errorMessage);
         }
         
         // Thành công
-        Swal.fire("Success! 🎉", "Your refund request has been submitted and is pending staff review.", "success");
-        setIsOrderRefundModalOpen(false); 
-        // window.location.reload(); // Hoặc router.refresh()
+        Swal.fire("Success! 🎉", "Your refund request has been submitted.", "success");
+        // setIsOrderRefundModalOpen(false); // Đóng modal từ component cha nếu cần
         
+        // Quan trọng: Return true hoặc data để Modal biết là xong (nếu cần)
+        return true; 
+
     } catch (error) {
         console.error("❌ Refund Submission Failed:", error);
-        Swal.fire("Submission Failed", `Error: ${error.message}`, "error");
+        // Ném tiếp lỗi để Modal hiển thị Swal.fire bên dưới
+        throw error; 
     }
   };
     // Hàm xử lý Submit Reprint CẤP ORDER
   const handleOrderReprintSubmit = async (data) => {
-    // data: { orderId, reason, selectedItems, proofFiles }
-    const { orderId, reason, selectedItems, proofFiles } = data;
-    
-    let proofUrlResult = null;
-    const proofFile = proofFiles?.[0]; 
+    // data nhận từ Modal: { orderId, reason, selectedItems, proofUrl }
+    const { orderId, reason, selectedItems, proofUrl } = data;
 
-    // 1. UPLOAD FILE NẾU CÓ
-    if (proofFile) {
-        try {
-            Swal.fire({
-                title: "Uploading Design/Proof...",
-                icon: "info",
-                allowOutsideClick: false,
-                showConfirmButton: false,
-                didOpen: () => Swal.showLoading()
-            });
-            proofUrlResult = await uploadImage(proofFile); 
-            if (!proofUrlResult) {
-                 throw new Error("Failed to get URL after upload.");
-            }
-        } catch (error) {
-            Swal.fire("Upload Failed", `Network or server error during file upload.`, "error");
-            return;
-        }
-    }
-
-    // 2. CẤU TRÚC PAYLOAD (SellerReprintRequestDto)
+    // 1. Cấu trúc Payload chuẩn DTO
     const payload = {
-        orderId: Number(orderId), 
+        orderId: Number(orderId),
         reason: reason,
-        proofUrl: proofUrlResult, 
-        
+        proofUrl: proofUrl, // URL ảnh đã được upload từ Modal
         selectedItems: selectedItems.map(item => ({
             originalOrderDetailId: item.originalOrderDetailId
         }))
     };
 
-    // 3. GỌI API REPRINT REQUEST
-    Swal.fire({ 
-        title: "Submitting Reprint Request...", 
-        allowOutsideClick: false, 
+    // 2. Hiển thị Loading (Optional vì Modal cũng có loading, nhưng giữ lại để chặn click ngoài)
+    Swal.fire({
+        title: "Submitting Request...",
+        allowOutsideClick: false,
         showConfirmButton: false,
         didOpen: () => Swal.showLoading()
     });
-    
+
     try {
+        // 3. Gọi API
         const response = await fetch(`${apiClient.defaults.baseURL}/api/Reprint/request`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -196,24 +155,28 @@ export default function OrderView({
             credentials: 'include',
         });
 
+        // 👇 4. XỬ LÝ LỖI TỪ BE (QUAN TRỌNG) 👇
         if (!response.ok) {
-            let errorDetail = "Failed to submit request.";
+            let errorMessage = "Failed to submit reprint request.";
             try {
+                // Cố gắng đọc message từ JSON trả về của Controller
                 const errorData = await response.json();
-                errorDetail = errorData.message || errorData.title || JSON.stringify(errorData.errors);
+                errorMessage = errorData.message || JSON.stringify(errorData);
             } catch (e) {
-                // If response is not JSON, use the status text
+                // Fallback nếu không phải JSON
+                errorMessage = response.statusText;
             }
-            throw new Error(errorDetail);
+            // Ném lỗi ra để Modal bắt
+            throw new Error(errorMessage);
         }
-        
-        // Thành công
-        Swal.fire("Success! 🎉", "Your reprint request has been submitted and is pending staff review.", "success");
-        setIsOrderReprintModalOpen(false); 
+
+        // 5. Thành công (Modal sẽ reload trang, ở đây chỉ cần return true)
+        return true;
 
     } catch (error) {
         console.error("❌ Reprint Submission Failed:", error);
-        Swal.fire("Submission Failed", `Error: ${error.message}`, "error");
+        // Ném tiếp lỗi để Modal hiển thị
+        throw error;
     }
   };
 

@@ -1,6 +1,8 @@
 import axios from "axios";
 
+// Đổi lại link API thật khi deploy
 const apiURL = "https://cb-gift-app-xsgw5.ondigitalocean.app";
+//const apiURL = "https://localhost:7015";
 
 const apiClient = axios.create({
   baseURL: apiURL,

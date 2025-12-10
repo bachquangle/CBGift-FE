@@ -68,7 +68,7 @@ import { Trash2, ArrowLeft, Wallet, Printer } from 'lucide-react';
         <div>
           <div className="flex items-center gap-3 mb-2">
             <h1 className="text-xl font-semibold text-gray-900">
-              Order: #{orderCode}
+              Order: {orderCode}
             </h1>
             <div
               className={`

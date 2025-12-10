@@ -3,7 +3,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams, useRouter } from "next/navigation"; // Dùng hook của Next.js
+//import { useParams, useRouter } from "next/navigation"; // Dùng hook của Next.js
 import OrderView from "@/components/order-view/order-view";
 import apiClient from "../../../../lib/apiClient";
 
@@ -236,27 +236,6 @@ export default function OrderViewPage() {
   useEffect(() => {
     const fetchOrder = async () => {
       if (!params.id) return;
-
-      // =======================================================
-      // 1. LẤY TOKEN VÀ TẠO HEADER AUTHENTICATION
-      // =======================================================
-      const token =
-        localStorage.getItem("token") || sessionStorage.getItem("token");
-
-      if (!token) {
-        // Nếu không có token, chuyển hướng về Login (Nếu Auth Guard chưa làm)
-        router.replace("/");
-        return;
-      }
-
-      const headers = {
-        "Content-Type": "application/json",
-        // Bắt buộc phải có Authorization Header với Token JWT
-        Authorization: `Bearer ${token}`,
-      };
-
-      // =======================================================
-
       try {
         setLoading(true);
 

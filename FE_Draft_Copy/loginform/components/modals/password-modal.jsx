@@ -63,10 +63,10 @@ export default function PasswordModal({ open, onOpenChange }) {
       setShowResult(true);
       return;
     }
-    if (passwords.new.length < 8) {
+    if (passwords.new.length < 6) {
       setResult({
         success: false,
-        message: "Password must be at least 8 characters",
+        message: "Password must be at least 6 characters",
       });
       setShowResult(true);
       return;
@@ -194,7 +194,7 @@ export default function PasswordModal({ open, onOpenChange }) {
                 type="password"
                 value={passwords.new}
                 onChange={(e) => handleInputChange("new", e.target.value)}
-                placeholder="Minimum 8 characters"
+                placeholder="Minimum 6 characters"
               />
               {fieldErrors.new && (
                 <p className="text-sm text-red-600 mt-1">{fieldErrors.new}</p>

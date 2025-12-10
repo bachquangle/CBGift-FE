@@ -71,55 +71,56 @@ export default function LoginPage() {
     }
 
     try {
-      // 1. Dùng apiClient thay vì fetch để tận dụng cấu hình BaseURL và withCredentials
+      // 1. Gọi API Login
+      // apiClient đã được cấu hình withCredentials: true (tương đương credentials: "include")
+      // nên Cookie sẽ tự động được trình duyệt lưu (nếu không bị chặn).
       const res = await apiClient.post("/api/auth/login", {
         userNameOrEmail: email,
         password: password,
       });
 
-      // 2. Lấy data từ response
-      // Controller .NET trả về: { accessToken, refreshToken, userName, email }
-      // (Lưu ý: .NET Core thường trả về camelCase JSON mặc định)
+      // 2. Lấy dữ liệu từ JSON trả về
       const data = res.data;
-      
-      // Xử lý trường hợp chữ hoa/thường tùy config server
-      const token = data.accessToken || data.AccessToken;
+      const accessToken = data.accessToken || data.AccessToken;
       const refreshToken = data.refreshToken || data.RefreshToken;
 
-      if (!token) {
+      if (!accessToken) {
         setError("No token received from server");
         setOpen(true);
         return;
       }
-
-      // 3. [HYBRID AUTH FIX] Lưu Token vào LocalStorage
-      // Đây là bước quan trọng để Mobile (và Interceptor) hoạt động được
-      localStorage.setItem("accessToken", token);
       
+      // A. Cookie: Đã được trình duyệt tự động xử lý nhờ 'withCredentials: true'
+      // (Không cần viết code gì thêm, Browser tự lo)
+
+      // B. LocalStorage: Lưu thủ công để phục vụ Mobile App / Safari
+      // Interceptor trong apiClient.js sẽ đọc cái này để gắn vào Header
+      localStorage.setItem("accessToken", accessToken);
       if (refreshToken) {
         localStorage.setItem("refreshToken", refreshToken);
       }
 
-      // 4. Giải mã Token để lấy UserID và Role
-      const decoded = jwtDecode(token);
-      
-      const roleClaim = "http://schemas.microsoft.com/ws/2008/06/identity/claims/role";
-      const idClaim = "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier";
-      
-      const roles = decoded[roleClaim] || decoded.role; // Fallback nếu tên claim ngắn gọn
-      const userId = decoded[idClaim] || decoded.sub;
+      // ============================================================
+
+      // 3. Giải mã token để lấy thông tin User
+      const decoded = jwtDecode(accessToken);
+      const userId =
+        decoded["http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier"] ||
+        decoded.sub;
+      const roles =
+        decoded["http://schemas.microsoft.com/ws/2008/06/identity/claims/role"] || 
+        decoded.role;
 
       if (userId) localStorage.setItem("userId", userId);
-      
-      // Xử lý Remember Me (Logic cũ của bạn, nhưng giờ LocalStorage là chính)
+
+      // Xử lý Remember Me (Logic phụ)
       if (rememberMe) {
-          localStorage.setItem("rememberMe", "true");
+         localStorage.setItem("rememberMe", "true");
       } else {
-          localStorage.removeItem("rememberMe");
+         localStorage.removeItem("rememberMe");
       }
 
-      // 5. Điều hướng dựa trên Role
-      // Chuyển roles thành mảng nếu nó là string đơn
+      // 4. Điều hướng
       const userRoles = Array.isArray(roles) ? roles : [roles];
 
       if (userRoles.includes("Seller")) router.push("/seller/manage-order");
@@ -127,12 +128,12 @@ export default function LoginPage() {
       else if (userRoles.includes("Manager")) router.push("/manager/dashboard");
       else if (userRoles.includes("QC")) router.push("/qc/check-product");
       else if (userRoles.includes("Staff")) router.push("/staff/manage-order");
-      else router.push("/"); // Default cho Admin hoặc User thường
+      else router.push("/");
 
-    } catch (err) {
-      console.error("Login Error:", err);
-      const message = err.response?.data?.message || "Login failed. Please check your credentials.";
-      setError(message);
+    } catch (error) {
+      console.error(error);
+      const msg = error.response?.data?.message || "Login failed";
+      setError(msg);
       setOpen(true);
     }
   };

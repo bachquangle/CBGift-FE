@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
+// 1. Import useRouter
+import { useRouter } from "next/navigation"; 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -23,6 +25,9 @@ import {
 } from "@/components/ui/alert-dialog";
 
 export default function PasswordModal({ open, onOpenChange }) {
+  // 2. Khởi tạo router
+  const router = useRouter(); 
+
   const [passwords, setPasswords] = useState({
     current: "",
     new: "",
@@ -35,7 +40,6 @@ export default function PasswordModal({ open, onOpenChange }) {
 
   useEffect(() => {
     if (!open) {
-      // reset state khi đóng modal
       setPasswords({ current: "", new: "", confirm: "" });
       setFieldErrors({ current: "", new: "" });
       setShowConfirm(false);
@@ -96,7 +100,6 @@ export default function PasswordModal({ open, onOpenChange }) {
       if (!res.ok) {
         let message = payload?.message ?? "Change password failed";
 
-        // check Identity errors
         if (payload?.errors && Array.isArray(payload.errors)) {
           const mismatch = payload.errors.find(
             (e) =>
@@ -121,17 +124,28 @@ export default function PasswordModal({ open, onOpenChange }) {
         return;
       }
 
-      // thành công
+      // --- THÀNH CÔNG ---
       const successMsg = payload?.message ?? "Change password successfully";
       setResult({ success: true, message: successMsg });
       setShowResult(true);
 
-      // tự động đóng popup + modal sau 1.5s
+      // 3. Xử lý sau khi hiện thông báo thành công (1.5s)
       setTimeout(() => {
         setShowResult(false);
         onOpenChange(false);
-        setPasswords({ current: "", new: "", confirm: "" });
+        
+        // Xóa Token cũ để client không gửi request với token hết hạn nữa
+        localStorage.removeItem("accessToken");
+        localStorage.removeItem("refreshToken");
+        // Hoặc dùng localStorage.clear() nếu muốn xóa sạch mọi thứ
+
+        // Điều hướng về trang Login
+        // Bạn có thể dùng router.push("/login") hoặc window.location.href = "/login"
+        // Dùng window.location.href giúp reset hoàn toàn state của React (an toàn hơn cho Logout)
+        window.location.href = "/"; 
+        
       }, 1500);
+
     } catch (error) {
       console.error("Change password error:", error);
       setResult({
@@ -153,6 +167,7 @@ export default function PasswordModal({ open, onOpenChange }) {
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
+        {/* ... Phần UI giữ nguyên không đổi ... */}
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Change Password</DialogTitle>
@@ -179,7 +194,7 @@ export default function PasswordModal({ open, onOpenChange }) {
                 type="password"
                 value={passwords.new}
                 onChange={(e) => handleInputChange("new", e.target.value)}
-                placeholder="Minimum 6 characters"
+                placeholder="Minimum 8 characters"
               />
               {fieldErrors.new && (
                 <p className="text-sm text-red-600 mt-1">{fieldErrors.new}</p>

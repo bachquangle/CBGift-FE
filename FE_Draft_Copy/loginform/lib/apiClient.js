@@ -1,7 +1,7 @@
 import axios from "axios";
 
 // Đổi lại link API thật khi deploy
-const apiURL = "https://cb-gift-app-xsgw5.ondigitalocean.app"; 
+const apiURL = "https://cb-gift-app-xsgw5.ondigitalocean.app";
 // const apiURL = "https://localhost:7015";
 
 const apiClient = axios.create({
@@ -40,12 +40,12 @@ apiClient.interceptors.response.use(
 
         // Gọi API Refresh
         const res = await axios.post(`${apiURL}/api/auth/refresh-token`, {
-            refreshToken: refreshToken
+          refreshToken: refreshToken,
         });
 
         if (res.status === 200) {
           const { accessToken, refreshToken: newRefToken } = res.data;
-          
+
           // Lưu token mới
           localStorage.setItem("accessToken", accessToken);
           localStorage.setItem("refreshToken", newRefToken);

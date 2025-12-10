@@ -4,6 +4,7 @@ import axios from "axios";
 const apiURL = "https://cb-gift-app-xsgw5.ondigitalocean.app"; 
 // const apiURL = "https://localhost:7015";
 
+// 2. Tạo một instance (thể hiện) axios đã được cấu hình sẵn
 const apiClient = axios.create({
   baseURL: apiURL,
   headers: {

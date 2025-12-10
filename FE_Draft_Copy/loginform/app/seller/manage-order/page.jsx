@@ -2041,9 +2041,7 @@ whitespace-nowrap"
                                 </TableCell>
                                 <TableCell className="font-medium text-slate-900 whitespace-nowrap max-w-[120px] overflow-hidden text-ellipsis">
                                   <Link
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    href={`../seller/order-view/${order.id}`}
+                                    href={`/seller/order-view/${order.id}`}
                                     className="hover:underline text-blue-600"
                                   >
                                     {order.orderId}
@@ -2166,9 +2164,7 @@ whitespace-nowrap"
                                       >
                                         <div className="flex flex-col gap-2">
                                           <Link
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            href={`/seller/order-view/${order.id}`} // Đảm bảo đường dẫn này khớp với route trong folder app/pages của bạn
+                                            href={`/seller/order-view/${order.id}`}
                                             className="inline-flex items-center text-sm font-medium text-blue-600 hover:underline px-3 py-2"
                                           >
                                             <Eye className="h-4 w-4 mr-2" />

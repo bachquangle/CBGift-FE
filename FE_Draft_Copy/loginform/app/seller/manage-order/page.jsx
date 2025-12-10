@@ -2041,7 +2041,9 @@ whitespace-nowrap"
                                 </TableCell>
                                 <TableCell className="font-medium text-slate-900 whitespace-nowrap max-w-[120px] overflow-hidden text-ellipsis">
                                   <Link
-                                    href={`/seller/order-view/${order.id}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    href={`../seller/order-view/${order.id}`}
                                     className="hover:underline text-blue-600"
                                   >
                                     {order.orderId}

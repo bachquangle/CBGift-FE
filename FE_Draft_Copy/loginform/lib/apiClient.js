@@ -1,39 +1,75 @@
 import axios from "axios";
 
-// 1. Đọc biến môi trường (từ .env.local hoặc DigitalOcean)
-// const apiURL = process.env.NEXT_PUBLIC_API_URL;
-
-const apiURL = "https://cb-gift-app-xsgw5.ondigitalocean.app";
+// Đổi lại link API thật khi deploy
+const apiURL = "https://cb-gift-app-xsgw5.ondigitalocean.app"; 
 // const apiURL = "https://localhost:7015";
 
 // 2. Tạo một instance (thể hiện) axios đã được cấu hình sẵn
 const apiClient = axios.create({
-  // baseURL chính là "biến chung" mà bạn muốn
   baseURL: apiURL,
-
-  // Quan trọng: Tự động gửi cookie (cho JWT) lên server
-  // (Backend .NET của bạn đọc JWT từ cookie)
-  withCredentials: true,
+  headers: {
+    "Content-Type": "application/json",
+  },
+  withCredentials: true, // Vẫn giữ để Web Desktop dùng Cookie nếu cần
 });
 
-/*
-  (Tùy chọn) Xử lý lỗi tập trung:
-  axios cho phép bạn "can thiệp" (intercept) vào các phản hồi (response)
-  để xử lý lỗi một cách tập trung.
-*/
-apiClient.interceptors.response.use(
-  (response) => {
-    // Nếu request thành công (status 2xx), trả về response
-    return response;
+// INTERCEPTOR 1: Tự động gắn AccessToken vào Header (Cho Mobile)
+apiClient.interceptors.request.use(
+  (config) => {
+    // Lấy token từ localStorage (Bạn phải lưu nó khi Login thành công)
+    const token = localStorage.getItem("accessToken");
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
   },
-  (error) => {
-    // Nếu request thất bại (status 4xx, 5xx)
-    console.error(
-      "Lỗi API từ interceptor:",
-      error.response?.data || error.message
-    );
+  (error) => Promise.reject(error)
+);
 
-    // Ném (throw) lỗi để component có thể bắt (catch)
+// INTERCEPTOR 2: Tự động Refresh Token khi gặp lỗi 401
+apiClient.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    const originalRequest = error.config;
+
+    // Nếu lỗi 401 và chưa từng thử lại (để tránh lặp vô tận)
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      originalRequest._retry = true;
+
+      try {
+        // Lấy refresh token từ localStorage
+        const refreshToken = localStorage.getItem("refreshToken");
+        
+        if (!refreshToken) {
+            // Không có refresh token -> Bắt đăng nhập lại
+            throw new Error("No refresh token");
+        }
+
+        // Gọi API Refresh (Gửi Token qua Body)
+        const res = await axios.post(`${apiURL}/api/auth/refresh-token`, {
+            refreshToken: refreshToken
+        });
+
+        if (res.status === 200) {
+          // 1. Lưu token mới vào localStorage
+          const { accessToken, refreshToken: newRefreshToken } = res.data;
+          localStorage.setItem("accessToken", accessToken);
+          localStorage.setItem("refreshToken", newRefreshToken);
+
+          // 2. Cập nhật header cho request cũ và gọi lại
+          originalRequest.headers.Authorization = `Bearer ${accessToken}`;
+          return apiClient(originalRequest);
+        }
+      } catch (refreshError) {
+        console.error("Refresh token failed:", refreshError);
+        // Xóa sạch token và chuyển hướng về trang login
+        localStorage.removeItem("accessToken");
+        localStorage.removeItem("refreshToken");
+        window.location.href = "/login";
+        return Promise.reject(refreshError);
+      }
+    }
+
     return Promise.reject(error);
   }
 );

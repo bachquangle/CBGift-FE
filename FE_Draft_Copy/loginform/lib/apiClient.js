@@ -65,7 +65,7 @@ apiClient.interceptors.response.use(
         // Xóa sạch token và chuyển hướng về trang login
         localStorage.removeItem("accessToken");
         localStorage.removeItem("refreshToken");
-        window.location.href = "/login";
+        window.location.href = "/";
         return Promise.reject(refreshError);
       }
     }

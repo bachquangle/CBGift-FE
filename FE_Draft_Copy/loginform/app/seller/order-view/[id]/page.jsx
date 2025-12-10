@@ -244,7 +244,8 @@ export default function OrderViewPage() {
         // Sử dụng Promise.all để fetch đồng thời
         const orderPromise = fetch(`${apiClient.defaults.baseURL}/api/Order/${params.id}`, {
             method: 'GET',
-            headers: { 'Content-Type': 'application/json' }
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include'
         }).then(res => {
             if (!res.ok) throw new Error("Failed to fetch order details.");
             return res.json();
@@ -253,7 +254,8 @@ export default function OrderViewPage() {
         // --- 2. LẤY DỮ LIỆU HOẠT ĐỘNG (API MỚI) ---
         const activityPromise = fetch(`${apiClient.defaults.baseURL}/api/Order/${params.id}/activity`, {
             method: 'GET',
-            headers: { 'Content-Type': 'application/json' }
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include'
         }).then(res => {
             if (!res.ok) throw new Error("Failed to fetch order activity.");
             return res.json();

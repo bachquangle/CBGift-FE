@@ -236,82 +236,55 @@ export default function OrderViewPage() {
   useEffect(() => {
     const fetchOrder = async () => {
       if (!params.id) return;
+      
       try {
         setLoading(true);
-
+        
         // --- 1. LẤY CHI TIẾT ORDER CHÍNH ---
-        const orderPromise = fetch(
-          `${apiClient.defaults.baseURL}/api/Order/${params.id}`,
-          {
-            method: "GET",
-            headers: headers, // <--- ĐÃ SỬA: SỬ DỤNG HEADER CÓ TOKEN
-            credentials: "include",
-          }
-        ).then((res) => {
-          // Xử lý chuyển hướng nếu 401 (Unauthorized)
-          if (res.status === 401) {
-            localStorage.removeItem("token");
-            sessionStorage.removeItem("token");
-            router.replace("/");
-            return null; // Trả về null để đánh dấu cần dừng xử lý
-          }
-          if (!res.ok) throw new Error("Failed to fetch order details.");
-          return res.json();
+        // Sử dụng Promise.all để fetch đồng thời
+        const orderPromise = fetch(`${apiClient.defaults.baseURL}/api/Order/${params.id}`, {
+            method: 'GET',
+            headers: { 'Content-Type': 'application/json' }
+        }).then(res => {
+            if (!res.ok) throw new Error("Failed to fetch order details.");
+            return res.json();
         });
 
         // --- 2. LẤY DỮ LIỆU HOẠT ĐỘNG (API MỚI) ---
-        const activityPromise = fetch(
-          `${apiClient.defaults.baseURL}/api/Order/${params.id}/activity`,
-          {
-            method: "GET",
-            headers: headers, // <--- ĐÃ SỬA: SỬ DỤNG HEADER CÓ TOKEN
-            credentials: "include",
-          }
-        ).then((res) => {
-          // Không cần kiểm tra 401 vì orderPromise đã kiểm tra
-          if (!res.ok) throw new Error("Failed to fetch order activity.");
-          return res.json();
+        const activityPromise = fetch(`${apiClient.defaults.baseURL}/api/Order/${params.id}/activity`, {
+            method: 'GET',
+            headers: { 'Content-Type': 'application/json' }
+        }).then(res => {
+            if (!res.ok) throw new Error("Failed to fetch order activity.");
+            return res.json();
         });
 
         // Thực thi đồng thời cả hai
-        const [orderDataApi, activityDataApi] = await Promise.all([
-          orderPromise,
-          activityPromise,
-        ]);
-
-        // KIỂM TRA: Nếu orderDataApi là null (do 401 đã xảy ra)
-        if (orderDataApi === null) {
-          return; // Dừng lại, đã có lệnh chuyển hướng
-        }
+        const [orderDataApi, activityDataApi] = await Promise.all([orderPromise, activityPromise]);
 
         // --- 3. GỘP DỮ LIỆU ---
-        const mergedData = {
-          ...orderDataApi,
-          // Ghi đè/Bổ sung các trường hoạt động từ API mới
-          allRefunds: activityDataApi.allRefunds || [],
-          allReprints: activityDataApi.allReprints || [],
-          creationDate:
-            activityDataApi.creationDate || orderDataApi.creationDate,
-          orderDate: activityDataApi.orderDate || orderDataApi.orderDate,
-          shippedDate: activityDataApi.shippedDate,
+        const mergedData = { 
+            ...orderDataApi, 
+            // Ghi đè/Bổ sung các trường hoạt động từ API mới
+            allRefunds: activityDataApi.allRefunds || [], 
+            allReprints: activityDataApi.allReprints || [],
+            creationDate: activityDataApi.creationDate || orderDataApi.creationDate,
+            orderDate: activityDataApi.orderDate || orderDataApi.orderDate,
         };
+        
 
-        // Giả định mapApiToUiData và setOrderData đã được định nghĩa
         const mappedData = mapApiToUiData(mergedData);
         setOrderData(mappedData);
       } catch (err) {
         console.error(err);
-        // Trong trường hợp lỗi mạng hoặc lỗi API khác (khác 401)
         setError(err.message || "Failed to fetch data.");
       } finally {
-        // Chỉ set loading=false
         setLoading(false);
       }
     };
 
     fetchOrder();
-    // Thêm router vào Dependency Array
-  }, [params.id, router]);
+  }, [params.id]);
 
   const handleCancel = () => {
     // Gọi API cancel order ở đây
@@ -319,15 +292,17 @@ export default function OrderViewPage() {
   };
 
   const handleBack = () => {
-    router.push("/seller/manage-order");
+    router.push('/seller/manage-order');
   };
 
-  if (loading)
-    return <div className="p-10 text-center">Loading order details...</div>;
-  if (error)
-    return <div className="p-10 text-center text-red-500">Error: {error}</div>;
+  if (loading) return <div className="p-10 text-center">Loading order details...</div>;
+  if (error) return <div className="p-10 text-center text-red-500">Error: {error}</div>;
 
   return (
-    <OrderView order={orderData} onCancel={handleCancel} onBack={handleBack} />
+    <OrderView
+      order={orderData}
+      onCancel={handleCancel}
+      onBack={handleBack}
+    />
   );
 }

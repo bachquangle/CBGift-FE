@@ -16,14 +16,17 @@ const mapApiToUiData = (apiData) => {
 
   // Xử lý Billing (API hiện tại chỉ có TotalCost, tạm tính các phí khác bằng 0 hoặc logic tự quy định)
   // Bạn cần update BE để có các trường shippingCost, taxCost thực tế
-  const productionCosts = apiData.details.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+  const productionCosts = apiData.details.reduce(
+    (sum, item) => sum + item.price * item.quantity,
+    0
+  );
   const shippingCost = apiData.totalCost - productionCosts; // Giả định
 
   return {
     id: apiData.orderCode || apiData.orderId.toString(),
     status: apiData.statusOderName || "PENDING",
     createdAt: apiData.creationDate,
-    
+
     // Map danh sách sản phẩm
     products: apiData.details.map((item) => ({
       id: item.orderDetailID,
@@ -37,7 +40,7 @@ const mapApiToUiData = (apiData) => {
       printSide: item.needDesign ? "Custom" : "Standard", // API thiếu PrintSide
       productionCost: `${item.price?.toLocaleString()} đ`,
       trackingDetail: item.productionStatus?.toString(),
-      
+
       // Tạo timeline giả lập dựa trên trạng thái hiện tại (Do API thiếu lịch sử chi tiết)
       timeline: [
         {
@@ -51,10 +54,10 @@ const mapApiToUiData = (apiData) => {
           completed: item.productionStatus >= 1, // Logic ví dụ
         },
         {
-            status: "Shipped",
-            date: null,
-            completed: item.productionStatus === 9, // Ví dụ 9 là shipped
-        }
+          status: "Shipped",
+          date: null,
+          completed: item.productionStatus === 9, // Ví dụ 9 là shipped
+        },
       ],
     })),
 
@@ -90,11 +93,15 @@ const mapApiToUiData = (apiData) => {
         description: "Order has been placed successfully",
       },
       // Nếu có refund, hiển thị thêm
-      ...(apiData.latestRefundId ? [{
-        date: "Recent",
-        title: "Refund Requested",
-        description: `Amount: ${apiData.refundAmount} - Reason: ${apiData.reason}`,
-      }] : [])
+      ...(apiData.latestRefundId
+        ? [
+            {
+              date: "Recent",
+              title: "Refund Requested",
+              description: `Amount: ${apiData.refundAmount} - Reason: ${apiData.reason}`,
+            },
+          ]
+        : []),
     ],
   };
 };
@@ -109,18 +116,21 @@ export default function OrderViewPage() {
   useEffect(() => {
     const fetchOrder = async () => {
       if (!params.id) return;
-      
+
       try {
         setLoading(true);
         // Thay đổi URL localhost này bằng env variable hoặc đường dẫn thật của bạn
-        const response = await fetch(`https://localhost:7015/api/Order/${params.id}`, {
-            method: 'GET',
+        const response = await fetch(
+          `https://localhost:7015/api/Order/${params.id}`,
+          {
+            method: "GET",
             headers: {
-                'Content-Type': 'application/json',
-                // Thêm Authorization header nếu cần thiết
-                // 'Authorization': `Bearer ${token}` 
-            }
-        });
+              "Content-Type": "application/json",
+              // Thêm Authorization header nếu cần thiết
+              // 'Authorization': `Bearer ${token}`
+            },
+          }
+        );
 
         if (!response.ok) {
           throw new Error("Failed to fetch order");
@@ -149,14 +159,12 @@ export default function OrderViewPage() {
     router.back();
   };
 
-  if (loading) return <div className="p-10 text-center">Loading order details...</div>;
-  if (error) return <div className="p-10 text-center text-red-500">Error: {error}</div>;
+  if (loading)
+    return <div className="p-10 text-center">Loading order details...</div>;
+  if (error)
+    return <div className="p-10 text-center text-red-500">Error: {error}</div>;
 
   return (
-    <OrderView
-      order={orderData}
-      onCancel={handleCancel}
-      onBack={handleBack}
-    />
+    <OrderView order={orderData} onCancel={handleCancel} onBack={handleBack} />
   );
 }

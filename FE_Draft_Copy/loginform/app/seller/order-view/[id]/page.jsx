@@ -21,11 +21,11 @@ const PRODUCTION_STATUS_MAP = {
   9: "QC_DONE",
   10: "QC_FAIL",
   11: "PROD_REWORK",
-  12: "SHIPPING",   // Cập nhật từ PACKING -> SHIPPING
-  13: "SHIPPED",    // Thêm mới
-  14: "HOLD_RF",    // Thêm mới
-  15: "HOLD_RP",    // Thêm mới
-  16: "REFUND"      // Thêm mới
+  12: "SHIPPING", // Cập nhật từ PACKING -> SHIPPING
+  13: "SHIPPED", // Thêm mới
+  14: "HOLD_RF", // Thêm mới
+  15: "HOLD_RP", // Thêm mới
+  16: "REFUND", // Thêm mới
 };
 
 // Hàm map dữ liệu từ API sang cấu trúc UI cần
@@ -38,15 +38,18 @@ const mapApiToUiData = (apiData) => {
   const firstName = nameParts[0];
   const lastName = nameParts.slice(1).join(" ") || "";
 
-  const productionCosts = apiData.details.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-  const shippingCost = apiData.totalCost - productionCosts; 
+  const productionCosts = apiData.details.reduce(
+    (sum, item) => sum + item.price * item.quantity,
+    0
+  );
+  const shippingCost = apiData.totalCost - productionCosts;
 
   // 2. Định nghĩa các cột mốc chính cho Timeline
   const MAIN_PRODUCTION_STEPS = [1, 3, 7, 12, 13];
 
   // --- 1. Bắt đầu Activity Log ---
-  let activitiesLog = []; 
-  
+  let activitiesLog = [];
+
   // Thêm sự kiện Draft (sử dụng CreationDate từ mergedData)
   activitiesLog.push({
     date: new Date(apiData.creationDate).toLocaleString(),
@@ -55,12 +58,13 @@ const mapApiToUiData = (apiData) => {
   });
 
   // Thêm sự kiện Confirmed (sử dụng OrderDate từ mergedData)
-  const isConfirmed = apiData.orderDate && !isNaN(new Date(apiData.orderDate).getTime());
+  const isConfirmed =
+    apiData.orderDate && !isNaN(new Date(apiData.orderDate).getTime());
 
   if (isConfirmed) {
     activitiesLog.push({
       date: new Date(apiData.orderDate).toLocaleString(),
-      title: "Order Confirmed", 
+      title: "Order Confirmed",
       description: "Order confirmed & sent to production.",
     });
   }
@@ -74,36 +78,43 @@ const mapApiToUiData = (apiData) => {
 
   // --- 2. ✨ XỬ LÝ REFUND CHI TIẾT (TỔNG HỢP TỪ allRefunds) ✨ ---
   if (apiData.allRefunds && apiData.allRefunds.length > 0) {
-    apiData.allRefunds.forEach(refund => {
+    apiData.allRefunds.forEach((refund) => {
       // Chi tiết các sản phẩm bị Refund
-      const itemSummaries = refund.items.map(i => {
-        // Dùng null-coalescing cho ProductName/SKU vì API trả về có thể null
-        const name = i.productName || `Item #${i.orderDetailId}`;
-        return `${name} (Qty: ${i.quantity}, Amt: ${i.refundAmount.toLocaleString()}đ)`;
-      }).join('; ');
-      
+      const itemSummaries = refund.items
+        .map((i) => {
+          // Dùng null-coalescing cho ProductName/SKU vì API trả về có thể null
+          const name = i.productName || `Item #${i.orderDetailId}`;
+          return `${name} (Qty: ${
+            i.quantity
+          }, Amt: ${i.refundAmount.toLocaleString()}đ)`;
+        })
+        .join("; ");
+
       // Sự kiện 1: Yêu cầu Refund
       const requestDate = new Date(refund.createdAt).toLocaleString();
-      
+
       activitiesLog.push({
         date: requestDate,
         title: "Refund Requested",
-        description: `Total: ${refund.totalRequestedAmount.toLocaleString()} đ - Reason: ${refund.reason || 'N/A'}. Items: ${itemSummaries}`,
+        description: `Total: ${refund.totalRequestedAmount.toLocaleString()} đ - Reason: ${
+          refund.reason || "N/A"
+        }. Items: ${itemSummaries}`,
       });
-      
+
       // Sự kiện 2: Phản hồi/Xử lý Refund
       if (refund.status && refund.status !== "Pending") {
-        const reviewDate = refund.reviewedAt 
-            ? new Date(refund.reviewedAt).toLocaleString() 
-            : "Recent"; 
-            
-        let responseDesc = refund.status === "Rejected" 
-            ? `Reason for rejection: ${refund.staffRejectionReason || 'N/A'}`
+        const reviewDate = refund.reviewedAt
+          ? new Date(refund.reviewedAt).toLocaleString()
+          : "Recent";
+
+        let responseDesc =
+          refund.status === "Rejected"
+            ? `Reason for rejection: ${refund.staffRejectionReason || "N/A"}`
             : `Refund approved and transferred. Items: ${itemSummaries}`;
 
         activitiesLog.push({
           date: reviewDate,
-          title: `Refund ${refund.status}`, 
+          title: `Refund ${refund.status}`,
           description: responseDesc,
         });
       }
@@ -112,34 +123,37 @@ const mapApiToUiData = (apiData) => {
 
   // --- 3. ✨ XỬ LÝ REPRINT CHI TIẾT (TỔNG HỢP TỪ allReprints) ✨ ---
   if (apiData.allReprints && apiData.allReprints.length > 0) {
-    apiData.allReprints.forEach(reprint => {
-        // Lấy thông tin sản phẩm từ RequestedItems đầu tiên
-        const item = reprint.requestedItems?.[0];
-        
-        const productInfo = item 
-            ? `${item.productName || `ID: ${item.orderDetailId}`} (${item.SKU || 'N/A'})` 
-            : 'Unknown Product';
-        const requestedQty = item?.quantity || 'N/A';
+    apiData.allReprints.forEach((reprint) => {
+      // Lấy thông tin sản phẩm từ RequestedItems đầu tiên
+      const item = reprint.requestedItems?.[0];
 
-        const requestDate = new Date(reprint.requestDate).toLocaleString();
+      const productInfo = item
+        ? `${item.productName || `ID: ${item.orderDetailId}`} (${
+            item.SKU || "N/A"
+          })`
+        : "Unknown Product";
+      const requestedQty = item?.quantity || "N/A";
 
-        // Sự kiện 1: Yêu cầu Reprint
+      const requestDate = new Date(reprint.requestDate).toLocaleString();
+
+      // Sự kiện 1: Yêu cầu Reprint
+      activitiesLog.push({
+        date: requestDate,
+        title: "Reprint Requested",
+        description: `Product: ${productInfo} (Qty: ${requestedQty}). Reason: ${reprint.reason}.`,
+      });
+
+      // Sự kiện 2: Phản hồi Reprint
+      if (reprint.status && reprint.status !== "Pending") {
         activitiesLog.push({
-          date: requestDate,
-          title: "Reprint Requested",
-          description: `Product: ${productInfo} (Qty: ${requestedQty}). Reason: ${reprint.reason}.`,
-        });
-        
-        // Sự kiện 2: Phản hồi Reprint
-        if (reprint.status && reprint.status !== "Pending") {
-          activitiesLog.push({
-            date: "N/A", // Sử dụng ReprintReviewDate nếu có
-            title: `Reprint ${reprint.status}`,
-            description: reprint.status === "Rejected" 
+          date: "N/A", // Sử dụng ReprintReviewDate nếu có
+          title: `Reprint ${reprint.status}`,
+          description:
+            reprint.status === "Rejected"
               ? `Rejection reason: ${reprint.rejectionReason}. Product: ${productInfo}`
               : `New production task approved for: ${productInfo}`,
-          });
-        }
+        });
+      }
     });
   }
   // --- END ACTIVITY LOG ---
@@ -150,36 +164,36 @@ const mapApiToUiData = (apiData) => {
     orderCode: apiData.orderCode,
     status: apiData.statusOderName || "PENDING",
     createdAt: apiData.creationDate,
-    orderDate: apiData.orderDate || null, 
+    orderDate: apiData.orderDate || null,
     trackingCode: apiData.tracking?.trim() ? apiData.tracking.trim() : "N/A",
     products: apiData.details.map((item) => {
       const currentStatusCode = item.productionStatus ?? 0;
-        
+
       return {
         id: item.orderDetailID,
         name: item.productName,
-        currentStatusCode: currentStatusCode, 
-        sku: item.sku, 
-        color: item.layer, 
+        currentStatusCode: currentStatusCode,
+        sku: item.sku,
+        color: item.layer,
         size: item.size,
-        supplier: "CBGift Factory", 
-        image: item.linkImg || "/placeholder.svg", 
+        supplier: "CBGift Factory",
+        image: item.linkImg || "/placeholder.svg",
         quantity: item.quantity,
-        printSide: item.needDesign ? "Custom" : "Standard", 
+        printSide: item.needDesign ? "Custom" : "Standard",
         productionCost: `${item.price?.toLocaleString()} đ`,
         priceRaw: item.price ?? 0,
-        trackingDetail: PRODUCTION_STATUS_MAP[currentStatusCode] || "UNKNOWN", 
-        linkThanksCard: item.linkThanksCard, 
-        linkFileDesign: item.linkFileDesign, 
-        
+        trackingDetail: PRODUCTION_STATUS_MAP[currentStatusCode] || "UNKNOWN",
+        linkThanksCard: item.linkThanksCard,
+        linkFileDesign: item.linkFileDesign,
+
         timeline: MAIN_PRODUCTION_STEPS.map((stepCode) => {
           const statusName = PRODUCTION_STATUS_MAP[stepCode];
           return {
             status: statusName,
-            date: currentStatusCode >= stepCode ? apiData.creationDate : null, 
+            date: currentStatusCode >= stepCode ? apiData.creationDate : null,
             completed: currentStatusCode >= stepCode,
           };
-        }).filter(t => t.status),
+        }).filter((t) => t.status),
       };
     }),
 
@@ -202,13 +216,13 @@ const mapApiToUiData = (apiData) => {
       productionCosts: `${productionCosts.toLocaleString()} đ`,
       shippingStandard: "Standard",
       shippingCost: `${shippingCost > 0 ? shippingCost.toLocaleString() : 0} đ`,
-      surchargeFee: "0 đ", 
-      taxCost: "0 đ", 
+      surchargeFee: "0 đ",
+      taxCost: "0 đ",
       totalCosts: `${apiData.totalCost?.toLocaleString()} đ`,
     },
 
     // Đảo ngược mảng để sự kiện mới nhất nằm trên cùng
-    activities: activitiesLog.reverse(), 
+    activities: activitiesLog.reverse(),
   };
 };
 
@@ -222,58 +236,103 @@ export default function OrderViewPage() {
   useEffect(() => {
     const fetchOrder = async () => {
       if (!params.id) return;
-      
+
+      // =======================================================
+      // 1. LẤY TOKEN VÀ TẠO HEADER AUTHENTICATION
+      // =======================================================
+      const token =
+        localStorage.getItem("token") || sessionStorage.getItem("token");
+
+      if (!token) {
+        // Nếu không có token, chuyển hướng về Login (Nếu Auth Guard chưa làm)
+        router.replace("/");
+        return;
+      }
+
+      const headers = {
+        "Content-Type": "application/json",
+        // Bắt buộc phải có Authorization Header với Token JWT
+        Authorization: `Bearer ${token}`,
+      };
+
+      // =======================================================
+
       try {
         setLoading(true);
-        
+
         // --- 1. LẤY CHI TIẾT ORDER CHÍNH ---
-        // Sử dụng Promise.all để fetch đồng thời
-        const orderPromise = fetch(`${apiClient.defaults.baseURL}/api/Order/${params.id}`, {
-            method: 'GET',
-           
-             credentials: "include"
-            
-        }).then(res => {
-            if (!res.ok) throw new Error("Failed to fetch order details.");
-            return res.json();
+        const orderPromise = fetch(
+          `${apiClient.defaults.baseURL}/api/Order/${params.id}`,
+          {
+            method: "GET",
+            headers: headers, // <--- ĐÃ SỬA: SỬ DỤNG HEADER CÓ TOKEN
+            credentials: "include",
+          }
+        ).then((res) => {
+          // Xử lý chuyển hướng nếu 401 (Unauthorized)
+          if (res.status === 401) {
+            localStorage.removeItem("token");
+            sessionStorage.removeItem("token");
+            router.replace("/");
+            return null; // Trả về null để đánh dấu cần dừng xử lý
+          }
+          if (!res.ok) throw new Error("Failed to fetch order details.");
+          return res.json();
         });
 
         // --- 2. LẤY DỮ LIỆU HOẠT ĐỘNG (API MỚI) ---
-        const activityPromise = fetch(`${apiClient.defaults.baseURL}/api/Order/${params.id}/activity`, {
-            method: 'GET',
-           credentials: "include"
-        }).then(res => {
-            if (!res.ok) throw new Error("Failed to fetch order activity.");
-            return res.json();
+        const activityPromise = fetch(
+          `${apiClient.defaults.baseURL}/api/Order/${params.id}/activity`,
+          {
+            method: "GET",
+            headers: headers, // <--- ĐÃ SỬA: SỬ DỤNG HEADER CÓ TOKEN
+            credentials: "include",
+          }
+        ).then((res) => {
+          // Không cần kiểm tra 401 vì orderPromise đã kiểm tra
+          if (!res.ok) throw new Error("Failed to fetch order activity.");
+          return res.json();
         });
 
         // Thực thi đồng thời cả hai
-        const [orderDataApi, activityDataApi] = await Promise.all([orderPromise, activityPromise]);
+        const [orderDataApi, activityDataApi] = await Promise.all([
+          orderPromise,
+          activityPromise,
+        ]);
+
+        // KIỂM TRA: Nếu orderDataApi là null (do 401 đã xảy ra)
+        if (orderDataApi === null) {
+          return; // Dừng lại, đã có lệnh chuyển hướng
+        }
 
         // --- 3. GỘP DỮ LIỆU ---
-        const mergedData = { 
-            ...orderDataApi, 
-            // Ghi đè/Bổ sung các trường hoạt động từ API mới
-            allRefunds: activityDataApi.allRefunds || [], 
-            allReprints: activityDataApi.allReprints || [],
-            creationDate: activityDataApi.creationDate || orderDataApi.creationDate,
-            orderDate: activityDataApi.orderDate || orderDataApi.orderDate,
-            shippedDate: activityDataApi.shippedDate,
+        const mergedData = {
+          ...orderDataApi,
+          // Ghi đè/Bổ sung các trường hoạt động từ API mới
+          allRefunds: activityDataApi.allRefunds || [],
+          allReprints: activityDataApi.allReprints || [],
+          creationDate:
+            activityDataApi.creationDate || orderDataApi.creationDate,
+          orderDate: activityDataApi.orderDate || orderDataApi.orderDate,
+          shippedDate: activityDataApi.shippedDate,
         };
-        
 
+        // Giả định mapApiToUiData và setOrderData đã được định nghĩa
         const mappedData = mapApiToUiData(mergedData);
         setOrderData(mappedData);
       } catch (err) {
         console.error(err);
+        // Trong trường hợp lỗi mạng hoặc lỗi API khác (khác 401)
         setError(err.message || "Failed to fetch data.");
       } finally {
+        // Chỉ set loading=false
         setLoading(false);
       }
     };
 
     fetchOrder();
-  }, [params.id]);
+    // Thêm router vào Dependency Array
+  }, [params.id, router]);
 
   const handleCancel = () => {
     // Gọi API cancel order ở đây
@@ -281,17 +340,15 @@ export default function OrderViewPage() {
   };
 
   const handleBack = () => {
-    router.push('/seller/manage-order');
+    router.push("/seller/manage-order");
   };
 
-  if (loading) return <div className="p-10 text-center">Loading order details...</div>;
-  if (error) return <div className="p-10 text-center text-red-500">Error: {error}</div>;
+  if (loading)
+    return <div className="p-10 text-center">Loading order details...</div>;
+  if (error)
+    return <div className="p-10 text-center text-red-500">Error: {error}</div>;
 
   return (
-    <OrderView
-      order={orderData}
-      onCancel={handleCancel}
-      onBack={handleBack}
-    />
+    <OrderView order={orderData} onCancel={handleCancel} onBack={handleBack} />
   );
 }

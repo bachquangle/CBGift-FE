@@ -71,56 +71,46 @@ export default function LoginPage() {
     }
 
     try {
-      // 1. Gọi API Login
-      // apiClient đã được cấu hình withCredentials: true (tương đương credentials: "include")
-      // nên Cookie sẽ tự động được trình duyệt lưu (nếu không bị chặn).
+      // 1. Gọi API qua apiClient (đã config withCredentials)
       const res = await apiClient.post("/api/auth/login", {
         userNameOrEmail: email,
         password: password,
       });
 
-      // 2. Lấy dữ liệu từ JSON trả về
       const data = res.data;
+      
+      // 2. Lấy token (Xử lý cả trường hợp viết hoa/thường)
       const accessToken = data.accessToken || data.AccessToken;
       const refreshToken = data.refreshToken || data.RefreshToken;
 
       if (!accessToken) {
-        setError("No token received from server");
-        setOpen(true);
-        return;
+        throw new Error("No token received from server");
       }
-      
-      // A. Cookie: Đã được trình duyệt tự động xử lý nhờ 'withCredentials: true'
-      // (Không cần viết code gì thêm, Browser tự lo)
 
-      // B. LocalStorage: Lưu thủ công để phục vụ Mobile App / Safari
-      // Interceptor trong apiClient.js sẽ đọc cái này để gắn vào Header
+      // 3. [QUAN TRỌNG] Lưu vào LocalStorage (Để Mobile hoạt động)
       localStorage.setItem("accessToken", accessToken);
       if (refreshToken) {
         localStorage.setItem("refreshToken", refreshToken);
       }
 
-      // ============================================================
-
-      // 3. Giải mã token để lấy thông tin User
+      // 4. Giải mã Token
       const decoded = jwtDecode(accessToken);
-      const userId =
-        decoded["http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier"] ||
-        decoded.sub;
-      const roles =
-        decoded["http://schemas.microsoft.com/ws/2008/06/identity/claims/role"] || 
-        decoded.role;
+      
+      // Lấy Role và UserID (Xử lý các key claim dài dòng của Microsoft)
+      const roleKey = "http://schemas.microsoft.com/ws/2008/06/identity/claims/role";
+      const idKey = "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier";
+      
+      const roles = decoded[roleKey] || decoded.role;
+      const userId = decoded[idKey] || decoded.sub;
 
+      // Lưu UserID
       if (userId) localStorage.setItem("userId", userId);
 
       // Xử lý Remember Me (Logic phụ)
-      if (rememberMe) {
-         localStorage.setItem("rememberMe", "true");
-      } else {
-         localStorage.removeItem("rememberMe");
-      }
+      if (rememberMe) localStorage.setItem("rememberMe", "true");
+      else localStorage.removeItem("rememberMe");
 
-      // 4. Điều hướng
+      // 5. Điều hướng (Chuyển roles thành mảng để check cho an toàn)
       const userRoles = Array.isArray(roles) ? roles : [roles];
 
       if (userRoles.includes("Seller")) router.push("/seller/manage-order");
@@ -128,11 +118,11 @@ export default function LoginPage() {
       else if (userRoles.includes("Manager")) router.push("/manager/dashboard");
       else if (userRoles.includes("QC")) router.push("/qc/check-product");
       else if (userRoles.includes("Staff")) router.push("/staff/manage-order");
-      else router.push("/");
+      else router.push("/"); // Trang chủ mặc định
 
-    } catch (error) {
-      console.error(error);
-      const msg = error.response?.data?.message || "Login failed";
+    } catch (err) {
+      console.error(err);
+      const msg = err.response?.data?.message || err.message || "Login failed";
       setError(msg);
       setOpen(true);
     }

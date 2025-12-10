@@ -36,6 +36,7 @@ const CircularProgress = ({ progress }) => {
   const radius = 20;
   const circumference = 2 * Math.PI * radius;
   const strokeDashoffset = circumference - (progress / 100) * circumference;
+  const isValidLength = (value) => value.length >= 3 && value.length <= 50;
 
   return (
     <svg width="50" height="50" className="absolute top-1 left-1">
@@ -217,7 +218,7 @@ export default function MakeManualModal({ isOpen, onClose }) {
   const [productsError, setProductsError] = useState(null);
   const [productSearchTerm, setProductSearchTerm] = useState("");
   const [productCurrentPage, setProductCurrentPage] = useState(1);
-  const [productItemsPerPage, setProductItemsPerPage] = useState(5);
+  const [productItemsPerPage, setProductItemsPerPage] = useState(6);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -894,18 +895,28 @@ export default function MakeManualModal({ isOpen, onClose }) {
     }
   };
 
+  const isValidVietnamPhone = (value) => {
+    const regex = /^(0[3|5|7|8|9][0-9]{8}|(\+84)[3|5|7|8|9][0-9]{8})$/;
+    return regex.test(value);
+  };
+
   const renderStep1 = () => {
     const handleTrimmedInput = (field, value) => {
+      // Không cho nhập toàn khoảng trắng
       if (value.trim() === "" && value.length > 0) return;
 
+      // Email: xoá space
       if (field === "email") {
         value = value.replace(/\s/g, "");
       }
 
+      // Phone: chỉ cho số và dấu +
       if (field === "phone") {
         value = value.replace(/[^\d+]/g, "");
       }
 
+      // KHÔNG validate độ dài khi typing nữa (fix bị chặn)
+      // Chỉ cần trimStart để loại khoảng trắng đầu
       setCustomerInfo((prev) => ({
         ...prev,
         [field]: value.trimStart(),
@@ -1325,10 +1336,10 @@ export default function MakeManualModal({ isOpen, onClose }) {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="5">5</SelectItem>
-                <SelectItem value="10">10</SelectItem>
-                <SelectItem value="20">20</SelectItem>
-                <SelectItem value="50">50</SelectItem>
+                <SelectItem value="6">6</SelectItem>
+                <SelectItem value="12">12</SelectItem>
+                <SelectItem value="18">18</SelectItem>
+                <SelectItem value="51">51</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -1361,9 +1372,9 @@ export default function MakeManualModal({ isOpen, onClose }) {
           <>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {paginatedProducts.map((p) => {
-                const price = p.variants?.length
-                  ? Math.min(...p.variants.map((v) => v.totalCost))
-                  : 0;
+                const baseCosts = p.variants?.map((v) => v.baseCost) || [];
+                const minCost = baseCosts.length ? Math.min(...baseCosts) : 0;
+                const maxCost = baseCosts.length ? Math.max(...baseCosts) : 0;
 
                 return (
                   <div
@@ -1393,7 +1404,11 @@ export default function MakeManualModal({ isOpen, onClose }) {
                     </p>
 
                     <p className="text-sm font-bold text-blue-600">
-                      ${price.toFixed(2)}
+                      {minCost === maxCost
+                        ? `${minCost.toFixed(2)} VND`
+                        : `${minCost.toFixed(2)} VND - ${maxCost.toFixed(
+                            2
+                          )} VND`}
                     </p>
                   </div>
                 );
@@ -1521,7 +1536,7 @@ export default function MakeManualModal({ isOpen, onClose }) {
 
       <div className="mb-4">
         <Label htmlFor="orderId" className="text-sm font-medium text-gray-700">
-          Order ID *
+          Order Code *
         </Label>
         <Input
           id="orderId"
@@ -1532,7 +1547,7 @@ export default function MakeManualModal({ isOpen, onClose }) {
               setOrderId(e.target.value);
             }
           }}
-          placeholder="Enter Order ID..."
+          placeholder="Enter Order Code..."
           className="mt-1"
           readOnly={isOrderIdSet}
           disabled={isOrderIdSet}
@@ -1830,28 +1845,39 @@ export default function MakeManualModal({ isOpen, onClose }) {
             <div className="flex justify-between text-sm">
               <span className="text-gray-600">Base Cost:</span>
               <span className="font-medium text-gray-900">
-                ${getCostDetails().baseCost.toFixed(2)}
+                <span className="font-medium text-gray-900">
+                  {new Intl.NumberFormat("vi-VN").format(
+                    getCostDetails().baseCost
+                  )}{" "}
+                  VND
+                </span>
               </span>
             </div>
             <div className="flex justify-between text-sm">
               <span className="text-gray-600">Ship Cost:</span>
               <span className="font-medium text-gray-900">
-                ${getCostDetails().shipCost.toFixed(2)}
+                {new Intl.NumberFormat("vi-VN").format(
+                  getCostDetails().shipCost
+                )}{" "}
+                VND
               </span>
             </div>
             <div className="flex justify-between text-sm">
               <span className="text-gray-600">Extra Shipping (per unit):</span>
               <span className="font-medium text-gray-900">
-                ${getCostDetails().extraShipping.toFixed(2)}
+                {new Intl.NumberFormat("vi-VN").format(
+                  getCostDetails().extraShipping
+                )}{" "}
+                VND
               </span>
             </div>
             <div className="border-t border-slate-200 pt-2 flex justify-between">
               <span className="font-semibold text-gray-900">Unit Price:</span>
               <span className="font-bold text-blue-600 text-lg">
-                $
-                {(
+                {new Intl.NumberFormat("vi-VN").format(
                   getCostDetails().baseCost + getCostDetails().shipCost
-                ).toFixed(2)}
+                )}{" "}
+                VND
               </span>
             </div>
           </div>
@@ -1877,11 +1903,8 @@ export default function MakeManualModal({ isOpen, onClose }) {
         <div className="md:col-span-2">
           <div className="bg-blue-50 p-4 rounded-lg">
             <Label className="text-lg font-semibold">
-              Product Price: $
-              {Number(calculateProductPrice()).toLocaleString("en-US", {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2,
-              })}
+              Product Price:
+              {Number(calculateProductPrice()).toLocaleString("vi-VN", {})} VND
             </Label>
           </div>
         </div>
@@ -2109,13 +2132,19 @@ export default function MakeManualModal({ isOpen, onClose }) {
                       <div className="flex justify-between text-sm ml-3">
                         <span className="text-gray-600">Base Cost:</span>
                         <span className="font-medium text-gray-900">
-                          ${item.totalBaseCost.toFixed(2)}
+                          {new Intl.NumberFormat("vi-VN").format(
+                            item.totalBaseCost
+                          )}{" "}
+                          VND
                         </span>
                       </div>
                       <div className="flex justify-between text-sm ml-3">
                         <span className="text-gray-600">Ship Cost:</span>
                         <span className="font-medium text-gray-900">
-                          ${getOrderCostBreakdown().shipCost.toFixed(2)}
+                          {new Intl.NumberFormat("vi-VN").format(
+                            getOrderCostBreakdown().shipCost
+                          )}{" "}
+                          VND
                         </span>
                       </div>
                       {getOrderCostBreakdown().maxExtraShipping > 0 &&
@@ -2138,17 +2167,17 @@ export default function MakeManualModal({ isOpen, onClose }) {
                   <div className="border-t border-slate-300 pt-2 flex justify-between font-semibold">
                     <span className="text-gray-900">Total:</span>
                     <span className="text-blue-600">
-                      $
-                      {(
+                      {new Intl.NumberFormat("vi-VN").format(
                         getOrderCostBreakdown().totalBase +
-                        getOrderCostBreakdown().shipCost +
-                        (getOrderCostBreakdown().maxExtraShipping > 0 &&
-                        cartProducts[0].config.quantity > 1
-                          ? getOrderCostBreakdown().maxExtraShipping *
-                            (cartProducts[0].config.quantity - 1)
-                          : 0) +
-                        (activeTTS ? 1.0 : 0)
-                      ).toFixed(2)}
+                          getOrderCostBreakdown().shipCost +
+                          (getOrderCostBreakdown().maxExtraShipping > 0 &&
+                          cartProducts[0].config.quantity > 1
+                            ? getOrderCostBreakdown().maxExtraShipping *
+                              (cartProducts[0].config.quantity - 1)
+                            : 0) +
+                          (activeTTS ? 1.0 : 0)
+                      )}{" "}
+                      VND
                     </span>
                   </div>
                 </div>
@@ -2223,7 +2252,7 @@ export default function MakeManualModal({ isOpen, onClose }) {
           {/* Total Section */}
           <div className="mt-4 bg-blue-50 p-4 rounded-lg border border-blue-200 flex flex-col md:flex-row justify-between items-center gap-3">
             <div className="flex flex-col sm:flex-row items-center gap-4 w-full sm:w-auto">
-              <div className="flex items-center space-x-2">
+              {/* <div className="flex items-center space-x-2">
                 <Checkbox
                   id="activeTTS"
                   checked={activeTTS}
@@ -2232,10 +2261,11 @@ export default function MakeManualModal({ isOpen, onClose }) {
                 <Label htmlFor="activeTTS" className="text-gray-700">
                   Active TTS (Add $1 to Total)
                 </Label>
-              </div>
+              </div> */}
 
               <Label className="text-lg font-semibold text-blue-700">
-                Total Order: ${calculateOrderTotal().toFixed(2)}
+                Total Order:{" "}
+                {Number(calculateOrderTotal()).toLocaleString("vi-VN")} VND
               </Label>
             </div>
 
@@ -2408,7 +2438,7 @@ export default function MakeManualModal({ isOpen, onClose }) {
               Total Order:
             </span>
             <span className="text-2xl font-bold text-green-700">
-              ${calculateOrderTotal().toFixed(2)}
+              {Number(calculateOrderTotal()).toLocaleString("vi-VN")} VND
             </span>
           </div>
         </div>

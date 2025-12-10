@@ -9,7 +9,7 @@ const apiClient = axios.create({
   headers: {
     "Content-Type": "application/json",
   },
-  withCredentials: true, // Để Desktop nhận Cookie
+  withCredentials: true,
 });
 
 // 1. Gắn Token vào Header (Cho Mobile)
@@ -30,27 +30,34 @@ apiClient.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config;
 
-    // Nếu lỗi 401 và chưa thử refresh lần nào
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    // === CHỈNH SỬA TẠI ĐÂY ===
+    // 💡 KHÔNG CHẠY INTERCEPTOR NẾU ĐÂY LÀ YÊU CẦU LOGIN HOẶC REFRESH TOKEN
+    const isLoginEndpoint = originalRequest.url.includes("/api/auth/login");
+    const isRefreshEndpoint = originalRequest.url.includes(
+      "/api/auth/refresh-token"
+    ); // Nếu lỗi 401 và chưa thử refresh lần nào VÀ KHÔNG PHẢI LÀ REQUEST LOGIN
+
+    if (
+      error.response?.status === 401 &&
+      !originalRequest._retry &&
+      !isLoginEndpoint && // <--- ĐIỀU KIỆN MỚI
+      !isRefreshEndpoint // <--- ĐIỀU KIỆN MỚI
+    ) {
       originalRequest._retry = true; // Đánh dấu đã thử
 
       try {
         const refreshToken = localStorage.getItem("refreshToken");
-        if (!refreshToken) throw new Error("No refresh token");
+        if (!refreshToken) throw new Error("No refresh token"); // Gọi API Refresh
 
-        // Gọi API Refresh
         const res = await axios.post(`${apiURL}/api/auth/refresh-token`, {
           refreshToken: refreshToken,
         });
 
         if (res.status === 200) {
-          const { accessToken, refreshToken: newRefToken } = res.data;
-
-          // Lưu token mới
+          const { accessToken, refreshToken: newRefToken } = res.data; // Lưu token mới
           localStorage.setItem("accessToken", accessToken);
-          localStorage.setItem("refreshToken", newRefToken);
+          localStorage.setItem("refreshToken", newRefToken); // Gắn token mới vào request cũ và gọi lại
 
-          // Gắn token mới vào request cũ và gọi lại
           originalRequest.headers.Authorization = `Bearer ${accessToken}`;
           return apiClient(originalRequest);
         }

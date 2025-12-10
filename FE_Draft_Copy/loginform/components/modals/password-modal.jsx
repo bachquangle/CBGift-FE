@@ -179,7 +179,7 @@ export default function PasswordModal({ open, onOpenChange }) {
                 type="password"
                 value={passwords.new}
                 onChange={(e) => handleInputChange("new", e.target.value)}
-                placeholder="Minimum 8 characters"
+                placeholder="Minimum 6 characters"
               />
               {fieldErrors.new && (
                 <p className="text-sm text-red-600 mt-1">{fieldErrors.new}</p>

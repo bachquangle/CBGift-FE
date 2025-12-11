@@ -333,17 +333,29 @@ export default function Home() {
                     ) : (
                       // Nếu chọn Freestyle thì hiện Textarea
                       <>
-                        <label className="block text-sm font-semibold text-purple-900 mb-2">
-                          3. Nhập câu lệnh (Prompt)
-                        </label>
-                        <textarea
-                          value={freestylePrompt}
-                          onChange={(e) => setFreestylePrompt(e.target.value)}
-                          placeholder="Mô tả chi tiết bức ảnh bạn muốn tạo..."
-                          rows={6}
-                          className="w-full rounded-lg border border-teal-200 p-3 text-sm text-purple-900 focus:border-purple-primary outline-none"
-                        />
-                      </>
+                      <label className="block text-sm font-semibold text-purple-900 mb-2">
+                        3. Nhập câu lệnh (Prompt)
+                      </label>
+                      
+                      <textarea
+                        value={freestylePrompt}
+                        onChange={(e) => setFreestylePrompt(e.target.value)}
+                        placeholder="Nhập mô tả bằng TIẾNG ANH. Ví dụ: 'A cute cat sitting on the moon, cinematic lighting, 8k resolution...'"
+                        rows={6}
+                        className="w-full rounded-lg border border-teal-200 p-3 text-sm text-purple-900 focus:border-purple-primary outline-none"
+                      />
+                    
+                      {/* PHẦN CẢNH BÁO NHẤN MẠNH */}
+                      <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-md flex items-start gap-2">
+                        <Info className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+                        <div className="text-sm text-red-700">
+                          <span className="font-bold">LƯU Ý QUAN TRỌNG:</span>
+                          <p className="text-xs mt-1 text-red-600">
+                            Hệ thống chỉ nhận diện tốt nhất với mô tả bằng <span className="font-bold underline uppercase">TIẾNG ANH</span>. Vui lòng không sử dụng tiếng Việt.
+                          </p>
+                        </div>
+                      </div>
+                    </>
                     )}
                   </div>
 

@@ -3,8 +3,7 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox";
-import apiClient from "../../lib/apiClient";
+import apiClient from "@/lib/apiClient";
 import { useRef } from "react";
 import {
   Select,
@@ -279,7 +278,9 @@ export default function MakeManualModal({ isOpen, onClose }) {
     try {
       const res = await fetch(
         `${apiClient.defaults.baseURL}/api/Location/districts/${provinceId}`,
-        { credentials: "include" }
+        {
+          credentials: "include",
+        }
       );
 
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -304,7 +305,9 @@ export default function MakeManualModal({ isOpen, onClose }) {
     try {
       const res = await fetch(
         `${apiClient.defaults.baseURL}/api/Location/wards/${districtId}`,
-        { credentials: "include" }
+        {
+          credentials: "include",
+        }
       );
 
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -330,7 +333,9 @@ export default function MakeManualModal({ isOpen, onClose }) {
         `${
           apiClient.defaults.baseURL
         }/api/Order/check-code?code=${encodeURIComponent(code)}`,
-        { credentials: "include" }
+        {
+          credentials: "include",
+        }
       );
       if (!res.ok) return false; // Nếu lỗi mạng coi như không trùng để không chặn user (hoặc xử lý khác tùy bạn)
 
@@ -536,6 +541,36 @@ export default function MakeManualModal({ isOpen, onClose }) {
         return;
       }
 
+      const nameLength = customerInfo.name.trim().length;
+      if (nameLength < 3 || nameLength > 50) {
+        setErrorMessage("Name must be between 3 and 50 characters.");
+        setShowErrorDialog(true);
+        return;
+      }
+
+      const nameRegex = /^[a-zA-Z0-9À-ỹ\s]+$/;
+      if (!nameRegex.test(customerInfo.name.trim())) {
+        setErrorMessage("Name cannot contain special characters.");
+        setShowErrorDialog(true);
+        return;
+      }
+
+      const phoneRegex = /^0\d{9}$/;
+      if (!phoneRegex.test(customerInfo.phone.replace(/\s/g, ""))) {
+        setErrorMessage(
+          "Phone must be a valid Vietnamese number (10 digits, starting with 0)."
+        );
+        setShowErrorDialog(true);
+        return;
+      }
+
+      const addressLength = customerInfo.address.trim().length;
+      if (addressLength < 3 || addressLength > 50) {
+        setErrorMessage("Address must be between 3 and 50 characters.");
+        setShowErrorDialog(true);
+        return;
+      }
+
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (!emailRegex.test(customerInfo.email)) {
         setErrorMessage("Please enter a valid email address.");
@@ -573,6 +608,18 @@ export default function MakeManualModal({ isOpen, onClose }) {
   const handleTrimmedInput = (field, value) => {
     if (value.trim() === "" && value.length > 0) return;
     setCustomerInfo((prev) => ({ ...prev, [field]: value.trimStart() }));
+  };
+
+  const handleNameInput = (value) => {
+    // Allow only letters (Vietnamese), numbers, and spaces
+    const sanitized = value.replace(/[^a-zA-Z0-9À-ỹ\s]/g, "");
+    handleTrimmedInput("name", sanitized);
+  };
+
+  const handlePhoneInput = (value) => {
+    // Allow only digits and spaces
+    const sanitized = value.replace(/[^\d\s]/g, "");
+    handleTrimmedInput("phone", sanitized);
   };
 
   const getCostDetails = () => {
@@ -998,7 +1045,7 @@ export default function MakeManualModal({ isOpen, onClose }) {
 
     const allowAddressCharacters = (value) => {
       // Chữ thường, chữ hoa, tiếng Việt có dấu, số, khoảng trắng và các ký tự: , . - /
-      return value.replace(/[^a-zA-Z0-9À-ỹ\s,.\-\/]/g, "");
+      return value.replace(/[^a-zA-Z0-9À-ỹ\s,.\-/]/g, "");
     };
 
     return (
@@ -1013,9 +1060,13 @@ export default function MakeManualModal({ isOpen, onClose }) {
             <Input
               id="name"
               value={customerInfo.name}
-              onChange={(e) => handleTrimmedInput("name", e.target.value)}
+              onChange={(e) => handleNameInput(e.target.value)}
               placeholder="Enter customer name"
+              maxLength="50"
             />
+            <p className="text-xs text-gray-500 mt-1">
+              {customerInfo.name.length}/50 characters
+            </p>
           </div>
 
           {/* Phone */}
@@ -1024,9 +1075,13 @@ export default function MakeManualModal({ isOpen, onClose }) {
             <Input
               id="phone"
               value={customerInfo.phone}
-              onChange={(e) => handleTrimmedInput("phone", e.target.value)}
+              onChange={(e) => handlePhoneInput(e.target.value)}
               placeholder="Enter phone number"
+              maxLength="10"
             />
+            <p className="text-xs text-gray-500 mt-1">
+              Vietnamese format (10 digits, starts with 0)
+            </p>
           </div>
 
           {/* Email */}
@@ -1057,7 +1112,11 @@ export default function MakeManualModal({ isOpen, onClose }) {
                 )
               }
               placeholder="Enter address"
+              maxLength="50"
             />
+            <p className="text-xs text-gray-500 mt-1">
+              {customerInfo.address.length}/50 characters
+            </p>
           </div>
 
           {/* Address1 */}
@@ -1389,6 +1448,8 @@ export default function MakeManualModal({ isOpen, onClose }) {
                         "/placeholder.svg" ||
                         "/placeholder.svg" ||
                         "/placeholder.svg" ||
+                        "/placeholder.svg" ||
+                        "/placeholder.svg" ||
                         "/placeholder.svg"
                       }
                       alt={p.productName}
@@ -1405,8 +1466,10 @@ export default function MakeManualModal({ isOpen, onClose }) {
 
                     <p className="text-sm font-bold text-blue-600">
                       {minCost === maxCost
-                        ? `${minCost.toLocaleString()}₫`
-                        : `${minCost.toLocaleString()}₫ - ${maxCost.toLocaleString()}₫`}
+                        ? `${minCost.toFixed(2)} VND`
+                        : `${minCost.toFixed(2)} VND - ${maxCost.toFixed(
+                            2
+                          )} VND`}
                     </p>
                   </div>
                 );
@@ -1584,8 +1647,8 @@ export default function MakeManualModal({ isOpen, onClose }) {
                   key={v.productVariantId}
                   value={v.productVariantId.toString()}
                 >
-                  {v.sizeInch} — {v.totalCost.toLocaleString()}₫
-                  {/* {v.sizeInch} */}
+                  {/* {v.sizeInch} — ${v.totalCost.toFixed(2)} */}
+                  {v.sizeInch}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -1695,7 +1758,6 @@ export default function MakeManualModal({ isOpen, onClose }) {
                     <img
                       src={
                         currentProductConfig.linkThanksCard ||
-                        "/placeholder.svg" ||
                         "/placeholder.svg"
                       }
                       alt="Thanks Card Preview"
@@ -1763,6 +1825,8 @@ export default function MakeManualModal({ isOpen, onClose }) {
                     <img
                       src={
                         currentProductConfig.linkFileDesign ||
+                        "/placeholder.svg" ||
+                        "/placeholder.svg" ||
                         "/placeholder.svg" ||
                         "/placeholder.svg"
                       }
@@ -1847,7 +1911,7 @@ export default function MakeManualModal({ isOpen, onClose }) {
                   {new Intl.NumberFormat("vi-VN").format(
                     getCostDetails().baseCost
                   )}{" "}
-                  ₫
+                  VND
                 </span>
               </span>
             </div>
@@ -1857,7 +1921,7 @@ export default function MakeManualModal({ isOpen, onClose }) {
                 {new Intl.NumberFormat("vi-VN").format(
                   getCostDetails().shipCost
                 )}{" "}
-                ₫
+                VND
               </span>
             </div>
             <div className="flex justify-between text-sm">
@@ -1866,7 +1930,7 @@ export default function MakeManualModal({ isOpen, onClose }) {
                 {new Intl.NumberFormat("vi-VN").format(
                   getCostDetails().extraShipping
                 )}{" "}
-                ₫
+                VND
               </span>
             </div>
             <div className="border-t border-slate-200 pt-2 flex justify-between">
@@ -1875,7 +1939,7 @@ export default function MakeManualModal({ isOpen, onClose }) {
                 {new Intl.NumberFormat("vi-VN").format(
                   getCostDetails().baseCost + getCostDetails().shipCost
                 )}{" "}
-                ₫
+                VND
               </span>
             </div>
           </div>
@@ -1902,7 +1966,7 @@ export default function MakeManualModal({ isOpen, onClose }) {
           <div className="bg-blue-50 p-4 rounded-lg">
             <Label className="text-lg font-semibold">
               Product Price:
-              {Number(calculateProductPrice()).toLocaleString("vi-VN", {})} ₫
+              {Number(calculateProductPrice()).toLocaleString("vi-VN", {})} VND
             </Label>
           </div>
         </div>
@@ -1946,7 +2010,8 @@ export default function MakeManualModal({ isOpen, onClose }) {
                         {item.product.productName}
                       </p>
                       <p className="text-sm text-gray-600">
-                        {item.config.size} • Quantity: {item.config.quantity}
+                        Size: {item.config.size} • Quantity:{" "}
+                        {item.config.quantity}
                       </p>
                     </div>
                   </div>
@@ -2080,13 +2145,6 @@ export default function MakeManualModal({ isOpen, onClose }) {
                                   "/placeholder.svg" ||
                                   "/placeholder.svg" ||
                                   "/placeholder.svg" ||
-                                  "/placeholder.svg" ||
-                                  "/placeholder.svg" ||
-                                  "/placeholder.svg" ||
-                                  "/placeholder.svg" ||
-                                  "/placeholder.svg" ||
-                                  "/placeholder.svg" ||
-                                  "/placeholder.svg" ||
                                   "/placeholder.svg"
                                 }
                                 alt="File Design"
@@ -2133,7 +2191,7 @@ export default function MakeManualModal({ isOpen, onClose }) {
                           {new Intl.NumberFormat("vi-VN").format(
                             item.totalBaseCost
                           )}{" "}
-                          ₫
+                          VND
                         </span>
                       </div>
                       <div className="flex justify-between text-sm ml-3">
@@ -2142,7 +2200,7 @@ export default function MakeManualModal({ isOpen, onClose }) {
                           {new Intl.NumberFormat("vi-VN").format(
                             getOrderCostBreakdown().shipCost
                           )}{" "}
-                          ₫
+                          VND
                         </span>
                       </div>
                       {getOrderCostBreakdown().maxExtraShipping > 0 &&
@@ -2152,10 +2210,11 @@ export default function MakeManualModal({ isOpen, onClose }) {
                               Extra Shipping:
                             </span>
                             <span className="font-medium text-gray-900">
+                              $
                               {(
                                 getOrderCostBreakdown().maxExtraShipping *
                                 (item.qty - 1)
-                              ).toLocaleString()}₫
+                              ).toFixed(2)}
                             </span>
                           </div>
                         )}
@@ -2174,7 +2233,7 @@ export default function MakeManualModal({ isOpen, onClose }) {
                             : 0) +
                           (activeTTS ? 1.0 : 0)
                       )}{" "}
-                      ₫
+                      VND
                     </span>
                   </div>
                 </div>
@@ -2189,11 +2248,11 @@ export default function MakeManualModal({ isOpen, onClose }) {
                       className="flex justify-between text-sm ml-3"
                     >
                       <span className="text-gray-600">
-                        {item.name} (Base: {item.baseCost.toLocaleString()}₫ ×{" "}
+                        {item.name} (Base: ${item.baseCost.toFixed(2)} ×{" "}
                         {item.qty})
                       </span>
                       <span className="font-medium text-gray-900">
-                        {item.totalBaseCost.toLocaleString()}₫
+                        ${item.totalBaseCost.toFixed(2)}
                       </span>
                     </div>
                   ))}
@@ -2202,13 +2261,13 @@ export default function MakeManualModal({ isOpen, onClose }) {
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-600">Total Base Cost:</span>
                       <span className="font-medium text-gray-900">
-                        {getOrderCostBreakdown().totalBase.toLocaleString()}₫
+                        ${getOrderCostBreakdown().totalBase.toFixed(2)}
                       </span>
                     </div>
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-600">Base Ship Cost:</span>
                       <span className="font-medium text-gray-900">
-                        {getOrderCostBreakdown().maxBaseShipCost.toLocaleString()}₫
+                        ${getOrderCostBreakdown().maxBaseShipCost.toFixed(2)}
                       </span>
                     </div>
                     {getOrderCostBreakdown().maxExtraShipping > 0 && (
@@ -2235,7 +2294,10 @@ export default function MakeManualModal({ isOpen, onClose }) {
                   <div className="border-t border-slate-300 pt-2 flex justify-between font-semibold">
                     <span className="text-gray-900">Order Total:</span>
                     <span className="text-blue-600">
-                      {(calculateOrderTotal() - (activeTTS ? 1.0 : 0)).toLocaleString()}₫
+                      $
+                      {(calculateOrderTotal() - (activeTTS ? 1.0 : 0)).toFixed(
+                        2
+                      )}
                     </span>
                   </div>
                 </div>
@@ -2259,7 +2321,7 @@ export default function MakeManualModal({ isOpen, onClose }) {
 
               <Label className="text-lg font-semibold text-blue-700">
                 Total Order:{" "}
-                {Number(calculateOrderTotal()).toLocaleString("vi-VN")} ₫
+                {Number(calculateOrderTotal()).toLocaleString("vi-VN")} VND
               </Label>
             </div>
 
@@ -2432,7 +2494,7 @@ export default function MakeManualModal({ isOpen, onClose }) {
               Total Order:
             </span>
             <span className="text-2xl font-bold text-green-700">
-              {Number(calculateOrderTotal()).toLocaleString("vi-VN")} ₫
+              {Number(calculateOrderTotal()).toLocaleString("vi-VN")} VND
             </span>
           </div>
         </div>
@@ -2511,8 +2573,8 @@ export default function MakeManualModal({ isOpen, onClose }) {
             <AlertDialogTitle>Confirm Order Creation</AlertDialogTitle>
             <AlertDialogDescription>
               Are you sure you want to create this order with{" "}
-              {cartProducts.length} product(s) for 
-              {calculateOrderTotal().toLocaleString()}₫ ?
+              {cartProducts.length} product(s) for $
+              {calculateOrderTotal().toFixed(2)}?
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

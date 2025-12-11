@@ -133,13 +133,13 @@ export default function EditOrderPage() {
   // Step 3: Catalog Search & Filtering States
   const [searchTerm, setSearchTerm] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
-  const [catalogPage, setCatalogPage] = useState(1);
+  const [catalogPage, setCatalogPage] = useState(1); // Use catalogPage for catalog pagination
   const [catalogItemsPerPage, setCatalogItemsPerPage] = useState(3);
   const [catalogProducts, setCatalogProducts] = useState([]);
   const [catalogCategories, setCatalogCategories] = useState([]);
   const [totalCatalogProducts, setTotalCatalogProducts] = useState(0);
   const [catalogLoading, setCatalogLoading] = useState(false);
-  const [currentPage, setCurrentPage] = useState(1);
+  const [currentPage, setCurrentPage] = useState(1); // Removzzed this as catalogPage is used for pagination
 
   // Current Product Configuration (for manual selection if needed, but mainly for catalog product processing)
   const [currentProduct, setCurrentProduct] = useState(null);
@@ -795,6 +795,12 @@ export default function EditOrderPage() {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    const allowedTypes = ["image/jpeg", "image/png"];
+    if (!allowedTypes.includes(file.type)) {
+      Swal.fire("Error", "Chỉ chấp nhận file PNG, JPG, JPEG", "error");
+      return;
+    }
+
     // 🔥 FIX 1: Tạo URL Object cho PREVIEW ngay lập tức (trước upload)
     const previewUrl = URL.createObjectURL(file);
 
@@ -847,7 +853,7 @@ export default function EditOrderPage() {
           [fieldName]: { isUploading: false, progress: 0 },
         }));
       } else {
-        Swal.fire("Error", "Upload failed", "error");
+        Swal.fire("Error", "Chỉ chấp nhận file PNG, JPG, JPEG", "error");
         setEditUploadProgress((prev) => ({
           ...prev,
           [fieldName]: { isUploading: false, progress: 0 },
@@ -1385,7 +1391,7 @@ export default function EditOrderPage() {
         },
         orderUpdate: {
           // Cập nhật thông tin Order chính
-          orderCode: orderCodeGoc, // Sử dụng orderId (params)
+          orderCode: orderId, // Sử dụng orderId (params)
           activeTTS: activeTTS,
           // Bạn có thể giữ lại các trường khác nếu cần cập nhật
           tracking: "",
@@ -1454,15 +1460,27 @@ export default function EditOrderPage() {
           <Input
             id="name"
             value={customerInfo.name}
-            onChange={(e) =>
-              setCustomerInfo((prev) => ({
-                ...prev,
-                name: e.target.value,
-              }))
-            }
-            placeholder="Enter customer name"
+            onChange={(e) => {
+              const value = e.target.value;
+              // Only allow letters (including Vietnamese), numbers, and spaces
+              const filtered = value.replace(
+                /[^a-zA-Z0-9\s\u0100-\u017Fa-ỿ]/g,
+                ""
+              );
+              if (filtered.length <= 50) {
+                setCustomerInfo((prev) => ({
+                  ...prev,
+                  name: filtered,
+                }));
+              }
+            }}
+            placeholder="Enter customer name (3-50 characters)"
             className="mt-1"
+            maxLength={50}
           />
+          <p className="text-xs text-gray-500 mt-1">
+            {customerInfo.name.length}/50 characters (no special characters)
+          </p>
         </div>
 
         <div>
@@ -1470,15 +1488,26 @@ export default function EditOrderPage() {
           <Input
             id="phone"
             value={customerInfo.phone}
-            onChange={(e) =>
+            onChange={(e) => {
+              const value = e.target.value;
+              // Only allow numbers
+              const filtered = value.replace(/[^0-9]/g, "").slice(0, 10);
               setCustomerInfo((prev) => ({
                 ...prev,
-                phone: e.target.value,
-              }))
-            }
-            placeholder="Enter phone number"
+                phone: filtered,
+              }));
+            }}
+            placeholder="Enter phone number (Vietnamese format)"
             className="mt-1"
+            maxLength={10}
           />
+          <p className="text-xs text-gray-500 mt-1">
+            {customerInfo.phone.length}/10 digits
+            {customerInfo.phone.length > 0 &&
+            !customerInfo.phone.startsWith("0")
+              ? " (must start with 0)"
+              : ""}
+          </p>
         </div>
 
         <div>
@@ -1503,15 +1532,22 @@ export default function EditOrderPage() {
           <Input
             id="address"
             value={customerInfo.address}
-            onChange={(e) =>
-              setCustomerInfo((prev) => ({
-                ...prev,
-                address: e.target.value,
-              }))
-            }
+            onChange={(e) => {
+              const value = e.target.value;
+              if (value.length <= 50) {
+                setCustomerInfo((prev) => ({
+                  ...prev,
+                  address: value,
+                }));
+              }
+            }}
             placeholder="Enter address"
             className="mt-1"
+            maxLength={50}
           />
+          <p className="text-xs text-gray-500 mt-1">
+            {customerInfo.address.length}/50 characters
+          </p>
         </div>
 
         <div>
@@ -1838,7 +1874,7 @@ export default function EditOrderPage() {
                   <span>
                     BaseCost:{" "}
                     <span className="font-medium">
-                      {item.baseCost?.toLocaleString()}₫
+                      ${item.baseCost?.toFixed(2)}
                     </span>
                   </span>
                 </div>
@@ -1951,7 +1987,7 @@ export default function EditOrderPage() {
                           key={v.productVariantId}
                           value={v.productVariantId.toString()}
                         >
-                          {v.sizeInch} - ${v.baseCost.toLocaleString()}₫
+                          {v.sizeInch} - ${v.baseCost.toFixed(2)}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -1960,26 +1996,34 @@ export default function EditOrderPage() {
 
                 {/* QUANTITY */}
                 <div>
-                  <Label htmlFor="edit-quantity">Quantity</Label>
+                  <Label htmlFor="edit-quantity">Quantity *</Label>
                   <Input
                     id="edit-quantity"
                     type="number"
                     min="1"
+                    max="20"
                     value={editingProductConfig.quantity || ""}
                     onChange={(e) => {
                       const val = e.target.value;
                       if (/^\d*$/.test(val)) {
                         const num = Number.parseInt(val, 10);
-                        if (!isNaN(num) && num >= 1) {
+                        if (!isNaN(num) && num >= 1 && num <= 20) {
                           setEditingProductConfig((prev) => ({
                             ...prev,
                             quantity: num,
                           }));
+                        } else if (num > 20) {
+                          setErrorMessage("Quantity must be between 1 and 20");
+                          setShowErrorDialog(true);
                         }
                       }
                     }}
+                    placeholder="1-20"
                     className="mt-1"
                   />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Enter quantity between 1 and 20
+                  </p>
                 </div>
 
                 {/* LINK IMAGE */}
@@ -1989,11 +2033,37 @@ export default function EditOrderPage() {
                     <Input
                       type="file"
                       ref={editLinkImgRef}
-                      accept="image/*"
-                      onChange={(e) => handleEditFileUpload("linkImg", e)}
+                      accept=".jpg,.jpeg,.png,image/jpeg,image/png"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          const validTypes = ["image/jpeg", "image/png"];
+                          const validNames = [".jpg", ".jpeg", ".png"];
+                          const hasValidExtension = validNames.some((ext) =>
+                            file.name.toLowerCase().endsWith(ext)
+                          );
+
+                          if (
+                            !validTypes.includes(file.type) ||
+                            !hasValidExtension
+                          ) {
+                            Swal.fire(
+                              "Invalid File",
+                              "Please upload only JPG, JPEG, or PNG files",
+                              "error"
+                            );
+                            e.target.value = "";
+                            return;
+                          }
+                          handleEditFileUpload("linkImg", e);
+                        }
+                      }}
                       disabled={editUploadProgress.linkImg.isUploading}
                       className="mt-1"
                     />
+                    <p className="text-xs text-gray-500 mt-1">
+                      Supported: JPG, JPEG, PNG
+                    </p>
                     {editUploadProgress.linkImg.isUploading && (
                       <CircularProgress
                         progress={editUploadProgress.linkImg.progress}
@@ -2030,6 +2100,10 @@ export default function EditOrderPage() {
                               src={
                                 editingProductConfig.linkImg ||
                                 "/placeholder.svg" ||
+                                "/placeholder.svg" ||
+                                "/placeholder.svg" ||
+                                "/placeholder.svg" ||
+                                "/placeholder.svg" ||
                                 "/placeholder.svg"
                               }
                               className="w-20 h-20 object-cover rounded border border-gray-300 shadow-sm"
@@ -2054,13 +2128,37 @@ export default function EditOrderPage() {
                     <Input
                       type="file"
                       ref={editLinkThanksCardRef}
-                      accept="image/*"
-                      onChange={(e) =>
-                        handleEditFileUpload("linkThanksCard", e)
-                      }
+                      accept=".jpg,.jpeg,.png,image/jpeg,image/png"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          const validTypes = ["image/jpeg", "image/png"];
+                          const validNames = [".jpg", ".jpeg", ".png"];
+                          const hasValidExtension = validNames.some((ext) =>
+                            file.name.toLowerCase().endsWith(ext)
+                          );
+
+                          if (
+                            !validTypes.includes(file.type) ||
+                            !hasValidExtension
+                          ) {
+                            Swal.fire(
+                              "Invalid File",
+                              "Please upload only JPG, JPEG, or PNG files",
+                              "error"
+                            );
+                            e.target.value = "";
+                            return;
+                          }
+                          handleEditFileUpload("linkThanksCard", e);
+                        }
+                      }}
                       disabled={editUploadProgress.linkThanksCard.isUploading}
                       className="mt-1"
                     />
+                    <p className="text-xs text-gray-500 mt-1">
+                      Supported: JPG, JPEG, PNG
+                    </p>
                     {editUploadProgress.linkThanksCard.isUploading && (
                       <CircularProgress
                         progress={editUploadProgress.linkThanksCard.progress}
@@ -2089,6 +2187,10 @@ export default function EditOrderPage() {
                             src={
                               editingProductConfig.linkThanksCard ||
                               "/placeholder.svg" ||
+                              "/placeholder.svg" ||
+                              "/placeholder.svg" ||
+                              "/placeholder.svg" ||
+                              "/placeholder.svg" ||
                               "/placeholder.svg"
                             }
                             className="w-20 h-20 object-cover rounded border border-gray-300 shadow-sm"
@@ -2114,12 +2216,37 @@ export default function EditOrderPage() {
                     <Input
                       type="file"
                       ref={editLinkFileDesignRef}
-                      onChange={(e) =>
-                        handleEditFileUpload("linkFileDesign", e)
-                      }
+                      accept=".jpg,.jpeg,.png,image/jpeg,image/png"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          const validTypes = ["image/jpeg", "image/png"];
+                          const validNames = [".jpg", ".jpeg", ".png"];
+                          const hasValidExtension = validNames.some((ext) =>
+                            file.name.toLowerCase().endsWith(ext)
+                          );
+
+                          if (
+                            !validTypes.includes(file.type) ||
+                            !hasValidExtension
+                          ) {
+                            Swal.fire(
+                              "Invalid File",
+                              "Please upload only JPG, JPEG, or PNG files",
+                              "error"
+                            );
+                            e.target.value = "";
+                            return;
+                          }
+                          handleEditFileUpload("linkFileDesign", e);
+                        }
+                      }}
                       disabled={editUploadProgress.linkFileDesign.isUploading}
                       className="mt-1"
                     />
+                    <p className="text-xs text-gray-500 mt-1">
+                      Supported: JPG, JPEG, PNG
+                    </p>
                     {editUploadProgress.linkFileDesign.isUploading && (
                       <CircularProgress
                         progress={editUploadProgress.linkFileDesign.progress}
@@ -2157,6 +2284,10 @@ export default function EditOrderPage() {
                             <img
                               src={
                                 editingProductConfig.linkFileDesign ||
+                                "/placeholder.svg" ||
+                                "/placeholder.svg" ||
+                                "/placeholder.svg" ||
+                                "/placeholder.svg" ||
                                 "/placeholder.svg" ||
                                 "/placeholder.svg"
                               }
@@ -2230,9 +2361,9 @@ export default function EditOrderPage() {
   );
 
   const renderStep3 = () => {
-    const productsPerPage = catalogItemsPerPage; // Use catalogItemsPerPage
-    const totalPages = Math.ceil(totalCatalogProducts / productsPerPage); // Use totalCatalogProducts
-    const startIdx = (currentPage - 1) * productsPerPage;
+    const productsPerPage = catalogItemsPerPage;
+    const totalPages = Math.ceil(totalCatalogProducts / productsPerPage);
+    const startIdx = (catalogPage - 1) * productsPerPage;
     const endIdx = startIdx + productsPerPage;
     const currentProducts = catalogProducts.slice(startIdx, endIdx);
 
@@ -2252,8 +2383,7 @@ export default function EditOrderPage() {
             value={searchTerm}
             onChange={(e) => {
               setSearchTerm(e.target.value);
-              setCurrentPage(1); // Reset to first page on search
-              setCatalogPage(1); // Also update catalogPage if it's used elsewhere for fetching
+              setCatalogPage(1); // Use setCatalogPage instead of setCurrentPage
             }}
             className="w-full md:flex-1" // Allow input to take available space
           />
@@ -2265,8 +2395,7 @@ export default function EditOrderPage() {
               value={catalogItemsPerPage.toString()}
               onValueChange={(val) => {
                 setCatalogItemsPerPage(Number(val));
-                setCurrentPage(1); // Reset to first page on items per page change
-                setCatalogPage(1); // Also update catalogPage
+                setCatalogPage(1); // Use setCatalogPage
               }}
             >
               <SelectTrigger className="w-24">
@@ -2309,12 +2438,12 @@ export default function EditOrderPage() {
                   <p className="text-xs text-gray-600 line-clamp-2">
                     {product.describe}
                   </p>
-                  {/* Displaying minimum variant price as product price */}
                   {product.variants && product.variants.length > 0 && (
                     <p className="text-sm font-bold text-blue-600 mt-1">
                       {Math.min(
                         ...product.variants.map((v) => v.totalCost)
-                      ).toLocaleString()}₫
+                      ).toFixed(2)}{" "}
+                      VND
                     </p>
                   )}
                 </div>
@@ -2332,8 +2461,8 @@ export default function EditOrderPage() {
           <div className="flex items-center justify-center gap-2 mt-4">
             <Button
               variant="outline"
-              onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-              disabled={currentPage === 1}
+              onClick={() => setCatalogPage(Math.max(1, catalogPage - 1))} // Use setCatalogPage
+              disabled={catalogPage === 1}
             >
               Previous
             </Button>
@@ -2343,8 +2472,8 @@ export default function EditOrderPage() {
                 (page) => (
                   <Button
                     key={page}
-                    variant={currentPage === page ? "default" : "outline"}
-                    onClick={() => setCurrentPage(page)}
+                    variant={catalogPage === page ? "default" : "outline"} // Use catalogPage
+                    onClick={() => setCatalogPage(page)} // Use setCatalogPage
                     className="w-10 h-10 p-0"
                   >
                     {page}
@@ -2356,9 +2485,9 @@ export default function EditOrderPage() {
             <Button
               variant="outline"
               onClick={() =>
-                setCurrentPage(Math.min(totalPages, currentPage + 1))
-              }
-              disabled={currentPage === totalPages}
+                setCatalogPage(Math.min(totalPages, catalogPage + 1))
+              } // Use setCatalogPage
+              disabled={catalogPage === totalPages}
             >
               Next
             </Button>
@@ -2366,7 +2495,7 @@ export default function EditOrderPage() {
         )}
 
         <p className="text-sm text-gray-600 text-center">
-          Page {currentPage} of {totalPages} ({totalCatalogProducts} items)
+          Page {catalogPage} of {totalPages} ({totalCatalogProducts} items)
         </p>
 
         {/* Navigation Buttons */}
@@ -2374,9 +2503,6 @@ export default function EditOrderPage() {
           <Button variant="outline" onClick={() => setCurrentStep(2)}>
             Back
           </Button>
-          {/* Changed "Next" to go to Step 5 directly for convenience, or stay in step 3 */}
-          {/* If user has already added items to currentOrderProducts and cartProducts, enable moving to next step */}
-          {/* Otherwise, keep them in step 3 to add items */}
           {currentOrderProducts.length > 0 || cartProducts.length > 0 ? (
             <Button onClick={() => setCurrentStep(5)}>Review Order</Button>
           ) : (
@@ -2466,7 +2592,7 @@ export default function EditOrderPage() {
                         key={v.productVariantId}
                         value={v.productVariantId.toString()}
                       >
-                        {v.sizeInch} - ${v.baseCost.toLocaleString()}₫
+                        {v.sizeInch} - ${v.baseCost.toFixed(2)}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -2574,6 +2700,10 @@ export default function EditOrderPage() {
                           src={
                             editingProductConfig.linkThanksCard ||
                             "/placeholder.svg" ||
+                            "/placeholder.svg" ||
+                            "/placeholder.svg" ||
+                            "/placeholder.svg" ||
+                            "/placeholder.svg" ||
                             "/placeholder.svg"
                           }
                           className="w-20 h-20 object-cover rounded border border-gray-300 shadow-sm"
@@ -2638,6 +2768,16 @@ export default function EditOrderPage() {
                             src={
                               editingProductConfig.linkFileDesign ||
                               "/placeholder.svg" ||
+                              "/placeholder.svg" ||
+                              "/placeholder.svg" ||
+                              "/placeholder.svg" ||
+                              "/placeholder.svg" ||
+                              "/placeholder.svg" ||
+                              "/placeholder.svg" ||
+                              "/placeholder.svg" ||
+                              "/placeholder.svg" ||
+                              "/placeholder.svg" ||
+                              "/placeholder.svg" ||
                               "/placeholder.svg"
                             }
                             className="w-20 h-20 object-cover rounded border border-gray-300 shadow-sm"
@@ -2670,15 +2810,15 @@ export default function EditOrderPage() {
                     const val = e.target.value;
                     if (/^\d*$/.test(val)) {
                       const num = Number.parseInt(val, 10);
-                      if (isNaN(num) || num < 1 || num > 20) {
+                      if (!isNaN(num) && num >= 1 && num <= 20) {
+                        setEditingProductConfig((prev) => ({
+                          ...prev,
+                          quantity: num,
+                        }));
+                      } else if (num > 20) {
                         setErrorMessage("Quantity must be between 1 and 20.");
                         setShowErrorDialog(true);
-                        return;
                       }
-                      setEditingProductConfig((prev) => ({
-                        ...prev,
-                        quantity: num,
-                      }));
                     }
                   }}
                   onKeyDown={(e) => {
@@ -2758,7 +2898,7 @@ export default function EditOrderPage() {
                   key={v.productVariantId}
                   value={v.productVariantId.toString()}
                 >
-                  {v.sizeInch} - ${v.baseCost.toLocaleString()}₫
+                  {v.sizeInch} - ${v.baseCost.toFixed(2)}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -2914,6 +3054,10 @@ export default function EditOrderPage() {
                         "/placeholder.svg" ||
                         "/placeholder.svg" ||
                         "/placeholder.svg" ||
+                        "/placeholder.svg" ||
+                        "/placeholder.svg" ||
+                        "/placeholder.svg" ||
+                        "/placeholder.svg" ||
                         "/placeholder.svg"
                       }
                       alt="Uploaded file design preview"
@@ -2999,27 +3143,28 @@ export default function EditOrderPage() {
             <div className="flex justify-between items-center text-sm">
               <span className="text-slate-600">Base Cost:</span>
               <span className="font-medium text-slate-900">
-                {getCostDetails().baseCost.toLocaleString()}₫
+                ${getCostDetails().baseCost.toFixed(2)}
               </span>
             </div>
             <div className="flex justify-between items-center text-sm">
               <span className="text-slate-600">Ship Cost:</span>
               <span className="font-medium text-slate-900">
-                {getCostDetails().shipCost.toLocaleString()}₫
+                ${getCostDetails().shipCost.toFixed(2)}
               </span>
             </div>
             <div className="flex justify-between items-center text-sm">
               <span className="text-slate-600">Extra Shipping (per unit):</span>
               <span className="font-medium text-slate-900">
-                {getCostDetails().extraShipping.toLocaleString()}₫
+                ${getCostDetails().extraShipping.toFixed(2)}
               </span>
             </div>
             <div className="border-t border-slate-300 pt-3 mt-3 flex justify-between items-center bg-white bg-opacity-60 p-3 rounded">
               <span className="font-semibold text-slate-900">Unit Price:</span>
               <span className="font-bold text-blue-600 text-base">
+                $
                 {(
                   getCostDetails().baseCost + getCostDetails().shipCost
-                ).toLocaleString()}₫
+                ).toFixed(2)}
               </span>
             </div>
           </div>
@@ -3033,7 +3178,11 @@ export default function EditOrderPage() {
                 Product Price:
               </span>
               <span className="text-xl font-bold text-blue-600">
-                {Number(calculateProductPrice()).toLocaleString("vi-VN")}₫
+                $
+                {Number(calculateProductPrice()).toLocaleString("en-US", {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })}
               </span>
             </div>
           </div>
@@ -3215,6 +3364,10 @@ export default function EditOrderPage() {
                                   "/placeholder.svg" ||
                                   "/placeholder.svg" ||
                                   "/placeholder.svg" ||
+                                  "/placeholder.svg" ||
+                                  "/placeholder.svg" ||
+                                  "/placeholder.svg" ||
+                                  "/placeholder.svg" ||
                                   "/placeholder.svg"
                                 }
                                 alt="File Design"
@@ -3257,7 +3410,7 @@ export default function EditOrderPage() {
           {currentOrderProducts.length > 0 && (
             <>
               <div>
-                <p className="text-xs text-gray-600 italic mb-2">
+                <p className="text-sm text-gray-600 italic mb-2">
                   Breakdown for existing items:
                 </p>
                 {getDetailedCostBreakdown().existingItems.map((item) => (
@@ -3269,7 +3422,7 @@ export default function EditOrderPage() {
                       {item.name} (Qty: {item.qty}):
                     </span>
                     <span className="text-gray-900">
-                      {item.baseCost.toLocaleString()}₫
+                      ${item.baseCost.toFixed(2)}
                     </span>
                   </div>
                 ))}
@@ -3278,12 +3431,13 @@ export default function EditOrderPage() {
                     Base Ship Cost (Existing):
                   </span>
                   <span className="text-gray-900">
+                    $
                     {Math.max(
                       ...getDetailedCostBreakdown().existingItems.map(
                         (i) => i.shipCost
                       ),
                       0
-                    ).toLocaleString()}₫
+                    ).toFixed(2)}
                   </span>
                 </div>
               </div>
@@ -3294,7 +3448,7 @@ export default function EditOrderPage() {
           {cartProducts.length > 0 && (
             <>
               <div>
-                <p className="text-xs text-gray-600 italic mb-2">
+                <p className="text-sm text-gray-600 italic mb-2">
                   Breakdown for new items:
                 </p>
                 {getDetailedCostBreakdown().newItems.map((item) => (
@@ -3307,26 +3461,26 @@ export default function EditOrderPage() {
                     </p>
                     <div className="flex justify-between text-sm ml-3">
                       <span className="text-gray-600">
-                        Base Cost ({item.baseCost.toLocaleString()}₫ x {item.qty}):
+                        Base Cost ({item.baseCost.toFixed(2)} x {item.qty}):
                       </span>
                       <span className="font-medium text-gray-900">
-                        {item.totalBaseCost.toLocaleString()}₫
+                        ${item.totalBaseCost.toFixed(2)}
                       </span>
                     </div>
                     <div className="flex justify-between text-sm ml-3">
                       <span className="text-gray-600">Ship Cost:</span>
                       <span className="font-medium text-gray-900">
-                        {item.shipCost.toLocaleString()}₫
+                        ${item.shipCost.toFixed(2)}
                       </span>
                     </div>
                     {item.extraShipping > 0 && item.qty > 1 && (
                       <div className="flex justify-between text-sm ml-3">
                         <span className="text-gray-600">
-                          Extra Shipping ({item.extraShipping.toLocaleString()}₫ x{" "}
+                          Extra Shipping ({item.extraShipping.toFixed(2)} x{" "}
                           {item.qty - 1}):
                         </span>
                         <span className="font-medium text-gray-900">
-                          {(item.extraShipping * (item.qty - 1)).toLocaleString()}₫
+                          ${(item.extraShipping * (item.qty - 1)).toFixed(2)}
                         </span>
                       </div>
                     )}
@@ -3343,7 +3497,7 @@ export default function EditOrderPage() {
                 Total Base Cost (All Items):
               </span>
               <span className="text-gray-900">
-                {getDetailedCostBreakdown().totalBaseCost.toLocaleString()}₫
+                ${getDetailedCostBreakdown().totalBaseCost.toFixed(2)}
               </span>
             </div>
             <div className="flex justify-between text-sm font-medium">
@@ -3351,7 +3505,7 @@ export default function EditOrderPage() {
                 Base Ship Cost (Max from all):
               </span>
               <span className="text-gray-900">
-                {getDetailedCostBreakdown().maxShipCost.toLocaleString()}₫
+                ${getDetailedCostBreakdown().maxShipCost.toFixed(2)}
               </span>
             </div>
             {getDetailedCostBreakdown().extraShippingTotal > 0 && (
@@ -3361,14 +3515,14 @@ export default function EditOrderPage() {
                   {getDetailedCostBreakdown().maxExtraProductName}):
                 </span>
                 <span className="text-gray-900">
-                  {getDetailedCostBreakdown().extraShippingTotal.toLocaleString()}₫
+                  ${getDetailedCostBreakdown().extraShippingTotal.toFixed(2)}
                 </span>
               </div>
             )}
             <div className="border-t border-gray-200 pt-3 flex justify-between text-base font-bold">
               <span className="text-gray-900">Order Total:</span>
               <span className="text-blue-600 text-lg">
-                {getDetailedCostBreakdown().orderTotal.toLocaleString()}₫
+                ${getDetailedCostBreakdown().orderTotal.toFixed(2)}
               </span>
             </div>
           </div>
@@ -3390,7 +3544,7 @@ export default function EditOrderPage() {
           </div>
 
           <Label className="text-lg font-semibold text-blue-700">
-            Total Order: {calculateOrderTotal().toLocaleString()}₫
+            Total Order: ${calculateOrderTotal().toFixed(2)}
           </Label>
         </div>
       </div>
@@ -3514,7 +3668,7 @@ export default function EditOrderPage() {
                     <div className="flex-shrink-0 ml-4">
                       {/* Hiển thị giá tổng (price) đã lưu trong currentOrderProducts */}
                       <p className="font-medium text-gray-900">
-                        {item.baseCost?.toLocaleString() || "0"}₫
+                        ${item.baseCost?.toFixed(2) || "0.00"}
                       </p>
                     </div>
                   </div>
@@ -3551,7 +3705,7 @@ export default function EditOrderPage() {
                     <div className="flex-shrink-0 ml-4">
                       {/* Hiển thị totalPrice đã tính trong handleAddToCart */}
                       <p className="font-medium text-gray-900">
-                        {item.totalPrice.toLocaleString()}₫
+                        ${item.totalPrice.toFixed(2)}
                       </p>
                     </div>
                   </div>
@@ -3568,7 +3722,7 @@ export default function EditOrderPage() {
               Total Order:
             </span>
             <span className="text-2xl font-bold text-green-700">
-              {finalTotal.toLocaleString()}₫
+              ${finalTotal.toFixed(2)}
             </span>
           </div>
         </div>

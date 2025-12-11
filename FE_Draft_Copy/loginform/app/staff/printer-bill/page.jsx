@@ -356,12 +356,12 @@ export default function PrinterBillPage() {
 
       if (!response.ok) {
         const errorText = await response.text();
-        let shortMessage = "Tạo hóa đơn thất bại.";
+        let shortMessage = "Invoice creation failed.";
         if (
           errorText.includes("Order already had invoice") ||
-          errorText.includes("đã được xuất hóa đơn")
+          errorText.includes("Invoice has been issued.")
         ) {
-          shortMessage = "Đơn hàng này đã có hóa đơn rồi.";
+          shortMessage = "This order already has an invoice.";
         }
 
         setIsPrinterBillDialogOpen(false);

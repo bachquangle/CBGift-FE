@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useRef } from "react"
-import { Upload, Download, AlertCircle, Image as ImageIcon, Wand2, CircleCheck, Trash2, Sliders, Info } from "lucide-react"
+import { Upload, Download, AlertCircle, Image as ImageIcon, Wand2, CircleCheck, Trash2, Sliders, Info, Box, Gift, Sparkles } from "lucide-react"
 import apiClient from "../../../lib/apiClient" 
 import DesignerHeader from "@/components/layout/designer/header"
 import DesignerSidebar from "@/components/layout/designer/sidebar"
@@ -45,11 +45,15 @@ export default function Home() {
   const [controlStrength, setControlStrength] = useState(0.7) 
 
   // --- Form Data ---
+  // FIX: Thêm các trường accessories, boxDesign, optionalStyle vào state
   const [profDetails, setProfDetails] = useState({
     name: "",
     gender: "female",
     career: "",
     outfit: "",
+    accessories: "", 
+    boxDesign: "",
+    optionalStyle: ""
   })
 
   const [freestylePrompt, setFreestylePrompt] = useState("")
@@ -86,7 +90,7 @@ export default function Home() {
   }
 
   const handleDragOver = (e) => e.preventDefault()
-  
+   
   const handleDrop = (e) => {
     e.preventDefault()
     const files = e.dataTransfer.files
@@ -106,7 +110,8 @@ export default function Home() {
 
     // LOGIC: Nếu không phải Freestyle thì dùng form nhập liệu (Professional hoặc Toy)
     if (selectedStyle !== "freestyle") {
-      const { name, career, gender, outfit } = profDetails;
+      // FIX: Destructuring đầy đủ các biến từ state
+      const { name, career, gender, outfit, accessories, boxDesign, optionalStyle } = profDetails;
 
       if (!career.trim() || !name.trim()) {
         setError("Vui lòng nhập Tên và Nghề nghiệp.")
@@ -131,24 +136,25 @@ export default function Home() {
             const nameDisplay = name ? name.toUpperCase() : "CHARACTER";
         
             // 3. Xử lý Accessories (Mặc định: các vật dụng đặc trưng của nghề)
-            // Kiểm tra biến accessories có tồn tại và có dữ liệu không
-            const accText = (typeof accessories !== 'undefined' && accessories && accessories.trim()) 
+            const accText = (accessories && accessories.trim()) 
                             ? accessories.trim() 
                             : "characteristic accessories related to the profession";
         
             // 4. Xử lý Box Design (Mặc định: thiết kế đồ họa phù hợp chủ đề)
-            const boxText = (typeof boxDesign !== 'undefined' && boxDesign && boxDesign.trim()) 
+            const boxText = (boxDesign && boxDesign.trim()) 
                             ? boxDesign.trim() 
                             : "vibrant, thematic background design";
         
             // 5. Xử lý Optional Style (Mặc định: chi tiết cao, màu sắc tươi sáng)
-            const styleText = (typeof optionalStyle !== 'undefined' && optionalStyle && optionalStyle.trim()) 
+            const styleText = (optionalStyle && optionalStyle.trim()) 
                               ? optionalStyle.trim() 
                               : "high detailed plastic texture and vivid colors";
         
-            // 6. Ghép chuỗi Final Prompt
+            // 6. Ghép chuỗi Final Prompt (Logic chuẩn đã sửa)
             finalPrompt = `Create a full-body action figure of a ${genderText}, showcased inside its original blister pack box in a 3D collectible toy style. On the header card of the package, the character’s ${nameDisplay} is displayed in bold, with the role or profession ${career} shown right beneath it. The figure portrays ${nameDisplay}, dressed in ${outfitText}. Alongside the figure, inside the blister, include these accessories: ${accText}. The backing card should feature a ${boxText}, with optional extra styling: ${styleText}. Render the scene in a photorealistic manner, with professional studio lighting and sharp focus on both the figure and its packaging. –ar 2:3`;
-            apiStylePreset = "3d-model";    
+            
+            apiStylePreset = "3d-model";     
+    } 
     } else {
       // --- TRƯỜNG HỢP 3: FREESTYLE ---
       if (!freestylePrompt.trim()) {
@@ -156,7 +162,7 @@ export default function Home() {
         return
       }
       finalPrompt = freestylePrompt
-      apiStylePreset = "digital-art" // Hoặc để trống để AI tự quyết
+      apiStylePreset = "digital-art"
     }
 
     setIsLoading(true)
@@ -228,7 +234,7 @@ export default function Home() {
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              
+               
               {/* === CỘT TRÁI (INPUT) === */}
               <div className="flex flex-col gap-6">
                 
@@ -347,6 +353,56 @@ export default function Home() {
                                 className="w-full rounded-lg border border-teal-200 p-2 text-sm focus:border-purple-primary outline-none" 
                              />
                           </div>
+
+                          {/* FIX: HIỂN THỊ THÊM TRƯỜNG NHẬP LIỆU CHO TOY STYLE */}
+                          {selectedStyle === 'toy' && (
+                            <div className="animate-in fade-in slide-in-from-top-2 space-y-4 pt-2 border-t border-slate-200 mt-2">
+                                <div className="text-xs font-bold text-purple-700 uppercase flex items-center gap-1">
+                                    <Sparkles className="w-3 h-3" /> Chi tiết gói đồ chơi
+                                </div>
+                                
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <div>
+                                        <span className="text-xs font-bold text-slate-600 uppercase mb-1 flex items-center gap-1">
+                                           <Gift className="w-3 h-3"/> Phụ kiện đi kèm
+                                        </span>
+                                        <input 
+                                            type="text" 
+                                            name="accessories" 
+                                            value={profDetails.accessories} 
+                                            onChange={handleDetailsChange} 
+                                            placeholder="VD: Laptop, Coffee cup..." 
+                                            className="w-full rounded-lg border border-teal-200 p-2 text-sm focus:border-purple-primary outline-none" 
+                                        />
+                                    </div>
+                                    <div>
+                                        <span className="text-xs font-bold text-slate-600 uppercase mb-1 flex items-center gap-1">
+                                            <Box className="w-3 h-3"/> Thiết kế hộp
+                                        </span>
+                                        <input 
+                                            type="text" 
+                                            name="boxDesign" 
+                                            value={profDetails.boxDesign} 
+                                            onChange={handleDetailsChange} 
+                                            placeholder="VD: Minimalist Apple style..." 
+                                            className="w-full rounded-lg border border-teal-200 p-2 text-sm focus:border-purple-primary outline-none" 
+                                        />
+                                    </div>
+                                </div>
+                                <div>
+                                     <span className="text-xs font-bold text-slate-600 uppercase mb-1 block">Style bổ sung</span>
+                                     <input 
+                                        type="text" 
+                                        name="optionalStyle" 
+                                        value={profDetails.optionalStyle} 
+                                        onChange={handleDetailsChange} 
+                                        placeholder="VD: Cyberpunk neon lights..." 
+                                        className="w-full rounded-lg border border-teal-200 p-2 text-sm focus:border-purple-primary outline-none" 
+                                     />
+                                </div>
+                            </div>
+                          )}
+
                         </div>
                       </>
                     ) : (
@@ -355,7 +411,7 @@ export default function Home() {
                       <label className="block text-sm font-semibold text-purple-900 mb-2">
                         3. Nhập câu lệnh (Prompt)
                       </label>
-                      
+                       
                       <textarea
                         value={freestylePrompt}
                         onChange={(e) => setFreestylePrompt(e.target.value)}
@@ -363,7 +419,7 @@ export default function Home() {
                         rows={6}
                         className="w-full rounded-lg border border-teal-200 p-3 text-sm text-purple-900 focus:border-purple-primary outline-none"
                       />
-                    
+                     
                       {/* PHẦN CẢNH BÁO NHẤN MẠNH */}
                       <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-md flex items-start gap-2">
                         <Info className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
@@ -380,35 +436,35 @@ export default function Home() {
 
                   {/* ADVANCED SETTINGS */}
                   <div className="space-y-4">
-                     <label className="block text-sm font-semibold text-purple-900">4. Cấu hình nâng cao</label>
-                     
-                     {/* Slider Control Strength */}
-                     <div className="bg-purple-50 p-4 rounded-xl border border-purple-100">
-                        <div className="flex justify-between items-center mb-2">
-                           <div className="flex items-center gap-2 text-purple-900 font-medium text-sm">
-                              <Sliders className="w-4 h-4" /> Độ giống ảnh gốc
-                           </div>
-                           <span className="text-purple-700 font-bold text-sm bg-purple-200 px-2 py-0.5 rounded text-xs">
-                             {controlStrength}
-                           </span>
-                        </div>
-                        <input 
-                           type="range" 
-                           min="0.1" 
-                           max="1.0" 
-                           step="0.05"
-                           value={controlStrength}
-                           onChange={(e) => setControlStrength(parseFloat(e.target.value))}
-                           className="w-full h-2 bg-purple-200 rounded-lg appearance-none cursor-pointer accent-purple-primary"
-                        />
-                        <div className="flex justify-between text-[10px] text-slate-500 mt-1 uppercase font-semibold">
-                           <span>Sáng tạo</span>
-                           <span>Cân bằng (0.7)</span>
-                           <span>Y hệt</span>
-                        </div>
-                     </div>
+                      <label className="block text-sm font-semibold text-purple-900">4. Cấu hình nâng cao</label>
+                      
+                      {/* Slider Control Strength */}
+                      <div className="bg-purple-50 p-4 rounded-xl border border-purple-100">
+                         <div className="flex justify-between items-center mb-2">
+                            <div className="flex items-center gap-2 text-purple-900 font-medium text-sm">
+                               <Sliders className="w-4 h-4" /> Độ giống ảnh gốc
+                            </div>
+                            <span className="text-purple-700 font-bold text-sm bg-purple-200 px-2 py-0.5 rounded text-xs">
+                              {controlStrength}
+                            </span>
+                         </div>
+                         <input 
+                            type="range" 
+                            min="0.1" 
+                            max="1.0" 
+                            step="0.05"
+                            value={controlStrength}
+                            onChange={(e) => setControlStrength(parseFloat(e.target.value))}
+                            className="w-full h-2 bg-purple-200 rounded-lg appearance-none cursor-pointer accent-purple-primary"
+                         />
+                         <div className="flex justify-between text-[10px] text-slate-500 mt-1 uppercase font-semibold">
+                            <span>Sáng tạo</span>
+                            <span>Cân bằng (0.7)</span>
+                            <span>Y hệt</span>
+                         </div>
+                      </div>
 
-                     <div className="flex flex-wrap gap-4">
+                      <div className="flex flex-wrap gap-4">
                         {/* Tỷ lệ (Disabled) */}
                         <div className="flex-1 min-w-[150px] opacity-60">
                            <label className="block text-xs font-bold text-slate-500 mb-2">Tỷ lệ khung hình</label>
@@ -439,7 +495,7 @@ export default function Home() {
                               ))}
                            </select>
                         </div>
-                     </div>
+                      </div>
                   </div>
                   
                   {error && (

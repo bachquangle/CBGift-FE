@@ -141,7 +141,7 @@ export default function LoginPage() {
       if (userRoles.includes("Seller")) router.push("/seller/manage-order");
       else if (userRoles.includes("Designer"))
         router.push("/designer/design-assign");
-      else if (userRoles.includes("Manager")) router.push("/manager/dashboard");
+      else if (userRoles.includes("Manager")) router.push("/manager/manage-account");
       else if (userRoles.includes("QC")) router.push("/qc/check-product");
       else if (userRoles.includes("Staff")) router.push("/staff/manage-order");
       else router.push("/"); // Trang chủ mặc định

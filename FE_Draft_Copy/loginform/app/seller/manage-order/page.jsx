@@ -600,7 +600,7 @@ export default function ManageOrder() {
           status: order.statusOderName,
           totalAmount: `${new Intl.NumberFormat("vi-VN").format(
             order.totalCost
-          )} VND`,
+          )} ₫`,
 
           timeCreated: new Date(order.creationDate).toLocaleString(),
           selected: false,

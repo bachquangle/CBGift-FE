@@ -304,7 +304,6 @@ export default function AssignAccountModal({
                       <SelectValue placeholder="Select role" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="Manager">Manager</SelectItem>
                       <SelectItem value="Designer">Designer</SelectItem>
                       <SelectItem value="QC">QC</SelectItem>
                       <SelectItem value="Seller">Seller</SelectItem>

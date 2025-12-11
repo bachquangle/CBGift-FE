@@ -1405,10 +1405,8 @@ export default function MakeManualModal({ isOpen, onClose }) {
 
                     <p className="text-sm font-bold text-blue-600">
                       {minCost === maxCost
-                        ? `${minCost.toFixed(2)} VND`
-                        : `${minCost.toFixed(2)} VND - ${maxCost.toFixed(
-                            2
-                          )} VND`}
+                        ? `${minCost.toLocaleString()}₫`
+                        : `${minCost.toLocaleString()}₫ - ${maxCost.toLocaleString()}₫`}
                     </p>
                   </div>
                 );
@@ -1586,8 +1584,8 @@ export default function MakeManualModal({ isOpen, onClose }) {
                   key={v.productVariantId}
                   value={v.productVariantId.toString()}
                 >
-                  {/* {v.sizeInch} — ${v.totalCost.toFixed(2)} */}
-                  {v.sizeInch}
+                  {v.sizeInch} — {v.totalCost.toLocaleString()}₫
+                  {/* {v.sizeInch} */}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -1849,7 +1847,7 @@ export default function MakeManualModal({ isOpen, onClose }) {
                   {new Intl.NumberFormat("vi-VN").format(
                     getCostDetails().baseCost
                   )}{" "}
-                  VND
+                  ₫
                 </span>
               </span>
             </div>
@@ -1859,7 +1857,7 @@ export default function MakeManualModal({ isOpen, onClose }) {
                 {new Intl.NumberFormat("vi-VN").format(
                   getCostDetails().shipCost
                 )}{" "}
-                VND
+                ₫
               </span>
             </div>
             <div className="flex justify-between text-sm">
@@ -1868,7 +1866,7 @@ export default function MakeManualModal({ isOpen, onClose }) {
                 {new Intl.NumberFormat("vi-VN").format(
                   getCostDetails().extraShipping
                 )}{" "}
-                VND
+                ₫
               </span>
             </div>
             <div className="border-t border-slate-200 pt-2 flex justify-between">
@@ -1877,7 +1875,7 @@ export default function MakeManualModal({ isOpen, onClose }) {
                 {new Intl.NumberFormat("vi-VN").format(
                   getCostDetails().baseCost + getCostDetails().shipCost
                 )}{" "}
-                VND
+                ₫
               </span>
             </div>
           </div>
@@ -1904,7 +1902,7 @@ export default function MakeManualModal({ isOpen, onClose }) {
           <div className="bg-blue-50 p-4 rounded-lg">
             <Label className="text-lg font-semibold">
               Product Price:
-              {Number(calculateProductPrice()).toLocaleString("vi-VN", {})} VND
+              {Number(calculateProductPrice()).toLocaleString("vi-VN", {})} ₫
             </Label>
           </div>
         </div>
@@ -2135,7 +2133,7 @@ export default function MakeManualModal({ isOpen, onClose }) {
                           {new Intl.NumberFormat("vi-VN").format(
                             item.totalBaseCost
                           )}{" "}
-                          VND
+                          ₫
                         </span>
                       </div>
                       <div className="flex justify-between text-sm ml-3">
@@ -2144,7 +2142,7 @@ export default function MakeManualModal({ isOpen, onClose }) {
                           {new Intl.NumberFormat("vi-VN").format(
                             getOrderCostBreakdown().shipCost
                           )}{" "}
-                          VND
+                          ₫
                         </span>
                       </div>
                       {getOrderCostBreakdown().maxExtraShipping > 0 &&
@@ -2154,11 +2152,10 @@ export default function MakeManualModal({ isOpen, onClose }) {
                               Extra Shipping:
                             </span>
                             <span className="font-medium text-gray-900">
-                              $
                               {(
                                 getOrderCostBreakdown().maxExtraShipping *
                                 (item.qty - 1)
-                              ).toFixed(2)}
+                              ).toLocaleString()}₫
                             </span>
                           </div>
                         )}
@@ -2177,7 +2174,7 @@ export default function MakeManualModal({ isOpen, onClose }) {
                             : 0) +
                           (activeTTS ? 1.0 : 0)
                       )}{" "}
-                      VND
+                      ₫
                     </span>
                   </div>
                 </div>
@@ -2192,11 +2189,11 @@ export default function MakeManualModal({ isOpen, onClose }) {
                       className="flex justify-between text-sm ml-3"
                     >
                       <span className="text-gray-600">
-                        {item.name} (Base: ${item.baseCost.toFixed(2)} ×{" "}
+                        {item.name} (Base: {item.baseCost.toLocaleString()}₫ ×{" "}
                         {item.qty})
                       </span>
                       <span className="font-medium text-gray-900">
-                        ${item.totalBaseCost.toFixed(2)}
+                        {item.totalBaseCost.toLocaleString()}₫
                       </span>
                     </div>
                   ))}
@@ -2205,13 +2202,13 @@ export default function MakeManualModal({ isOpen, onClose }) {
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-600">Total Base Cost:</span>
                       <span className="font-medium text-gray-900">
-                        ${getOrderCostBreakdown().totalBase.toFixed(2)}
+                        {getOrderCostBreakdown().totalBase.toLocaleString()}₫
                       </span>
                     </div>
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-600">Base Ship Cost:</span>
                       <span className="font-medium text-gray-900">
-                        ${getOrderCostBreakdown().maxBaseShipCost.toFixed(2)}
+                        {getOrderCostBreakdown().maxBaseShipCost.toLocaleString()}₫
                       </span>
                     </div>
                     {getOrderCostBreakdown().maxExtraShipping > 0 && (
@@ -2238,10 +2235,7 @@ export default function MakeManualModal({ isOpen, onClose }) {
                   <div className="border-t border-slate-300 pt-2 flex justify-between font-semibold">
                     <span className="text-gray-900">Order Total:</span>
                     <span className="text-blue-600">
-                      $
-                      {(calculateOrderTotal() - (activeTTS ? 1.0 : 0)).toFixed(
-                        2
-                      )}
+                      {(calculateOrderTotal() - (activeTTS ? 1.0 : 0)).toLocaleString()}₫
                     </span>
                   </div>
                 </div>
@@ -2265,7 +2259,7 @@ export default function MakeManualModal({ isOpen, onClose }) {
 
               <Label className="text-lg font-semibold text-blue-700">
                 Total Order:{" "}
-                {Number(calculateOrderTotal()).toLocaleString("vi-VN")} VND
+                {Number(calculateOrderTotal()).toLocaleString("vi-VN")} ₫
               </Label>
             </div>
 
@@ -2438,7 +2432,7 @@ export default function MakeManualModal({ isOpen, onClose }) {
               Total Order:
             </span>
             <span className="text-2xl font-bold text-green-700">
-              {Number(calculateOrderTotal()).toLocaleString("vi-VN")} VND
+              {Number(calculateOrderTotal()).toLocaleString("vi-VN")} ₫
             </span>
           </div>
         </div>
@@ -2517,8 +2511,8 @@ export default function MakeManualModal({ isOpen, onClose }) {
             <AlertDialogTitle>Confirm Order Creation</AlertDialogTitle>
             <AlertDialogDescription>
               Are you sure you want to create this order with{" "}
-              {cartProducts.length} product(s) for $
-              {calculateOrderTotal().toFixed(2)}?
+              {cartProducts.length} product(s) for 
+              {calculateOrderTotal().toLocaleString()}₫ ?
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

@@ -2,7 +2,7 @@ import axios from "axios";
 
 // Đổi lại link API thật khi deploy
 const apiURL = "https://cb-gift-app-xsgw5.ondigitalocean.app";
-// const apiURL = "https://localhost:7015";
+//const apiURL = "https://localhost:7015";
 
 const apiClient = axios.create({
   baseURL: apiURL,
@@ -50,7 +50,9 @@ apiClient.interceptors.response.use(
 
     // Loại bỏ các request Login hoặc Refresh để tránh vòng lặp vô hạn
     const isLoginEndpoint = originalRequest.url.includes("/api/auth/login");
-    const isRefreshEndpoint = originalRequest.url.includes("/api/auth/refresh-token");
+    const isRefreshEndpoint = originalRequest.url.includes(
+      "/api/auth/refresh-token"
+    );
 
     if (
       error.response?.status === 401 &&
@@ -59,7 +61,7 @@ apiClient.interceptors.response.use(
       !isRefreshEndpoint
     ) {
       // === LOGIC XỬ LÝ HÀNG ĐỢI (RACE CONDITION FIX) ===
-      
+
       if (isRefreshing) {
         // Nếu đang có request khác refresh rồi, thì request này phải chờ
         return new Promise(function (resolve, reject) {
@@ -87,34 +89,36 @@ apiClient.interceptors.response.use(
         const res = await axios.post(
           `${apiURL}/api/auth/refresh-token`,
           { refreshToken: refreshToken },
-          { withCredentials: true } 
+          { withCredentials: true }
         );
 
         if (res.status === 200) {
           const { accessToken, refreshToken: newRefToken } = res.data;
-          
+
           // Lưu token mới
           localStorage.setItem("accessToken", accessToken);
           localStorage.setItem("refreshToken", newRefToken);
 
           // Gắn token mới vào header cho request mặc định
-          apiClient.defaults.headers.common["Authorization"] = `Bearer ${accessToken}`;
+          apiClient.defaults.headers.common[
+            "Authorization"
+          ] = `Bearer ${accessToken}`;
           originalRequest.headers.Authorization = `Bearer ${accessToken}`;
 
           // Xử lý xong -> Giải phóng hàng đợi đang chờ
           processQueue(null, accessToken);
-          
+
           return apiClient(originalRequest);
         }
       } catch (refreshError) {
         // Refresh thất bại -> Từ chối tất cả hàng đợi -> Logout
         processQueue(refreshError, null);
         console.error("Session expired:", refreshError);
-        
+
         localStorage.removeItem("accessToken");
         localStorage.removeItem("refreshToken");
         window.location.href = "/";
-        
+
         return Promise.reject(refreshError);
       } finally {
         // Luôn tắt cờ refresh dù thành công hay thất bại

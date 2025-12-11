@@ -70,7 +70,7 @@ export default function EditAddressModal({
         name: initialAddress.name || "",
         phone: initialAddress.phone || "",
         email: initialAddress.email || "",
-        address: fullAddressString,
+        address: initialAddress.address || "",
         address1: initialAddress.address1 || "",
         provinceId: initialAddress.provinceId || "",
         provinceName: initialAddress.provinceName || "",

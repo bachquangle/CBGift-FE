@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { DollarSign, TrendingUp, TrendingDown, AlertCircle } from "lucide-react";
+import { TrendingUp, TrendingDown, AlertCircle } from "lucide-react";
 import apiClient from "../../lib/apiClient";
 
 // Import các component con
@@ -15,6 +15,12 @@ import TopSellersTable from "./TopSellersTable";
 // Component Skeleton để hiển thị hiệu ứng đang tải
 const Skeleton = ({ className }) => (
   <div className={`animate-pulse bg-gray-200 rounded-lg ${className}`}></div>
+);
+
+const VndIcon = ({ className }) => (
+  <span className={`${className} flex items-center justify-center font-bold text-xl not-italic`}>
+    VND
+  </span>
 );
 
 export default function ManagerReports() {
@@ -125,23 +131,23 @@ export default function ManagerReports() {
           <>
             <KPICard
               title="Total Revenue"
-              value={`$${kpis.totalRevenue.toLocaleString()}`}
+              value={`${kpis.totalRevenue.toLocaleString()} ₫`}
               subtitle="Invoiced amount"
-              icon={DollarSign}
+              icon={VndIcon}
               trend="Current Period"
               color="blue"
             />
             <KPICard
               title="Cash Collected"
-              value={`$${kpis.cashCollected.toLocaleString()}`}
-              subtitle={`Outstanding Debt: $${kpis.outstandingDebt.toLocaleString()}`}
+              value={`${kpis.cashCollected.toLocaleString()} ₫`}
+              subtitle={`Outstanding Debt: ${kpis.outstandingDebt.toLocaleString()} ₫`}
               icon={TrendingUp}
               trend="Real Cash Flow"
               color="green"
             />
             <KPICard
               title="Total Refunds"
-              value={`$${kpis.totalRefunds.toLocaleString()}`}
+              value={`${kpis.totalRefunds.toLocaleString()} ₫`}
               subtitle="Financial loss"
               icon={TrendingDown}
               trend="Approved Refunds"

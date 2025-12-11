@@ -316,7 +316,6 @@ export default function AccountDetailsModal({
                           <SelectValue placeholder="Select role" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="manager">Manager</SelectItem>
                           <SelectItem value="designer">Designer</SelectItem>
                           <SelectItem value="qc">QC</SelectItem>
                           <SelectItem value="seller">Seller</SelectItem>

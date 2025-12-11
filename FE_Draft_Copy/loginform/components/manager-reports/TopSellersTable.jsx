@@ -16,7 +16,7 @@ export default function TopSellersTable({ data }) {
                 <th className="px-4 py-2 text-right font-semibold text-gray-700">Orders</th>
                 <th className="px-4 py-2 text-right font-semibold text-gray-700">Revenue</th>
                 <th className="px-4 py-2 text-right font-semibold text-gray-700">Debt</th>
-                <th className="px-4 py-2 text-right font-semibold text-gray-700">Issue %</th>
+                <th className="px-4 py-2 text-right font-semibold text-gray-700">Issue%</th>
               </tr>
             </thead>
             <tbody>
@@ -25,11 +25,11 @@ export default function TopSellersTable({ data }) {
                   <td className="px-4 py-3 font-medium text-gray-900">{seller.name}</td>
                   <td className="px-4 py-3 text-right text-gray-600">{seller.orders}</td>
                   <td className="px-4 py-3 text-right font-semibold text-gray-900">
-                    ${seller.revenue.toLocaleString()}
+                    {seller.revenue.toLocaleString()}₫
                   </td>
                   <td className="px-4 py-3 text-right">
                     <span className="inline-block rounded-full bg-red-100 px-2 py-1 text-red-700">
-                      ${seller.debt.toLocaleString()}
+                      {seller.debt.toLocaleString()}₫
                     </span>
                   </td>
                   <td className="px-4 py-3 text-right">

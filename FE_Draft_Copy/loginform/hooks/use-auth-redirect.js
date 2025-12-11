@@ -9,6 +9,7 @@ export const useAuthRedirect = (allowedRoles = []) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   useEffect(() => {
+    // 1. Chỉ lấy từ localStorage (vì Mobile không đọc được session/cookie)
     const token = localStorage.getItem("accessToken");
 
     if (!token) {
@@ -18,38 +19,36 @@ export const useAuthRedirect = (allowedRoles = []) => {
 
     try {
       const decoded = jwtDecode(token);
-      const currentTime = Date.now() / 1000;
-
-      // Token hết hạn
-      if (decoded.exp < currentTime) {
-        localStorage.removeItem("accessToken");
-        localStorage.removeItem("refreshToken");
-        router.replace("/");
-        return;
-      }
-
-      // Kiểm tra Role
+      
+      // 2. CHỈ KIỂM TRA ROLE
       const roleKey = "http://schemas.microsoft.com/ws/2008/06/identity/claims/role";
+      // Fallback nếu token dùng key ngắn gọn "role"
       const roles = decoded[roleKey] || decoded.role;
-      const userRoles = Array.isArray(roles) ? roles : [roles];
+      
+      // Chuyển thành mảng để xử lý an toàn
+      const userRoles = Array.isArray(roles) ? roles : [roles || ""];
 
-      // Nếu không truyền allowedRoles (rỗng) thì cho qua (chỉ cần đăng nhập)
-      // Hoặc check nếu có role phù hợp
-      const isAuthorized = allowedRoles.length === 0 || allowedRoles.some((role) => userRoles.includes(role));
+      // Nếu không truyền allowedRoles (mảng rỗng) -> Cho qua
+      // Nếu có truyền -> Check xem user có role đó không
+      const isAuthorized = allowedRoles.length === 0 || 
+                           allowedRoles.some((role) => userRoles.includes(role));
 
       if (!isAuthorized) {
-        router.replace("/"); // Hoặc trang 403 Forbidden
+        router.replace("/"); // Hoặc trang 403
         return;
       }
 
+      // HỢP LỆ
       setIsAuthenticated(true);
+
     } catch (e) {
-      // Token lỗi
+      // Chỉ logout khi Token bị lỗi format (không decode được)
+      console.error("Token invalid:", e);
       localStorage.removeItem("accessToken");
       localStorage.removeItem("refreshToken");
       router.replace("/");
     }
-  }, [router, allowedRoles]);
+  }, [router, allowedRoles]); 
 
   return isAuthenticated;
 };

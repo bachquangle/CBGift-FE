@@ -124,12 +124,31 @@ export default function Home() {
       
       // --- TRƯỜNG HỢP 2: ĐỒ CHƠI 3D (Toy) ---
       else if (selectedStyle === "toy") {
-          const outfitText = outfit.trim() || `${career} outfit`
-          // Prompt Blister Pack
-          finalPrompt = `A 3D cute action figure of a ${genderText} working as a ${career}, inside a blister pack toy packaging. The packaging card says "${name.toUpperCase()}" at the top and "${career.toUpperCase()}" below. The figure is made of plastic, wearing ${outfitText}. Smooth 3D rendering, plastic texture, studio lighting, product photography, vivid colors, 3d style.`
-          apiStylePreset = "3d-model"
-      }
-    
+            // 1. Xử lý Outfit (nếu thiếu thì mặc định theo nghề nghiệp)
+            const outfitText = outfit && outfit.trim() ? outfit.trim() : `${career} outfit`;
+        
+            // 2. Xử lý Name (đảm bảo viết hoa toàn bộ cho đẹp)
+            const nameDisplay = name ? name.toUpperCase() : "CHARACTER";
+        
+            // 3. Xử lý Accessories (Mặc định: các vật dụng đặc trưng của nghề)
+            // Kiểm tra biến accessories có tồn tại và có dữ liệu không
+            const accText = (typeof accessories !== 'undefined' && accessories && accessories.trim()) 
+                            ? accessories.trim() 
+                            : "characteristic accessories related to the profession";
+        
+            // 4. Xử lý Box Design (Mặc định: thiết kế đồ họa phù hợp chủ đề)
+            const boxText = (typeof boxDesign !== 'undefined' && boxDesign && boxDesign.trim()) 
+                            ? boxDesign.trim() 
+                            : "vibrant, thematic background design";
+        
+            // 5. Xử lý Optional Style (Mặc định: chi tiết cao, màu sắc tươi sáng)
+            const styleText = (typeof optionalStyle !== 'undefined' && optionalStyle && optionalStyle.trim()) 
+                              ? optionalStyle.trim() 
+                              : "high detailed plastic texture and vivid colors";
+        
+            // 6. Ghép chuỗi Final Prompt
+            finalPrompt = `Create a full-body action figure of a ${genderText}, showcased inside its original blister pack box in a 3D collectible toy style. On the header card of the package, the character’s ${nameDisplay} is displayed in bold, with the role or profession ${career} shown right beneath it. The figure portrays ${nameDisplay}, dressed in ${outfitText}. Alongside the figure, inside the blister, include these accessories: ${accText}. The backing card should feature a ${boxText}, with optional extra styling: ${styleText}. Render the scene in a photorealistic manner, with professional studio lighting and sharp focus on both the figure and its packaging. –ar 2:3`;
+            apiStylePreset = "3d-model";    
     } else {
       // --- TRƯỜNG HỢP 3: FREESTYLE ---
       if (!freestylePrompt.trim()) {

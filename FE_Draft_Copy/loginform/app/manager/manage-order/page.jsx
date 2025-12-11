@@ -853,7 +853,7 @@ Status
             {order.email}
           </TableCell>
           <TableCell className="text-slate-900 font-semibold whitespace-nowrap">
-            ${order.totalCost?.toFixed(2) || "0.00"}
+            {order.totalCost?.toFixed(2) || "0.00"}
           </TableCell>
           <TableCell className="whitespace-nowrap">
             {/* Hiển thị Status Badge */}

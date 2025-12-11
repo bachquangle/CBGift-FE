@@ -339,8 +339,8 @@ export default function ManageOrder() {
 
   const hasDesignFile = (order) => {
     if (!order.products || order.products.length === 0) return false;
-    return order.products.some(
-      (p) => p.linkFileDesign && p.linkFileDesign.trim() !== null
+    return order.products.every(
+      (p) => p.linkFileDesign && p.linkFileDesign.trim() !== ""
     );
   };
 
@@ -1601,6 +1601,32 @@ export default function ManageOrder() {
       return;
     }
 
+    const failedValidationOrders = [];
+
+    for (const orderId of selectedOrders) {
+      const order = orders.find((o) => o.id === orderId);
+      if (!order) {
+        failedValidationOrders.push(orderId);
+        continue;
+      }
+
+      const isDraft =
+        order.statusOrder === "Draft (Nháp)" || order.statusOrder === 0;
+      const allProductsHaveDesign = hasDesignFile(order);
+
+      if (!isDraft || !allProductsHaveDesign) {
+        failedValidationOrders.push(orderId);
+      }
+    }
+
+    if (failedValidationOrders.length > 0) {
+      setCannotAssignMessage(
+        `Cannot assign selected order(s). Orders must have DRAFT status and ALL products must have design files. Failed: ${failedValidationOrders.length}`
+      );
+      setShowCannotAssignDialog(true);
+      return;
+    }
+
     const confirm = await Swal.fire({
       icon: "question",
       title: "Confirm Assign Staff",
@@ -1685,9 +1711,9 @@ export default function ManageOrder() {
   };
 
   return (
-    <div className="flex h-screen bg-blue-50">
+    <div className="flex min-h-screen bg-blue-50 overflow-y-auto">
       <div className="flex-1 flex flex-col overflow-hidden">
-        <main className="flex-1 overflow-y-auto p-4 sm:p-6">
+        <main className="flex-1 p-4 sm:p-6">
           <div className="space-y-6">
             {/* Welcome Header */}
             <div className="bg-blue-50 p-4 sm:p-6 rounded-lg border-2 border-blue-200 shadow-sm">
@@ -2041,7 +2067,9 @@ whitespace-nowrap"
                                 </TableCell>
                                 <TableCell className="font-medium text-slate-900 whitespace-nowrap max-w-[120px] overflow-hidden text-ellipsis">
                                   <Link
-                                    href={`/seller/order-view/${order.id}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    href={`../seller/order-view/${order.id}`}
                                     className="hover:underline text-blue-600"
                                   >
                                     {order.orderId}
@@ -2708,6 +2736,7 @@ whitespace-nowrap"
                                                                       "/placeholder.svg" ||
                                                                       "/placeholder.svg" ||
                                                                       "/placeholder.svg" ||
+                                                                      "/placeholder.svg" ||
                                                                       "/placeholder.svg"
                                                                     }
                                                                     alt="Design File"
@@ -2804,6 +2833,7 @@ whitespace-nowrap"
                                                                   <img
                                                                     src={
                                                                       product.linkThanksCard ||
+                                                                      "/placeholder.svg" ||
                                                                       "/placeholder.svg" ||
                                                                       "/placeholder.svg" ||
                                                                       "/placeholder.svg" ||
@@ -3347,6 +3377,7 @@ whitespace-nowrap"
                                                   <img
                                                     src={
                                                       item.linkImg ||
+                                                      "/placeholder.svg" ||
                                                       "/placeholder.svg" ||
                                                       "/placeholder.svg" ||
                                                       "/placeholder.svg" ||

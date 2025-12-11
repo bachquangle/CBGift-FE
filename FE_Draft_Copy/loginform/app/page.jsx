@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { jwtDecode } from "jwt-decode";
 import apiClient from "../lib/apiClient";
-import { Eye, EyeOff } from "lucide-react"; // Thêm import icon
+import { Eye, EyeOff } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -26,12 +26,12 @@ import {
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false); // State cho form login
-  const [showNewPassword, setShowNewPassword] = useState(false); // State cho form reset
+  const [showPassword, setShowPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
 
   const [rememberMe, setRememberMe] = useState(false);
   const [error, setError] = useState("");
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(false); // State quản lý Dialog lỗi
   const [forgotPasswordOpen, setForgotPasswordOpen] = useState(false);
   const [forgotPasswordEmail, setForgotPasswordEmail] = useState("");
   const [successOpen, setSuccessOpen] = useState(false);
@@ -47,6 +47,7 @@ export default function LoginPage() {
 
   const router = useRouter();
 
+  // useEffect cho Forgot Password OTP Countdown
   useEffect(() => {
     let interval;
     if (forgotPasswordStep === "otp" && otpCountdown > 0) {
@@ -62,6 +63,27 @@ export default function LoginPage() {
     return () => clearInterval(interval);
   }, [forgotPasswordStep, otpCountdown]);
 
+  // =========================================================
+  // ✨ USE EFFECT MỚI: Tự động tắt Dialog lỗi sau 5 giây (5000ms)
+  // =========================================================
+  useEffect(() => {
+    let timer;
+    if (open) {
+      // Nếu hộp thoại lỗi đang mở, thiết lập timeout 5 giây
+      timer = setTimeout(() => {
+        setOpen(false); // Tự động đóng hộp thoại
+      }, 5000); // 5000 milliseconds = 5 giây
+    }
+
+    // Cleanup function để xóa timer nếu component unmount hoặc 'open' thay đổi
+    return () => {
+      if (timer) {
+        clearTimeout(timer);
+      }
+    };
+  }, [open]);
+  // =========================================================
+
   const handleLogin = async (e) => {
     e.preventDefault();
     if (!email || !password) {
@@ -71,54 +93,63 @@ export default function LoginPage() {
     }
 
     try {
-      const res = await fetch(`${apiClient.defaults.baseURL}/api/auth/login`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          userNameOrEmail: email,
-          password: password,
-        }),
-        credentials: "include",
+      // 1. Gọi API qua apiClient (đã config withCredentials)
+      const res = await apiClient.post("/api/auth/login", {
+        userNameOrEmail: email,
+        password: password,
       });
 
-      if (!res.ok) {
-        const err = await res.json();
-        setError(err.message || "Login failed");
-        setOpen(true);
-        return;
+      const data = res.data;
+
+      // ... (Phần xử lý token và điều hướng không thay đổi)
+      // 2. Lấy token (Xử lý cả trường hợp viết hoa/thường)
+      const accessToken = data.accessToken || data.AccessToken;
+      const refreshToken = data.refreshToken || data.RefreshToken;
+
+      if (!accessToken) {
+        throw new Error("No token received from server");
       }
 
-      const data = await res.json();
-      const token = data.accessToken;
-
-      if (!token) {
-        setError("No token received from server");
-        setOpen(true);
-        return;
+      // 3. [QUAN TRỌNG] Lưu vào LocalStorage (Để Mobile hoạt động)
+      localStorage.setItem("accessToken", accessToken);
+      if (refreshToken) {
+        localStorage.setItem("refreshToken", refreshToken);
       }
 
-      const decoded = jwtDecode(token);
-      const roles =
-        decoded["http://schemas.microsoft.com/ws/2008/06/identity/claims/role"];
-      const userId =
-        decoded[
-          "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier"
-        ] || decoded.sub;
+      // 4. Giải mã Token
+      const decoded = jwtDecode(accessToken);
 
+      // Lấy Role và UserID (Xử lý các key claim dài dòng của Microsoft)
+      const roleKey =
+        "http://schemas.microsoft.com/ws/2008/06/identity/claims/role";
+      const idKey =
+        "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier";
+
+      const roles = decoded[roleKey] || decoded.role;
+      const userId = decoded[idKey] || decoded.sub;
+
+      // Lưu UserID
       if (userId) localStorage.setItem("userId", userId);
-      if (rememberMe) localStorage.setItem("token", token);
-      else sessionStorage.setItem("token", token);
 
-      if (roles?.includes("Seller")) router.push("/seller/manage-order");
-      else if (roles?.includes("Designer"))
+      // Xử lý Remember Me (Logic phụ)
+      if (rememberMe) localStorage.setItem("rememberMe", "true");
+      else localStorage.removeItem("rememberMe");
+
+      // 5. Điều hướng (Chuyển roles thành mảng để check cho an toàn)
+      const userRoles = Array.isArray(roles) ? roles : [roles];
+
+      if (userRoles.includes("Seller")) router.push("/seller/manage-order");
+      else if (userRoles.includes("Designer"))
         router.push("/designer/design-assign");
-      else if (roles?.includes("Manager")) router.push("/manager/dashboard");
-      else if (roles?.includes("QC")) router.push("/qc/check-product");
-      else if (roles?.includes("Staff")) router.push("/staff/manage-order");
-      else router.push("/");
-    } catch (error) {
-      setError("Something went wrong!");
-      setOpen(true);
+      else if (userRoles.includes("Manager")) router.push("/manager/dashboard");
+      else if (userRoles.includes("QC")) router.push("/qc/check-product");
+      else if (userRoles.includes("Staff")) router.push("/staff/manage-order");
+      else router.push("/"); // Trang chủ mặc định
+    } catch (err) {
+      console.error(err);
+      const msg = err.response?.data?.message || err.message || "Login failed";
+      setError(msg);
+      setOpen(true); // Mở Dialog lỗi
     }
   };
 
@@ -296,7 +327,7 @@ export default function LoginPage() {
                 <div className="relative">
                   <Input
                     type={showPassword ? "text" : "password"}
-                    placeholder="minimum 8 characters"
+                    placeholder="minimum 6 characters"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     className="w-full pr-10"

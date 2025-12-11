@@ -4,7 +4,7 @@ import axios from "axios";
 const apiURL =
   process.env.NEXT_PUBLIC_API_URL ||
   "https://cb-gift-app-xsgw5.ondigitalocean.app";
-// const apiURL = "https://localhost:7015";
+//const apiURL = "https://localhost:7015";
 
 const apiClient = axios.create({
   baseURL: apiURL,

@@ -2416,9 +2416,9 @@ export default function EditOrderPage() {
           <div className="flex items-center justify-center py-8">
             <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600" />
           </div>
-        ) : currentProducts.length > 0 ? (
+        ) : catalogProducts.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {currentProducts.map((product) => (
+            {catalogProducts.map((product) => (
               <div
                 key={product.productId} // Use productId for key
                 className="border rounded-lg overflow-hidden hover:shadow-lg transition cursor-pointer"

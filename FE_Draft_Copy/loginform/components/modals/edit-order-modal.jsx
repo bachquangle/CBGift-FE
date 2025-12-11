@@ -550,7 +550,7 @@ const EditOrderModal = ({ open, onOpenChange, order, onSave }) => {
                       Note: {item.config.note || "None"}
                     </p>
                     <p className="font-semibold text-green-600 mt-2">
-                      ${item.totalPrice?.toFixed(2) || "0.00"}
+                      {item.totalPrice?.toLocaleString()} ₫
                     </p>
                   </div>
                   <Button
@@ -634,10 +634,10 @@ const EditOrderModal = ({ open, onOpenChange, order, onSave }) => {
                     {product.description}
                   </p>
                   <p className="text-green-600 font-semibold mt-2">
-                    From $
+                    From
                     {Math.min(
-                      ...(product.variants?.map((v) => v.totalCost) || [0])
-                    ).toFixed(2)}
+                      ...(product.variants?.map((v) => v.totalCost.toLocaleString()) || [0])
+                    )}₫
                   </p>
                 </CardContent>
               </Card>
@@ -678,8 +678,8 @@ const EditOrderModal = ({ open, onOpenChange, order, onSave }) => {
                         key={variant.productVariantId}
                         value={variant.productVariantId.toString()}
                       >
-                        {variant.sizeInch} - $
-                        {variant.totalCost?.toFixed(2) || "0.00"}
+                        {variant.sizeInch}
+                        {variant.totalCost.toLocaleString()}₫
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -836,7 +836,7 @@ const EditOrderModal = ({ open, onOpenChange, order, onSave }) => {
             {cartProducts.length} products in cart
           </p>
           <p className="text-lg font-bold text-green-600">
-            Total: ${calculateOrderTotal().toFixed(2)}
+            Total: {calculateOrderTotal().toLocaleString()}₫
           </p>
         </CardContent>
       </Card>
@@ -883,10 +883,10 @@ const EditOrderModal = ({ open, onOpenChange, order, onSave }) => {
               <p className="font-semibold">{item.productName}</p>
               <p className="text-gray-600">
                 Qty: {item.config.quantity} × $
-                {(item.totalPrice / item.config.quantity).toFixed(2)}
+                {(item.totalPrice / item.config.quantity).toLocaleString()}₫
               </p>
               <p className="font-semibold text-green-600">
-                ${item.totalPrice?.toFixed(2) || "0.00"}
+                {item.totalPrice?.toLocaleString()}₫
               </p>
             </div>
           ))}
@@ -897,7 +897,7 @@ const EditOrderModal = ({ open, onOpenChange, order, onSave }) => {
         <CardContent className="pt-4">
           <p className="text-sm text-gray-600">Order Total</p>
           <p className="text-3xl font-bold text-green-600">
-            ${calculateOrderTotal().toFixed(2)}
+            {calculateOrderTotal().toLocaleString()}₫
           </p>
         </CardContent>
       </Card>
@@ -915,7 +915,7 @@ const EditOrderModal = ({ open, onOpenChange, order, onSave }) => {
           <ul className="text-sm text-blue-800 space-y-1">
             <li>✓ Customer information updated</li>
             <li>✓ Products configured: {cartProducts.length} item(s)</li>
-            <li>✓ Total order amount: ${calculateOrderTotal().toFixed(2)}</li>
+            <li>✓ Total order amount: {calculateOrderTotal().toLocaleString()}₫</li>
           </ul>
         </CardContent>
       </Card>
@@ -929,7 +929,7 @@ const EditOrderModal = ({ open, onOpenChange, order, onSave }) => {
             Current payment status will be maintained
           </p>
           <p className="text-sm font-semibold">
-            New Total: ${calculateOrderTotal().toFixed(2)}
+            New Total: {calculateOrderTotal().toLocaleString()}₫
           </p>
         </CardContent>
       </Card>

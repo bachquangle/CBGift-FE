@@ -1838,7 +1838,7 @@ export default function EditOrderPage() {
                   <span>
                     BaseCost:{" "}
                     <span className="font-medium">
-                      ${item.baseCost?.toFixed(2)}
+                      {item.baseCost?.toLocaleString()}₫
                     </span>
                   </span>
                 </div>
@@ -1951,7 +1951,7 @@ export default function EditOrderPage() {
                           key={v.productVariantId}
                           value={v.productVariantId.toString()}
                         >
-                          {v.sizeInch} - ${v.baseCost.toFixed(2)}
+                          {v.sizeInch} - ${v.baseCost.toLocaleString()}₫
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -2312,10 +2312,9 @@ export default function EditOrderPage() {
                   {/* Displaying minimum variant price as product price */}
                   {product.variants && product.variants.length > 0 && (
                     <p className="text-sm font-bold text-blue-600 mt-1">
-                      $
                       {Math.min(
                         ...product.variants.map((v) => v.totalCost)
-                      ).toFixed(2)}
+                      ).toLocaleString()}₫
                     </p>
                   )}
                 </div>
@@ -2467,7 +2466,7 @@ export default function EditOrderPage() {
                         key={v.productVariantId}
                         value={v.productVariantId.toString()}
                       >
-                        {v.sizeInch} - ${v.baseCost.toFixed(2)}
+                        {v.sizeInch} - ${v.baseCost.toLocaleString()}₫
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -2759,7 +2758,7 @@ export default function EditOrderPage() {
                   key={v.productVariantId}
                   value={v.productVariantId.toString()}
                 >
-                  {v.sizeInch} - ${v.baseCost.toFixed(2)}
+                  {v.sizeInch} - ${v.baseCost.toLocaleString()}₫
                 </SelectItem>
               ))}
             </SelectContent>
@@ -3000,28 +2999,27 @@ export default function EditOrderPage() {
             <div className="flex justify-between items-center text-sm">
               <span className="text-slate-600">Base Cost:</span>
               <span className="font-medium text-slate-900">
-                ${getCostDetails().baseCost.toFixed(2)}
+                {getCostDetails().baseCost.toLocaleString()}₫
               </span>
             </div>
             <div className="flex justify-between items-center text-sm">
               <span className="text-slate-600">Ship Cost:</span>
               <span className="font-medium text-slate-900">
-                ${getCostDetails().shipCost.toFixed(2)}
+                {getCostDetails().shipCost.toLocaleString()}₫
               </span>
             </div>
             <div className="flex justify-between items-center text-sm">
               <span className="text-slate-600">Extra Shipping (per unit):</span>
               <span className="font-medium text-slate-900">
-                ${getCostDetails().extraShipping.toFixed(2)}
+                {getCostDetails().extraShipping.toLocaleString()}₫
               </span>
             </div>
             <div className="border-t border-slate-300 pt-3 mt-3 flex justify-between items-center bg-white bg-opacity-60 p-3 rounded">
               <span className="font-semibold text-slate-900">Unit Price:</span>
               <span className="font-bold text-blue-600 text-base">
-                $
                 {(
                   getCostDetails().baseCost + getCostDetails().shipCost
-                ).toFixed(2)}
+                ).toLocaleString()}₫
               </span>
             </div>
           </div>
@@ -3035,11 +3033,7 @@ export default function EditOrderPage() {
                 Product Price:
               </span>
               <span className="text-xl font-bold text-blue-600">
-                $
-                {Number(calculateProductPrice()).toLocaleString("en-US", {
-                  minimumFractionDigits: 2,
-                  maximumFractionDigits: 2,
-                })}
+                {Number(calculateProductPrice()).toLocaleString("vi-VN")}₫
               </span>
             </div>
           </div>
@@ -3275,7 +3269,7 @@ export default function EditOrderPage() {
                       {item.name} (Qty: {item.qty}):
                     </span>
                     <span className="text-gray-900">
-                      ${item.baseCost.toFixed(2)}
+                      {item.baseCost.toLocaleString()}₫
                     </span>
                   </div>
                 ))}
@@ -3284,13 +3278,12 @@ export default function EditOrderPage() {
                     Base Ship Cost (Existing):
                   </span>
                   <span className="text-gray-900">
-                    $
                     {Math.max(
                       ...getDetailedCostBreakdown().existingItems.map(
                         (i) => i.shipCost
                       ),
                       0
-                    ).toFixed(2)}
+                    ).toLocaleString()}₫
                   </span>
                 </div>
               </div>
@@ -3314,26 +3307,26 @@ export default function EditOrderPage() {
                     </p>
                     <div className="flex justify-between text-sm ml-3">
                       <span className="text-gray-600">
-                        Base Cost ({item.baseCost.toFixed(2)} x {item.qty}):
+                        Base Cost ({item.baseCost.toLocaleString()}₫ x {item.qty}):
                       </span>
                       <span className="font-medium text-gray-900">
-                        ${item.totalBaseCost.toFixed(2)}
+                        {item.totalBaseCost.toLocaleString()}₫
                       </span>
                     </div>
                     <div className="flex justify-between text-sm ml-3">
                       <span className="text-gray-600">Ship Cost:</span>
                       <span className="font-medium text-gray-900">
-                        ${item.shipCost.toFixed(2)}
+                        {item.shipCost.toLocaleString()}₫
                       </span>
                     </div>
                     {item.extraShipping > 0 && item.qty > 1 && (
                       <div className="flex justify-between text-sm ml-3">
                         <span className="text-gray-600">
-                          Extra Shipping ({item.extraShipping.toFixed(2)} x{" "}
+                          Extra Shipping ({item.extraShipping.toLocaleString()}₫ x{" "}
                           {item.qty - 1}):
                         </span>
                         <span className="font-medium text-gray-900">
-                          ${(item.extraShipping * (item.qty - 1)).toFixed(2)}
+                          {(item.extraShipping * (item.qty - 1)).toLocaleString()}₫
                         </span>
                       </div>
                     )}
@@ -3350,7 +3343,7 @@ export default function EditOrderPage() {
                 Total Base Cost (All Items):
               </span>
               <span className="text-gray-900">
-                ${getDetailedCostBreakdown().totalBaseCost.toFixed(2)}
+                {getDetailedCostBreakdown().totalBaseCost.toLocaleString()}₫
               </span>
             </div>
             <div className="flex justify-between text-sm font-medium">
@@ -3358,7 +3351,7 @@ export default function EditOrderPage() {
                 Base Ship Cost (Max from all):
               </span>
               <span className="text-gray-900">
-                ${getDetailedCostBreakdown().maxShipCost.toFixed(2)}
+                {getDetailedCostBreakdown().maxShipCost.toLocaleString()}₫
               </span>
             </div>
             {getDetailedCostBreakdown().extraShippingTotal > 0 && (
@@ -3368,14 +3361,14 @@ export default function EditOrderPage() {
                   {getDetailedCostBreakdown().maxExtraProductName}):
                 </span>
                 <span className="text-gray-900">
-                  ${getDetailedCostBreakdown().extraShippingTotal.toFixed(2)}
+                  {getDetailedCostBreakdown().extraShippingTotal.toLocaleString()}₫
                 </span>
               </div>
             )}
             <div className="border-t border-gray-200 pt-3 flex justify-between text-base font-bold">
               <span className="text-gray-900">Order Total:</span>
               <span className="text-blue-600 text-lg">
-                ${getDetailedCostBreakdown().orderTotal.toFixed(2)}
+                {getDetailedCostBreakdown().orderTotal.toLocaleString()}₫
               </span>
             </div>
           </div>
@@ -3397,7 +3390,7 @@ export default function EditOrderPage() {
           </div>
 
           <Label className="text-lg font-semibold text-blue-700">
-            Total Order: ${calculateOrderTotal().toFixed(2)}
+            Total Order: {calculateOrderTotal().toLocaleString()}₫
           </Label>
         </div>
       </div>
@@ -3521,7 +3514,7 @@ export default function EditOrderPage() {
                     <div className="flex-shrink-0 ml-4">
                       {/* Hiển thị giá tổng (price) đã lưu trong currentOrderProducts */}
                       <p className="font-medium text-gray-900">
-                        ${item.baseCost?.toFixed(2) || "0.00"}
+                        {item.baseCost?.toLocaleString() || "0"}₫
                       </p>
                     </div>
                   </div>
@@ -3558,7 +3551,7 @@ export default function EditOrderPage() {
                     <div className="flex-shrink-0 ml-4">
                       {/* Hiển thị totalPrice đã tính trong handleAddToCart */}
                       <p className="font-medium text-gray-900">
-                        ${item.totalPrice.toFixed(2)}
+                        {item.totalPrice.toLocaleString()}₫
                       </p>
                     </div>
                   </div>
@@ -3575,7 +3568,7 @@ export default function EditOrderPage() {
               Total Order:
             </span>
             <span className="text-2xl font-bold text-green-700">
-              ${finalTotal.toFixed(2)}
+              {finalTotal.toLocaleString()}₫
             </span>
           </div>
         </div>

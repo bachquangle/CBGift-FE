@@ -269,7 +269,6 @@ export default function ManageAccount() {
 
   const handleToggleBan = async (accountId) => {
     try {
-      // Tìm user trong list
       const target = accounts.find((a) => a.id === accountId);
       if (!target) return;
 
@@ -282,29 +281,8 @@ export default function ManageAccount() {
         isActive: newIsActive,
       };
 
-      console.log(
-        "[v0] Toggling ban status with PUT to /api/management/accounts:",
-        payload
-      );
+      await apiClient.put("/api/management/accounts", payload);
 
-      const response = await fetch(
-        `${apiClient.defaults.baseURL}/api/management/accounts`,
-        {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify(payload),
-        }
-      );
-
-      const responseData = await response.json();
-      console.log("[v0] ToggleBan response:", responseData);
-
-      if (!response.ok) {
-        throw new Error(responseData.message || `HTTP ${response.status}`);
-      }
-
-      // Cập nhật trạng thái trong UI
       setAccounts((prev) =>
         prev.map((a) =>
           a.id === accountId
@@ -313,7 +291,6 @@ export default function ManageAccount() {
         )
       );
 
-      // Nếu modal đang mở cho user này -> cập nhật luôn
       if (selectedAccount && selectedAccount.id === accountId) {
         setSelectedAccount((prev) => ({
           ...prev,
@@ -321,13 +298,17 @@ export default function ManageAccount() {
         }));
       }
 
-      // Hiển thị log thành công
-      console.log("[v0] Ban/unban updated successfully.");
+      setSuccessMessage(
+        newIsActive
+          ? "Account unbanned successfully"
+          : "Account banned successfully"
+      );
+      
+      setShowConfirmDialog(false);
+      setShowSuccessDialog(true);
+
     } catch (err) {
-      console.error("[v0] Error in handleToggleBan:", err);
-    } finally {
-      // Sau khi đổi xong, reload lại list từ server để đảm bảo sync DB
-      await fetchAccounts();
+      console.error(err);
     }
   };
 
@@ -378,7 +359,6 @@ export default function ManageAccount() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">All Roles</SelectItem>
-                      <SelectItem value="manager">Manager</SelectItem>
                       <SelectItem value="designer">Designer</SelectItem>
                       <SelectItem value="qc">QC</SelectItem>
                       <SelectItem value="seller">Seller</SelectItem>

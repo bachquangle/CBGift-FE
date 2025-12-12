@@ -20,7 +20,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { ChevronDown, ChevronRight } from "lucide-react";
+import { ChevronDown, ChevronRight, Plus, Trash2 } from "lucide-react";
 
 export default function ProductDetailsModal({
   product,
@@ -94,6 +94,45 @@ export default function ProductDetailsModal({
     const updated = [...formData.variants];
     updated[index] = { ...updated[index], [field]: value };
     setFormData((prev) => ({ ...prev, variants: updated }));
+  };
+
+  const addVariant = () => {
+    setFormData((prev) => ({
+      ...prev,
+      variants: [
+        ...prev.variants,
+        {
+          sizeInch: "",
+          layer: "",
+          thicknessMm: "",
+          customShape: "",
+          weightGram: "",
+          lengthCm: "",
+          widthCm: "",
+          heightCm: "",
+          baseCost: "",
+          shipCost: "",
+          extraShipping: "",
+          sku: "SKU-" + Date.now() + "-" + Math.floor(Math.random() * 9999999),
+        },
+      ],
+    }));
+  };
+
+  const removeVariant = (index) => {
+    if (formData.variants.length === 1) {
+      toast({
+        title: "Cannot Remove",
+        description: "Product must have at least one variant.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setFormData((prev) => ({
+      ...prev,
+      variants: prev.variants.filter((_, i) => i !== index),
+    }));
   };
 
   // ------------------------ IMAGE UPLOAD ------------------------
@@ -338,7 +377,21 @@ export default function ProductDetailsModal({
 
           {/* VARIANTS */}
           <div className="bg-gray-50 p-4 rounded-lg">
-            <h4 className="font-semibold mb-2">Product Variants</h4>
+            <div className="flex justify-between items-center mb-3">
+              <h4 className="font-semibold">Product Variants</h4>
+
+              {isEditing && (
+                <Button
+                  type="button"
+                  onClick={addVariant}
+                  className="bg-green-600 hover:bg-green-700"
+                  size="sm"
+                >
+                  <Plus className="h-4 w-4 mr-1" />
+                  Add Variant
+                </Button>
+              )}
+            </div>
 
             {formData.variants.map((v, index) => (
               <div
@@ -346,6 +399,7 @@ export default function ProductDetailsModal({
                 className="border rounded-lg mb-2"
               >
                 <button
+                  type="button"
                   className="flex justify-between items-center w-full p-3 bg-white hover:bg-gray-100 rounded-lg"
                   onClick={() =>
                     setExpandedVariant(expandedVariant === index ? null : index)
@@ -355,11 +409,27 @@ export default function ProductDetailsModal({
                     Variant #{index + 1} — SKU: {v.sku}
                   </span>
 
-                  {expandedVariant === index ? (
-                    <ChevronDown />
-                  ) : (
-                    <ChevronRight />
-                  )}
+                  <div className="flex items-center gap-2">
+                    {isEditing && formData.variants.length > 1 && (
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          removeVariant(index);
+                        }}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    )}
+
+                    {expandedVariant === index ? (
+                      <ChevronDown />
+                    ) : (
+                      <ChevronRight />
+                    )}
+                  </div>
                 </button>
 
                 {expandedVariant === index && (
@@ -393,6 +463,17 @@ export default function ProductDetailsModal({
                       <Label>Total Cost</Label>
                       <Input disabled value={v.totalCost ?? ""} />
                     </div>
+
+                    <div>
+                      <Label>SKU</Label>
+                      <Input
+                        disabled={!isEditing}
+                        value={v.sku ?? ""}
+                        onChange={(e) =>
+                          handleVariantChange(index, "sku", e.target.value)
+                        }
+                      />
+                    </div>
                   </div>
                 )}
               </div>
@@ -404,13 +485,6 @@ export default function ProductDetailsModal({
             <Button variant="outline" onClick={onClose}>
               Close
             </Button>
-
-            {/* <Button
-              variant={formData.status === "Active" ? "destructive" : "default"}
-              onClick={handleStatusToggle}
-            >
-              {formData.status === "Active" ? "Deactivate" : "Activate"}
-            </Button> */}
 
             {isEditing ? (
               <>

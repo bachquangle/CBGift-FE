@@ -1864,13 +1864,18 @@ export default function MakeManualModal({ isOpen, onClose }) {
             value={currentProductConfig.quantity}
             onChange={(e) => {
               const val = e.target.value;
+
+              // Chỉ nhận số
               if (/^\d*$/.test(val)) {
                 const num = Number.parseInt(val, 10);
+
                 if (isNaN(num) || num < 1 || num > 20) {
-                  alert("Quantity cannot be more than 20.");
+                  setErrorMessage("Quantity cannot be more than 20.");
+                  setShowErrorDialog(true);
                   return;
                 }
 
+                // Giá trị hợp lệ
                 setCurrentProductConfig((prev) => ({
                   ...prev,
                   quantity: num,

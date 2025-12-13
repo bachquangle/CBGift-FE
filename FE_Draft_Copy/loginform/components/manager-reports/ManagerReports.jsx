@@ -123,10 +123,10 @@ export default function ManagerReports() {
       />
 
       {/* --- SECTION 1: KPIs --- */}
-      <div className="mb-8 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="mb-8 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
         {loadingKpi || !kpis ? (
           // Skeleton Loading cho 4 cards
-          [...Array(4)].map((_, i) => <Skeleton key={i} className="h-32 bg-white border border-gray-200" />)
+          [...Array(3)].map((_, i) => <Skeleton key={i} className="h-32 bg-white border border-gray-200" />)
         ) : (
           <>
             <KPICard
@@ -153,14 +153,14 @@ export default function ManagerReports() {
               trend="Approved Refunds"
               color="red"
             />
-            <KPICard
+            {/* <KPICard
               title="Reprint Rate"
               value={`${kpis.reprintRate}%`}
               subtitle="Operational Efficiency"
               icon={AlertCircle}
               trend="Based on Orders"
               color="orange"
-            />
+            /> */}
           </>
         )}
       </div>

@@ -1611,9 +1611,9 @@ export default function ManageOrder() {
       }
 
       const isDraft =
-        order.statusOrder === "Draft (Nháp)" || order.statusOrder === 0;
+        order.status === "DRAFT" || order.statusOrder === 0;
       const allProductsHaveDesign = hasDesignFile(order);
-
+      console.log(`Order ${orderId} - isDraft: ${isDraft}, allProductsHaveDesign: ${allProductsHaveDesign}`);
       if (!isDraft || !allProductsHaveDesign) {
         failedValidationOrders.push(orderId);
       }

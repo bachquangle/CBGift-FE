@@ -29,18 +29,18 @@ export default function KPICards({ kpis }) {
       color: "bg-orange-50 text-orange-600",
       borderColor: "border-l-4 border-orange-500",
     },
-    {
-      title: "Avg. Fulfillment Time",
-      value: `${kpis.avgFulfillmentTime.toFixed(1)} days`,
-      subtitle: "Created to shipped",
-      icon: Clock,
-      color: "bg-green-50 text-green-600",
-      borderColor: "border-l-4 border-green-500",
-    },
+    // {
+    //   title: "Avg. Fulfillment Time",
+    //   value: `${kpis.avgFulfillmentTime.toFixed(1)} days`,
+    //   subtitle: "Created to shipped",
+    //   icon: Clock,
+    //   color: "bg-green-50 text-green-600",
+    //   borderColor: "border-l-4 border-green-500",
+    // },
   ]
 
   return (
-    <div className="mb-8 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
+    <div className="mb-8 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
       {cards.map((card, index) => {
         const Icon = card.icon
         return (

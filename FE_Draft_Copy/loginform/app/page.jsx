@@ -4,7 +4,6 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Checkbox } from "@/components/ui/checkbox";
 import { jwtDecode } from "jwt-decode";
 import apiClient from "../lib/apiClient";
 import { Eye, EyeOff } from "lucide-react";
@@ -141,7 +140,8 @@ export default function LoginPage() {
       if (userRoles.includes("Seller")) router.push("/seller/manage-order");
       else if (userRoles.includes("Designer"))
         router.push("/designer/design-assign");
-      else if (userRoles.includes("Manager")) router.push("/manager/manage-account");
+      else if (userRoles.includes("Manager"))
+        router.push("/manager/manage-account");
       else if (userRoles.includes("QC")) router.push("/qc/check-product");
       else if (userRoles.includes("Staff")) router.push("/staff/manage-order");
       else router.push("/"); // Trang chủ mặc định
@@ -290,98 +290,93 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex">
-      {/* Left side - Login Form */}
-      <div className="w-full lg:w-1/2 flex items-center justify-center p-8">
-        <div className="w-full max-w-md space-y-6">
-          <div className="flex items-center space-x-2 mb-8">
-            <div className="w-8 h-8 bg-cyan-400 rounded"></div>
-          </div>
-
-          <div className="space-y-6">
-            <div>
-              <h1 className="text-2xl font-semibold text-gray-900">Login</h1>
-              <p className="text-gray-600 mt-1">
-                See your growth and get support!
-              </p>
+    <div className="min-h-screen bg-white flex items-center justify-center p-4">
+      <div className="w-full max-w-md">
+        {/* Logo and Title */}
+        <div className="text-center mb-8">
+          <div className="flex items-center justify-center mb-6">
+            <div className="w-14 h-14 rounded-xl overflow-hidden flex items-center justify-center bg-gradient-to-br from-purple-500 via-pink-500 to-orange-500">
+              <img
+                src="/Logo.jpg"
+                alt="CBGift Logo"
+                className="w-10 h-10 object-contain"
+              />
             </div>
 
-            <form onSubmit={handleLogin} className="space-y-4">
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700">
-                  Email*
-                </label>
-                <Input
-                  type="email"
-                  placeholder="Enter your email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700">
-                  Password*
-                </label>
-                <div className="relative">
-                  <Input
-                    type={showPassword ? "text" : "password"}
-                    placeholder="minimum 6 characters"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="w-full pr-10"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
-                  >
-                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                  </button>
-                </div>
-              </div>
-
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="remember"
-                    checked={rememberMe}
-                    onCheckedChange={setRememberMe}
-                  />
-                  <label htmlFor="remember" className="text-sm text-gray-600">
-                    Remember me
-                  </label>
-                </div>
-                <button
-                  type="button"
-                  onClick={handleForgotPasswordClick}
-                  className="text-sm text-gray-600 hover:text-gray-800"
-                >
-                  Forgot password?
-                </button>
-              </div>
-
-              <Button
-                type="submit"
-                className="w-full bg-gray-900 hover:bg-gray-800 text-white py-3"
-              >
-                Login
-              </Button>
-            </form>
+            <h1 className="text-4xl font-bold text-gray-900 ml-3">CBGift</h1>
           </div>
+          <p className="text-lg text-gray-700 font-medium">
+            Log in with your CBGift account
+          </p>
         </div>
-      </div>
 
-      {/* Right side - Illustration */}
-      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-blue-50 to-purple-50 items-center justify-center p-8">
-        <div className="w-full max-w-lg">
-          <img
-            src="/isometric-3d-illustration-of-people-working-with-d.jpg"
-            alt="Illustration"
-            className="w-full h-auto"
-          />
-        </div>
+        {/* Login Form */}
+        <form onSubmit={handleLogin} className="space-y-5">
+          <div className="space-y-2">
+            <label className="text-xs font-semibold text-gray-700 uppercase tracking-wide">
+              Email
+            </label>
+            <Input
+              type="email"
+              placeholder="Your@gmail.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full h-12 px-4 border-gray-300 rounded-lg"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-semibold text-gray-700 uppercase tracking-wide">
+                Password
+              </label>
+            </div>
+            <div className="relative">
+              <Input
+                type={showPassword ? "text" : "password"}
+                placeholder="******"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full h-12 px-4 pr-12 border-gray-300 rounded-lg"
+              />
+
+              {/* eye icon */}
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+              >
+                {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+              </button>
+            </div>
+
+            {/* reset password */}
+            <div className="flex justify-end mt-2">
+              <button
+                type="button"
+                onClick={handleForgotPasswordClick}
+                className="text-xs font-medium text-gray-600 hover:text-gray-900 uppercase tracking-wide"
+              >
+                Forgot Your Password ?
+              </button>
+            </div>
+          </div>
+
+          <Button
+            type="submit"
+            className="w-full h-12 bg-gray-900 hover:bg-gray-800 text-white font-semibold text-sm uppercase tracking-wide rounded-lg"
+          >
+            Log In
+          </Button>
+        </form>
+
+        {/* Sign Up Link */}
+        {/* <p className="text-center text-sm text-gray-600 mt-6">
+          Don't have an account?{" "}
+          <a href="#" className="text-gray-900 font-semibold hover:underline">
+            Sign Up
+          </a>
+        </p> */}
       </div>
 
       {/* Dialog Forgot Password */}

@@ -317,10 +317,10 @@ export default function OrderDetailPage() {
 
               <InfoCard title="Cost Breakdown">
                 <InfoGrid items={[
-                  { label: "Base Cost", value: `$${orderDetail.productVariant?.baseCost.toFixed(2)}` },
-                  { label: "Ship Cost", value: `$${orderDetail.productVariant?.shipCost.toFixed(2)}` },
-                  { label: "Extra Shipping", value: `$${orderDetail.productVariant?.extraShipping.toFixed(2)}` },
-                  { label: "Total Cost", value: `$${orderDetail.productVariant?.totalCost.toFixed(2)}`, className: "font-semibold text-lg" },
+                  { label: "Base Cost", value: `$${orderDetail.productVariant?.baseCost.toLocaleString("vi-VN")}` },
+                  { label: "Ship Cost", value: `$${orderDetail.productVariant?.shipCost.toLocaleString("vi-VN")}` },
+                  { label: "Extra Shipping", value: `$${orderDetail.productVariant?.extraShipping.toLocaleString("vi-VN")}` },
+                  { label: "Total Cost", value: `$${orderDetail.productVariant?.totalCost.toLocaleString("vi-VN")}`, className: "font-semibold text-lg" },
                 ]} />
               </InfoCard>
 

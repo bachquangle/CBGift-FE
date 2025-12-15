@@ -801,7 +801,7 @@ aria-label={`Select order ${order.orderId}`}
                                 {order.email}
                               </TableCell>
 <TableCell className="text-slate-900 font-semibold whitespace-nowrap">
-                                ${order.totalCost?.toFixed(2) || "0.00"}
+                                {order.totalCost?.toLocaleString("vi-VN") || "0.00"}VND
 </TableCell>
                               <TableCell className="whitespace-nowrap">
                                 {/* Hiển thị Status Badge */}
@@ -1207,9 +1207,9 @@ flex-col sm:flex-row sm:justify-between gap-1">
                       <div className="flex flex-col sm:flex-row sm:justify-between gap-1">
                         <span className="text-gray-600">Total Cost:</span>
 <span className="font-semibold">
-                          $
-                          {selectedOrderDetails.totalCost?.toFixed(2) ||
-"0.00"}
+                          
+                          {selectedOrderDetails.totalCost?.toLocaleString("vi-VN") ||
+"0"} VND
                         </span>
                       </div>
                     </div>
@@ -1245,10 +1245,8 @@ flex-col sm:flex-row sm:justify-between gap-1">
 </span>
                       </div>
                       <div className="flex flex-col sm:flex-row sm:justify-between gap-1">
-                        <span className="text-gray-600">Active TTS:</span>
-<span className="font-medium">
-                          {selectedOrderDetails.activeTTS ? "Yes" : "No"}
-</span>
+                       
+
                       </div>
                     </div>
                   </div>

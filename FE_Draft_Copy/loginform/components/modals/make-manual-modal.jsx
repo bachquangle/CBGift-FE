@@ -347,47 +347,63 @@ export default function MakeManualModal({ isOpen, onClose }) {
     }
   };
   const uploadImage = async (file, onProgress) => {
-    const formData = new FormData();
-    formData.append("File", file);
+  const formData = new FormData();
+  formData.append("File", file);
 
-    try {
-      // Simulate progress updates
-      let currentProgress = 0;
-      const progressInterval = setInterval(() => {
-        if (currentProgress < 90) {
-          currentProgress += Math.random() * 30;
-          if (onProgress) onProgress(Math.min(currentProgress, 90));
-        }
-      }, 200);
+  try {
+    let currentProgress = 0;
+    const progressInterval = setInterval(() => {
+      if (currentProgress < 90) {
+        currentProgress += Math.random() * 30;
+        onProgress?.(Math.min(currentProgress, 90));
+      }
+    }, 200);
 
-      const res = await fetch(
-        `${apiClient.defaults.baseURL}/api/images/upload`,
-        {
-          method: "POST",
-          credentials: "include",
-          body: formData,
-        }
-      );
+    const res = await fetch(
+      `${apiClient.defaults.baseURL}/api/images/upload`,
+      {
+        method: "POST",
+        credentials: "include",
+        body: formData,
+      }
+    );
 
-      clearInterval(progressInterval);
+    clearInterval(progressInterval);
 
-      if (!res.ok) {
-        const errText = await res.text();
-        throw new Error(`Upload failed: ${res.status} - ${errText}`);
+    if (!res.ok) {
+      let errorMessage = "Upload failed";
+
+      try {
+        const errorData = await res.json();
+
+        // 🔥 ƯU TIÊN message TỪ BE
+        errorMessage =
+          errorData.message ||
+          errorData.detail ||
+          errorData.error ||
+          "Upload failed";
+      } catch {
+        const text = await res.text();
+        errorMessage = text || "Upload failed";
       }
 
-      const data = await res.json();
-      if (onProgress) onProgress(100);
-      console.log("Upload success:", data);
-      return data.url || data.secureUrl || data.path || null;
-    } catch (err) {
-      console.error("Upload error:", err);
-      setErrorMessage("Upload failed: " + err.message);
-      setShowErrorDialog(true);
-      return null;
+      throw new Error(errorMessage);
     }
-  };
 
+    const data = await res.json();
+    onProgress?.(100);
+
+    return data.url || data.secureUrl || data.path || null;
+  } catch (err) {
+    console.error("Upload error:", err);
+
+    // ✅ HIỂN THỊ ĐÚNG MESSAGE BE
+    setErrorMessage(err.message);
+    setShowErrorDialog(true);
+
+    return null;
+  }
+  };
   const calculateProductPrice = () => {
     if (!currentProduct) return 0;
 
@@ -611,10 +627,20 @@ export default function MakeManualModal({ isOpen, onClose }) {
   };
 
   const handleNameInput = (value) => {
-    // Allow only letters (Vietnamese), numbers, and spaces
-    const sanitized = value.replace(/[^a-zA-Z0-9À-ỹ\s]/g, "");
-    handleTrimmedInput("name", sanitized);
+  let sanitized = value
+    // Chỉ cho chữ tiếng Việt + khoảng trắng
+    .replace(/[^\p{L}\s]/gu, "")
+    // Nhiều space -> 1 space
+    .replace(/\s+/g, " ")
+    // Không cho space đầu
+    .replace(/^\s+/, "");
+
+  setCustomerInfo((prev) => ({
+    ...prev,
+    name: sanitized,
+  }));
   };
+
 
   const handlePhoneInput = (value) => {
     // Allow only digits and spaces
@@ -639,69 +665,92 @@ export default function MakeManualModal({ isOpen, onClose }) {
   };
 
   const handleFileUpload = async (field, event) => {
-    const file = event.target.files[0];
-    if (!file) return;
+  const input = event.target;
+  const file = input.files?.[0];
+  if (!file) return;
 
-    // ✅ Chỉ cho phép ảnh JPG/JPEG/PNG
-    const allowedTypes = ["image/jpeg", "image/jpg", "image/png"];
-    if (!allowedTypes.includes(file.type)) {
-      setErrorMessage(
-        "❌ Invalid file type. Only JPG, JPEG, and PNG files are allowed."
-      );
-      setShowErrorDialog(true);
-      event.target.value = ""; // clear input
-      return;
-    }
+  // ✅ Reset helper
+  const resetInput = () => {
+    input.value = "";
+  };
 
-    try {
+  // 1️⃣ Validate type
+  const allowedTypes = ["image/jpeg", "image/jpg", "image/png"];
+  if (!allowedTypes.includes(file.type)) {
+    setErrorMessage("❌ Only JPG, JPEG, PNG files are allowed.");
+    setShowErrorDialog(true);
+    resetInput();
+    return;
+  }
+
+  // 2️⃣ Validate file name (cho tiếng Việt + khoảng trắng, cấm ký tự đặc biệt)
+  const validNameRegex = /^[\p{L}0-9 _\-.]+$/u;
+  if (!validNameRegex.test(file.name)) {
+    setErrorMessage(
+      "❌ File name is invalid. Do not use special characters like # @ $ % ^ & *"
+    );
+    setShowErrorDialog(true);
+    resetInput();
+    return;
+  }
+
+  try {
+    setUploadProgress((prev) => ({
+      ...prev,
+      [field]: { isUploading: true, progress: 0 },
+    }));
+
+    const uploadedUrl = await uploadImage(file, (progress) => {
       setUploadProgress((prev) => ({
         ...prev,
-        [field]: { isUploading: true, progress: 0 },
+        [field]: { isUploading: true, progress },
       }));
+    });
 
-      const uploadedUrl = await uploadImage(file, (progress) => {
-        setUploadProgress((prev) => ({
-          ...prev,
-          [field]: { isUploading: true, progress },
-        }));
-      });
-
-      if (uploadedUrl) {
-        setCurrentProductConfig((prev) => ({
-          ...prev,
-          [field]: uploadedUrl,
-        }));
-
-        // preview image (optional)
-        const previewUrl = URL.createObjectURL(file);
-        setCurrentProductConfig((prev) => ({
-          ...prev,
-          [`${field}Preview`]: previewUrl,
-        }));
-
-        setUploadProgress((prev) => ({
-          ...prev,
-          [field]: { isUploading: false, progress: 100 },
-        }));
-
-        // Clear progress after a brief delay
-        setTimeout(() => {
-          setUploadProgress((prev) => ({
-            ...prev,
-            [field]: { isUploading: false, progress: 0 },
-          }));
-        }, 500);
-      }
-    } catch (error) {
-      console.error("Upload error:", error);
-      setErrorMessage("⚠️ Upload failed. Please try again.");
-      setShowErrorDialog(true);
+    // ❌ BE trả lỗi nhưng không throw
+    if (!uploadedUrl) {
+      resetInput();
       setUploadProgress((prev) => ({
         ...prev,
         [field]: { isUploading: false, progress: 0 },
       }));
+      return;
     }
+
+    // ✅ Success
+    setCurrentProductConfig((prev) => ({
+      ...prev,
+      [field]: uploadedUrl,
+      [`${field}Preview`]: URL.createObjectURL(file),
+    }));
+
+    setUploadProgress((prev) => ({
+      ...prev,
+      [field]: { isUploading: false, progress: 100 },
+    }));
+
+    setTimeout(() => {
+      setUploadProgress((prev) => ({
+        ...prev,
+        [field]: { isUploading: false, progress: 0 },
+      }));
+    }, 500);
+  } catch (err) {
+    console.error("Upload error:", err);
+
+    setErrorMessage(err.message || "⚠️ Upload failed.");
+    setShowErrorDialog(true);
+
+    // 🔥 RẤT QUAN TRỌNG
+    resetInput();
+
+    setUploadProgress((prev) => ({
+      ...prev,
+      [field]: { isUploading: false, progress: 0 },
+    }));
+  }
   };
+
 
   const handleProductSelect = async (product) => {
     const id = product?.id ?? product?.productId;
@@ -1466,10 +1515,8 @@ export default function MakeManualModal({ isOpen, onClose }) {
 
                     <p className="text-sm font-bold text-blue-600">
                       {minCost === maxCost
-                        ? `${minCost.toFixed(2)} VND`
-                        : `${minCost.toFixed(2)} VND - ${maxCost.toFixed(
-                            2
-                          )} VND`}
+                        ? `${minCost.toLocaleString("vi-VN")} VND`
+                        : `${minCost.toLocaleString("vi-VN")} VND - ${maxCost.toLocaleString("vi-VN")} VND`}
                     </p>
                   </div>
                 );
@@ -1938,7 +1985,7 @@ export default function MakeManualModal({ isOpen, onClose }) {
                 VND
               </span>
             </div>
-            <div className="border-t border-slate-200 pt-2 flex justify-between">
+            {/* <div className="border-t border-slate-200 pt-2 flex justify-between">
               <span className="font-semibold text-gray-900">Unit Price:</span>
               <span className="font-bold text-blue-600 text-lg">
                 {new Intl.NumberFormat("vi-VN").format(
@@ -1946,7 +1993,7 @@ export default function MakeManualModal({ isOpen, onClose }) {
                 )}{" "}
                 VND
               </span>
-            </div>
+            </div> */}
           </div>
 
           {/* {cartProducts.length > 0 && (
@@ -1967,14 +2014,14 @@ export default function MakeManualModal({ isOpen, onClose }) {
         </div>
 
         {/* Price */}
-        <div className="md:col-span-2">
+        {/* <div className="md:col-span-2">
           <div className="bg-blue-50 p-4 rounded-lg">
             <Label className="text-lg font-semibold">
               Product Price:
               {Number(calculateProductPrice()).toLocaleString("vi-VN", {})} VND
             </Label>
           </div>
-        </div>
+        </div> */}
       </div>
 
       {/* Buttons */}
@@ -2219,7 +2266,7 @@ export default function MakeManualModal({ isOpen, onClose }) {
                               {(
                                 getOrderCostBreakdown().maxExtraShipping *
                                 (item.qty - 1)
-                              ).toFixed(2)}
+                              ).toLocaleString("vi-VN")}
                             </span>
                           </div>
                         )}
@@ -2253,11 +2300,11 @@ export default function MakeManualModal({ isOpen, onClose }) {
                       className="flex justify-between text-sm ml-3"
                     >
                       <span className="text-gray-600">
-                        {item.name} (Base: ${item.baseCost.toFixed(2)} ×{" "}
+                        {item.name} (Base: {item.baseCost.toLocaleString("vi-VN")}VND ×{" "}
                         {item.qty})
                       </span>
                       <span className="font-medium text-gray-900">
-                        ${item.totalBaseCost.toFixed(2)}
+                        {item.totalBaseCost.toLocaleString("vi-VN")}VND
                       </span>
                     </div>
                   ))}
@@ -2266,23 +2313,22 @@ export default function MakeManualModal({ isOpen, onClose }) {
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-600">Total Base Cost:</span>
                       <span className="font-medium text-gray-900">
-                        ${getOrderCostBreakdown().totalBase.toFixed(2)}
+                        {getOrderCostBreakdown().totalBase.toLocaleString("vi-VN")}VND
                       </span>
                     </div>
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-600">Base Ship Cost:</span>
                       <span className="font-medium text-gray-900">
-                        ${getOrderCostBreakdown().maxBaseShipCost.toFixed(2)}
+                        {getOrderCostBreakdown().maxBaseShipCost.toLocaleString("vi-VN")}VND
                       </span>
                     </div>
                     {getOrderCostBreakdown().maxExtraShipping > 0 && (
                       <div className="flex justify-between text-sm">
                         <span className="text-gray-600">
                           Extra Shipping (Max from{" "}
-                          {getOrderCostBreakdown().maxExtraProductName}):
+                          {getOrderCostBreakdown().maxExtraProductName}):VND
                         </span>
                         <span className="font-medium text-gray-900">
-                          $
                           {(
                             getOrderCostBreakdown().maxExtraShipping *
                             (cartProducts.reduce(
@@ -2290,7 +2336,7 @@ export default function MakeManualModal({ isOpen, onClose }) {
                               0
                             ) -
                               1)
-                          ).toFixed(2)}
+                          ).toLocaleString("vi-VN")}VND
                         </span>
                       </div>
                     )}
@@ -2299,10 +2345,7 @@ export default function MakeManualModal({ isOpen, onClose }) {
                   <div className="border-t border-slate-300 pt-2 flex justify-between font-semibold">
                     <span className="text-gray-900">Order Total:</span>
                     <span className="text-blue-600">
-                      $
-                      {(calculateOrderTotal() - (activeTTS ? 1.0 : 0)).toFixed(
-                        2
-                      )}
+                      {(calculateOrderTotal() - (activeTTS ? 1.0 : 0)).toLocaleString("vi-VN")}VND
                     </span>
                   </div>
                 </div>
@@ -2578,8 +2621,8 @@ export default function MakeManualModal({ isOpen, onClose }) {
             <AlertDialogTitle>Confirm Order Creation</AlertDialogTitle>
             <AlertDialogDescription>
               Are you sure you want to create this order with{" "}
-              {cartProducts.length} product(s) for $
-              {calculateOrderTotal().toFixed(2)}?
+              {cartProducts.length} product(s) for{" "}
+              {calculateOrderTotal().toLocaleString("vi-VN")}VND ?
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

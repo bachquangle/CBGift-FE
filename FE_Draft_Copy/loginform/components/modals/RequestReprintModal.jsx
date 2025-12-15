@@ -33,7 +33,7 @@ const uploadImage = async (file) => {
         return data.secureUrl || data.url || data.path || null;
     } catch (err) {
         console.error("Upload error:", err);
-        throw new Error(`Lỗi mạng hoặc server khi tải file lên: ${err.message}`);
+        throw new Error(`Error: ${err.message}`);
     }
 };
 

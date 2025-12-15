@@ -356,7 +356,7 @@ export default function PrinterBillPage() {
 
       if (!response.ok) {
         const errorText = await response.text();
-        let shortMessage = "Invoice creation failed.";
+        let shortMessage = "This order already has an invoice.";
         if (
           errorText.includes("Order already had invoice") ||
           errorText.includes("Invoice has been issued.")
@@ -584,7 +584,7 @@ export default function PrinterBillPage() {
                             {invoice.notes || "N/A"}
                           </TableCell>
                           <TableCell className="font-semibold">
-                            ${invoice.totalAmount.toFixed(2)}
+                            {invoice.totalAmount.toLocaleString("vi-VN")} VND
                           </TableCell>
                           <TableCell>
                             <Button

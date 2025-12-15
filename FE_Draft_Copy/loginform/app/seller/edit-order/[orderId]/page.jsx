@@ -1304,7 +1304,7 @@ export default function EditOrderPage() {
 
     // ÁP DỤNG Extra Shipping Max nếu Total Quantity > 1
     if (totalQtyAllItems > 1) {
-      extraShippingTotal = maxExtraShipping;
+      extraShippingTotal = maxExtraShipping*(totalQtyAllItems-1);
     }
 
     if (allItems.length === 1) {

@@ -39,9 +39,10 @@ const mapApiToUiData = (apiData) => {
   const lastName = nameParts.slice(1).join(" ") || "";
 
   const productionCosts = apiData.details.reduce(
-    (sum, item) => sum + item.price * item.quantity,
-    0
+  (sum, item) => sum + (item.price ?? 0),
+  0
   );
+
   const shippingCost = apiData.totalCost - productionCosts;
 
   // 2. Định nghĩa các cột mốc chính cho Timeline
@@ -176,7 +177,7 @@ const mapApiToUiData = (apiData) => {
         sku: item.sku,
         color: item.layer,
         size: item.size,
-        supplier: "CBGift Factory",
+        supplier: "CBGift Fulfillment",
         image: item.linkImg || "/placeholder.svg",
         quantity: item.quantity,
         printSide: item.needDesign ? "Custom" : "Standard",

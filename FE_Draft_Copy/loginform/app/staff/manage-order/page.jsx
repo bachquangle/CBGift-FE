@@ -129,7 +129,7 @@ const [toDate, setToDate] = useState("");
         // Tạo URL cuối cùng
         const apiUrl = `${apiClient.defaults.baseURL}/api/Order/GetAllOrders?${params.toString()}`;
 
-console.log("[v1] Fetching:", apiUrl);
+        console.log("[v1] Fetching:", apiUrl);
 
        const response = await fetch(apiUrl, {
           credentials: "include", // Cần thiết vì API của bạn có [Authorize]
@@ -142,11 +142,11 @@ console.log("[v1] Fetching:", apiUrl);
         const data = await response.json();
         console.log("[v1] API Response:", data);
         setOrders(data.orders || []);
-setTotalOrders(data.total || 0);
+        setTotalOrders(data.total || 0);
       } catch (err) {
         console.error("[v1] Error fetching orders:", err);
         setError(err.message);
-} finally {
+      } finally {
         setIsLoading(false);
       }
     };
@@ -587,7 +587,7 @@ value={searchTerm}
                   className="px-3 py-2 border border-gray-300 rounded-md w-full md:w-auto text-sm"
                 >
 <option value="all">All Status</option>
-                  <option value="DRAFT">Draft</option>
+                  {/* <option value="DRAFT">Draft</option> */}
                   <option value="READY_PROD">Ready Production</option>
                   <option value="CONFIRMED">Confirmed</option>
                   <option value="SHIPPED">Shipped</option>

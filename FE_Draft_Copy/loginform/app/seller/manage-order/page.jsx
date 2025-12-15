@@ -3414,7 +3414,7 @@ whitespace-nowrap"
                                                         Base Cost:
                                                       </span>
                                                       <p className="text-slate-900 font-semibold">
-                                                        ${item.price || "0"}
+                                                        {item.price.toLocaleString("vi-VN") || "0"} VND
                                                       </p>
                                                     </div>
                                                     <div>

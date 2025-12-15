@@ -49,7 +49,7 @@ export default function StaffHeader() {
 
   const handleLogout = async () => {
     try {
-      const token = localStorage.getItem("token");
+      const token = localStorage.getItem("accessToken");
 
       const res = await fetch(`${apiClient.defaults.baseURL}/api/auth/logout`, {
         method: "POST",

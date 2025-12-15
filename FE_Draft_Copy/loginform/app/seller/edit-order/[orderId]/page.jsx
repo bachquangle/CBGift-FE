@@ -200,12 +200,12 @@ export default function EditOrderPage() {
     formData.append("File", file);
 
     try {
-      // Simulate progress updates while uploading
+      // Simulate progress updates
       let currentProgress = 0;
       const progressInterval = setInterval(() => {
         if (currentProgress < 90) {
           currentProgress += Math.random() * 30;
-          if (onProgress) onProgress(Math.min(currentProgress, 90));
+          onProgress?.(Math.min(currentProgress, 90));
         }
       }, 200);
 
@@ -220,23 +220,51 @@ export default function EditOrderPage() {
 
       clearInterval(progressInterval);
 
+      // ❌ Upload failed → lấy message THẬT từ BE
       if (!res.ok) {
-        const errText = await res.text();
-        throw new Error(
-          "File not supported , please choose file .jpg, .jpeg, .png"
-        );
+        let errorMessage = "Upload failed";
+
+        try {
+          const errorData = await res.json();
+          errorMessage =
+            errorData.message ||
+            errorData.detail ||
+            errorData.error ||
+            errorMessage;
+        } catch {
+          const text = await res.text();
+          errorMessage = text || errorMessage;
+        }
+
+        throw new Error(errorMessage);
       }
 
+      // ✅ Success
       const data = await res.json();
-      if (onProgress) onProgress(100);
-      console.log("[v0] Upload success:", data);
+      onProgress?.(100);
+
+      console.log("[Upload success]", data);
       return data.url || data.secureUrl || data.path || null;
     } catch (err) {
-      setErrorMessage(err.message); // popup đẹp
+      console.error("Upload error:", err);
+
+      // 🔥 HIỂN THỊ ĐÚNG MESSAGE BE
+      setErrorMessage(err.message);
       setShowErrorDialog(true);
+
       return null;
     }
   };
+
+  const getErrorMessageFromXHR = (xhr) => {
+  try {
+    const data = JSON.parse(xhr.responseText);
+    return data.message || data.detail || data.error || "Upload failed";
+  } catch {
+    return xhr.responseText || "Upload failed";
+  }
+};
+
 
   // Dòng ~39: Hàm handleEditProduct đã được sửa
   const handleEditProduct = async (product) => {
@@ -854,21 +882,21 @@ export default function EditOrderPage() {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const allowedTypes = ["image/jpeg", "image/png"];
+    // ✅ Validate type
+    const allowedTypes = ["image/jpeg", "image/png", "image/jpg"];
     if (!allowedTypes.includes(file.type)) {
-      Swal.fire("Error", "Chỉ chấp nhận file PNG, JPG, JPEG", "error");
+      Swal.fire("Error", "Accept only file PNG, JPG, JPEG", "error");
+      e.target.value = ""; // 🔥 cho chọn lại
       return;
     }
 
-    // 🔥 FIX 1: Tạo URL Object cho PREVIEW ngay lập tức (trước upload)
+    // 🔥 Tạo preview ngay
     const previewUrl = URL.createObjectURL(file);
 
-    // CẬP NHẬT CONFIG với URL preview và bắt đầu uploading
+    // Cập nhật UI trước upload
     setEditingProductConfig((prev) => ({
       ...prev,
-      // URL file tạm thời để hiển thị thumbnail
       [`${fieldName}Preview`]: previewUrl,
-      // Xóa URL vĩnh viễn (linkImg) trong khi upload để tránh nhầm lẫn
       [fieldName]: null,
     }));
 
@@ -878,33 +906,34 @@ export default function EditOrderPage() {
     }));
 
     const formData = new FormData();
-    formData.append("file", file);
+    formData.append("File", file);
 
     const xhr = new XMLHttpRequest();
 
-    xhr.upload.addEventListener("progress", (event) => {
+    // 🔁 Progress
+    xhr.upload.onprogress = (event) => {
       if (event.lengthComputable) {
-        const percentComplete = (event.loaded / event.total) * 100;
+        const percent = Math.round((event.loaded / event.total) * 100);
         setEditUploadProgress((prev) => ({
           ...prev,
-          [fieldName]: { isUploading: true, progress: percentComplete },
+          [fieldName]: { isUploading: true, progress: percent },
         }));
       }
-    });
+    };
 
+    // ✅ Success / Error
     xhr.onload = () => {
       if (xhr.status === 200) {
-        // Hủy URL Object tạm thời để tránh memory leak
         if (previewUrl) URL.revokeObjectURL(previewUrl);
 
         const response = JSON.parse(xhr.responseText);
-        const uploadedUrl = response.url || response.secureUrl || response.path;
+        const uploadedUrl =
+          response.url || response.secureUrl || response.path;
 
-        // 🔥 FIX 2: Cập nhật URL vĩnh viễn sau khi upload thành công
         setEditingProductConfig((prev) => ({
           ...prev,
-          [fieldName]: uploadedUrl, // <--- URL VĨNH VIỄN
-          [`${fieldName}Preview`]: null, // Xóa URL preview
+          [fieldName]: uploadedUrl,
+          [`${fieldName}Preview`]: null,
         }));
 
         setEditUploadProgress((prev) => ({
@@ -912,37 +941,56 @@ export default function EditOrderPage() {
           [fieldName]: { isUploading: false, progress: 0 },
         }));
       } else {
-        Swal.fire("Error", "Chỉ chấp nhận file PNG, JPG, JPEG", "error");
+        const errorMessage = getErrorMessageFromXHR(xhr);
+
+        if (previewUrl) URL.revokeObjectURL(previewUrl);
+
+        Swal.fire("Upload failed", errorMessage, "error");
+
         setEditUploadProgress((prev) => ({
           ...prev,
           [fieldName]: { isUploading: false, progress: 0 },
         }));
-        // Xóa preview nếu lỗi
+
         setEditingProductConfig((prev) => ({
           ...prev,
-          [fieldName]: null, // Đảm bảo URL vĩnh viễn là null
+          [fieldName]: null,
           [`${fieldName}Preview`]: null,
         }));
+
+        e.target.value = ""; // 🔥 cho phép upload lại
       }
     };
 
+    // ❌ Network error
     xhr.onerror = () => {
-      Swal.fire("Error", "Network error during upload", "error");
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
+
+      Swal.fire(
+        "Network error",
+        "Unable to upload file. Please check your connection.",
+        "error"
+      );
+
       setEditUploadProgress((prev) => ({
         ...prev,
         [fieldName]: { isUploading: false, progress: 0 },
       }));
+
       setEditingProductConfig((prev) => ({
         ...prev,
         [fieldName]: null,
         [`${fieldName}Preview`]: null,
       }));
+
+      e.target.value = "";
     };
 
     xhr.open("POST", `${apiClient.defaults.baseURL}/api/images/upload`);
     xhr.withCredentials = true;
     xhr.send(formData);
   };
+
 
   // ADDED: Handler to remove uploaded files in edit modal
   const handleEditRemoveFile = (fieldName) => {

@@ -437,7 +437,7 @@ export default function MakeManualModal({ isOpen, onClose }) {
     );
 
     if (totalQty > 1) {
-      total += breakdown.maxExtraShipping; // Chỉ cộng 1 lần Max Extra Shipping
+      total += breakdown.maxExtraShipping*(totalQty-1); // Chỉ cộng 1 lần Max Extra Shipping
     }
 
     // 3. CỘNG TTS (GIỮ NGUYÊN)
@@ -2262,7 +2262,7 @@ export default function MakeManualModal({ isOpen, onClose }) {
                               Extra Shipping:
                             </span>
                             <span className="font-medium text-gray-900">
-                              $
+                              
                               {(
                                 getOrderCostBreakdown().maxExtraShipping *
                                 (item.qty - 1)
@@ -2326,7 +2326,7 @@ export default function MakeManualModal({ isOpen, onClose }) {
                       <div className="flex justify-between text-sm">
                         <span className="text-gray-600">
                           Extra Shipping (Max from{" "}
-                          {getOrderCostBreakdown().maxExtraProductName}):VND
+                          {getOrderCostBreakdown().maxExtraProductName}):
                         </span>
                         <span className="font-medium text-gray-900">
                           {(

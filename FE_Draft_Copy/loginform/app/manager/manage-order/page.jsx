@@ -638,7 +638,7 @@ value={searchTerm}
                   className="px-3 py-2 border border-gray-300 rounded-md w-full md:w-auto text-sm"
                 >
 <option value="all">All Status</option>
-                  <option value="DRAFT">Draft</option>
+                  {/* <option value="DRAFT">Draft</option> */}
                   <option value="READY_PROD">Ready Production</option>
                   <option value="CONFIRMED">Confirmed</option>
                   <option value="SHIPPED">Shipped</option>

@@ -200,12 +200,12 @@ export default function EditOrderPage() {
     formData.append("File", file);
 
     try {
-      // Simulate progress updates while uploading
+      // Simulate progress updates
       let currentProgress = 0;
       const progressInterval = setInterval(() => {
         if (currentProgress < 90) {
           currentProgress += Math.random() * 30;
-          if (onProgress) onProgress(Math.min(currentProgress, 90));
+          onProgress?.(Math.min(currentProgress, 90));
         }
       }, 200);
 
@@ -220,21 +220,51 @@ export default function EditOrderPage() {
 
       clearInterval(progressInterval);
 
+      // ❌ Upload failed → lấy message THẬT từ BE
       if (!res.ok) {
-        const errText = await res.text();
-        throw new Error(`Upload failed: ${res.status} - ${errText}`);
+        let errorMessage = "Upload failed";
+
+        try {
+          const errorData = await res.json();
+          errorMessage =
+            errorData.message ||
+            errorData.detail ||
+            errorData.error ||
+            errorMessage;
+        } catch {
+          const text = await res.text();
+          errorMessage = text || errorMessage;
+        }
+
+        throw new Error(errorMessage);
       }
 
+      // ✅ Success
       const data = await res.json();
-      if (onProgress) onProgress(100);
-      console.log("[v0] Upload success:", data);
+      onProgress?.(100);
+
+      console.log("[Upload success]", data);
       return data.url || data.secureUrl || data.path || null;
     } catch (err) {
-      console.error("[v0] Upload error:", err);
-      Swal.fire("Error", "Upload failed: " + err.message, "error");
+      console.error("Upload error:", err);
+
+      // 🔥 HIỂN THỊ ĐÚNG MESSAGE BE
+      setErrorMessage(err.message);
+      setShowErrorDialog(true);
+
       return null;
     }
   };
+
+  const getErrorMessageFromXHR = (xhr) => {
+  try {
+    const data = JSON.parse(xhr.responseText);
+    return data.message || data.detail || data.error || "Upload failed";
+  } catch {
+    return xhr.responseText || "Upload failed";
+  }
+};
+
 
   // Dòng ~39: Hàm handleEditProduct đã được sửa
   const handleEditProduct = async (product) => {
@@ -365,44 +395,45 @@ export default function EditOrderPage() {
     const fetchOrder = async () => {
       try {
         setIsLoading(true);
+
+        // ── 1. Fetch Order ──────────────────────────────
         const res = await fetch(
           `${apiClient.defaults.baseURL}/api/Seller/${orderId}`,
-          {
-            credentials: "include",
-          }
+          { credentials: "include" }
         );
-        if (!res.ok) throw new Error("Failed to load order");
-        const data = await res.json();
-        setOrderCodeGoc(data.orderCode || data.OrderCode || "");
 
-        // Set customer info with existing data
+        if (!res.ok) throw new Error("Failed to load order");
+
+        const data = await res.json();
+
+        // Lưu lại OrderCode gốc (không cho đổi)
+        setOrderCodeGoc(data.orderCode || data.OrderCode || "");
+        const parts = data.address?.split(",")?.map((x) => x.trim()) || [];
+
+        const street = parts[0] || "";
+        const ward = parts.length >= 2 ? parts[parts.length - 3] || "" : "";
+        const district = parts.length >= 2 ? parts[parts.length - 2] || "" : "";
+        const province = parts.length >= 1 ? parts[parts.length - 1] || "" : "";
+
+        // ── 3. Set Customer Info ────────────────────────────
         setCustomerInfo({
           name: data.customerName || "",
           phone: data.phone || "",
           email: data.email || "",
-          address: data.address.split(",")[0],
+          address: street,
           address1: data.address1 || "",
-          provinceName: data.shipState || "", // API: "Hưng Yên"
-          districtName: data.shipCity || "", // API: "Huyện Phù Cừ"
-          wardName: data.address.split(",")[1]?.trim() || "", // Tách từ chuỗi address
+          provinceName: data.shipState || province,
+          districtName: data.shipCity || district,
+          wardName: ward,
           provinceId: "",
           districtId: "",
           wardId: "",
         });
 
-        // Fetch provinces
+        // ── 4. Load provinces trước ─────────────────────────
         await fetchProvinces();
-        // Fetch districts if province is set
-        if (data.provinceId) {
-          await fetchDistricts(data.provinceId);
-        }
-        // Fetch wards if district is set
-        if (data.districtId) {
-          await fetchWards(data.districtId);
-        }
 
-        // Fetch available products (old method, might be replaced by catalog fetch)
-        // await fetchProducts()
+        // Districts & Wards sẽ được fetch khi provinceId/districtId match name phía dưới
       } catch (err) {
         console.error("Error loading order:", err);
         Swal.fire("Error", "Failed to load order details", "error");
@@ -412,38 +443,94 @@ export default function EditOrderPage() {
       }
     };
 
-    if (orderId) {
-      fetchOrder();
-    }
+    if (orderId) fetchOrder();
   }, [orderId, router]);
+
+  useEffect(() => {
+    if (!customerInfo.provinceName || provinces.length === 0) return;
+
+    const found = provinces.find(
+      (p) =>
+        p.name.trim().toLowerCase() ===
+        customerInfo.provinceName.trim().toLowerCase()
+    );
+
+    if (!found) return;
+
+    // Gán provinceId đúng
+    if (customerInfo.provinceId !== found.id) {
+      setCustomerInfo((prev) => ({ ...prev, provinceId: found.id }));
+      fetchDistricts(found.id); // Load districts sau khi có ID
+    }
+  }, [provinces, customerInfo.provinceName]);
+
+  useEffect(() => {
+    if (!customerInfo.districtName || districts.length === 0) return;
+
+    const found = districts.find(
+      (d) =>
+        d.name.trim().toLowerCase() ===
+        customerInfo.districtName.trim().toLowerCase()
+    );
+
+    if (!found) return;
+
+    if (customerInfo.districtId !== found.id) {
+      setCustomerInfo((prev) => ({ ...prev, districtId: found.id }));
+      fetchWards(found.id); // Load wards
+    }
+  }, [districts, customerInfo.districtName]);
+
+  //
+  // ───────────────────────────────────────────────
+  // MATCH WARD ID THEO TÊN SAU KHI WARDS LOAD XONG
+  // ───────────────────────────────────────────────
+  //
+  useEffect(() => {
+    if (!customerInfo.wardName || wards.length === 0) return;
+
+    const found = wards.find(
+      (w) =>
+        w.name.trim().toLowerCase() ===
+        customerInfo.wardName.trim().toLowerCase()
+    );
+
+    if (!found) return;
+
+    if (customerInfo.wardId !== found.id) {
+      setCustomerInfo((prev) => ({ ...prev, wardId: found.id }));
+    }
+  }, [wards, customerInfo.wardName]);
 
   // Khớp Province ID
   useEffect(() => {
-    if (
-      provinces.length > 0 &&
-      customerInfo.provinceName &&
-      !customerInfo.provinceId
-    ) {
-      const found = provinces.find((p) => p.name === customerInfo.provinceName);
-      if (found) {
-        setCustomerInfo((prev) => ({ ...prev, provinceId: found.id }));
-        fetchDistricts(found.id); // Load tiếp huyện
-      }
+    if (!customerInfo.provinceName || provinces.length === 0) return;
+
+    const found = provinces.find(
+      (p) =>
+        p.name.trim().toLowerCase() ===
+        customerInfo.provinceName.trim().toLowerCase()
+    );
+
+    if (found && customerInfo.provinceId !== found.id) {
+      setCustomerInfo((prev) => ({ ...prev, provinceId: found.id }));
+      fetchDistricts(found.id);
     }
   }, [provinces, customerInfo.provinceName]);
 
   // Khớp District ID
   useEffect(() => {
-    if (
-      districts.length > 0 &&
-      customerInfo.districtName &&
-      !customerInfo.districtId
-    ) {
-      const found = districts.find((d) => d.name === customerInfo.districtName);
-      if (found) {
-        setCustomerInfo((prev) => ({ ...prev, districtId: found.id }));
-        fetchWards(found.id); // Load tiếp xã
-      }
+    if (!customerInfo.districtName || districts.length === 0) return;
+
+    const found = districts.find(
+      (d) =>
+        d.name.trim().toLowerCase() ===
+        customerInfo.districtName.trim().toLowerCase()
+    );
+
+    if (found && customerInfo.districtId !== found.id) {
+      setCustomerInfo((prev) => ({ ...prev, districtId: found.id }));
+      fetchWards(found.id);
     }
   }, [districts, customerInfo.districtName]);
 
@@ -795,21 +882,21 @@ export default function EditOrderPage() {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const allowedTypes = ["image/jpeg", "image/png"];
+    // ✅ Validate type
+    const allowedTypes = ["image/jpeg", "image/png", "image/jpg"];
     if (!allowedTypes.includes(file.type)) {
-      Swal.fire("Error", "Chỉ chấp nhận file PNG, JPG, JPEG", "error");
+      Swal.fire("Error", "Accept only file PNG, JPG, JPEG", "error");
+      e.target.value = ""; // 🔥 cho chọn lại
       return;
     }
 
-    // 🔥 FIX 1: Tạo URL Object cho PREVIEW ngay lập tức (trước upload)
+    // 🔥 Tạo preview ngay
     const previewUrl = URL.createObjectURL(file);
 
-    // CẬP NHẬT CONFIG với URL preview và bắt đầu uploading
+    // Cập nhật UI trước upload
     setEditingProductConfig((prev) => ({
       ...prev,
-      // URL file tạm thời để hiển thị thumbnail
       [`${fieldName}Preview`]: previewUrl,
-      // Xóa URL vĩnh viễn (linkImg) trong khi upload để tránh nhầm lẫn
       [fieldName]: null,
     }));
 
@@ -819,33 +906,34 @@ export default function EditOrderPage() {
     }));
 
     const formData = new FormData();
-    formData.append("file", file);
+    formData.append("File", file);
 
     const xhr = new XMLHttpRequest();
 
-    xhr.upload.addEventListener("progress", (event) => {
+    // 🔁 Progress
+    xhr.upload.onprogress = (event) => {
       if (event.lengthComputable) {
-        const percentComplete = (event.loaded / event.total) * 100;
+        const percent = Math.round((event.loaded / event.total) * 100);
         setEditUploadProgress((prev) => ({
           ...prev,
-          [fieldName]: { isUploading: true, progress: percentComplete },
+          [fieldName]: { isUploading: true, progress: percent },
         }));
       }
-    });
+    };
 
+    // ✅ Success / Error
     xhr.onload = () => {
       if (xhr.status === 200) {
-        // Hủy URL Object tạm thời để tránh memory leak
         if (previewUrl) URL.revokeObjectURL(previewUrl);
 
         const response = JSON.parse(xhr.responseText);
-        const uploadedUrl = response.url || response.secureUrl || response.path;
+        const uploadedUrl =
+          response.url || response.secureUrl || response.path;
 
-        // 🔥 FIX 2: Cập nhật URL vĩnh viễn sau khi upload thành công
         setEditingProductConfig((prev) => ({
           ...prev,
-          [fieldName]: uploadedUrl, // <--- URL VĨNH VIỄN
-          [`${fieldName}Preview`]: null, // Xóa URL preview
+          [fieldName]: uploadedUrl,
+          [`${fieldName}Preview`]: null,
         }));
 
         setEditUploadProgress((prev) => ({
@@ -853,37 +941,56 @@ export default function EditOrderPage() {
           [fieldName]: { isUploading: false, progress: 0 },
         }));
       } else {
-        Swal.fire("Error", "Chỉ chấp nhận file PNG, JPG, JPEG", "error");
+        const errorMessage = getErrorMessageFromXHR(xhr);
+
+        if (previewUrl) URL.revokeObjectURL(previewUrl);
+
+        Swal.fire("Upload failed", errorMessage, "error");
+
         setEditUploadProgress((prev) => ({
           ...prev,
           [fieldName]: { isUploading: false, progress: 0 },
         }));
-        // Xóa preview nếu lỗi
+
         setEditingProductConfig((prev) => ({
           ...prev,
-          [fieldName]: null, // Đảm bảo URL vĩnh viễn là null
+          [fieldName]: null,
           [`${fieldName}Preview`]: null,
         }));
+
+        e.target.value = ""; // 🔥 cho phép upload lại
       }
     };
 
+    // ❌ Network error
     xhr.onerror = () => {
-      Swal.fire("Error", "Network error during upload", "error");
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
+
+      Swal.fire(
+        "Network error",
+        "Unable to upload file. Please check your connection.",
+        "error"
+      );
+
       setEditUploadProgress((prev) => ({
         ...prev,
         [fieldName]: { isUploading: false, progress: 0 },
       }));
+
       setEditingProductConfig((prev) => ({
         ...prev,
         [fieldName]: null,
         [`${fieldName}Preview`]: null,
       }));
+
+      e.target.value = "";
     };
 
     xhr.open("POST", `${apiClient.defaults.baseURL}/api/images/upload`);
     xhr.withCredentials = true;
     xhr.send(formData);
   };
+
 
   // ADDED: Handler to remove uploaded files in edit modal
   const handleEditRemoveFile = (fieldName) => {
@@ -983,18 +1090,18 @@ export default function EditOrderPage() {
     setCartProducts((prev) => [...prev, productToAdd]);
 
     // Reset current product config for adding next product
-    setCurrentProduct(null);
-    setCurrentProductConfig({
-      variantId: null,
-      size: "",
-      quantity: 1,
-      price: 0,
-      productPrice: 0,
-      linkImg: null,
-      linkThanksCard: null,
-      linkFileDesign: null,
-      note: "",
-    });
+    // setCurrentProduct(null);
+    // setCurrentProductConfig({
+    //   variantId: null,
+    //   size: "",
+    //   quantity: 1,
+    //   price: 0,
+    //   productPrice: 0,
+    //   linkImg: null,
+    //   linkThanksCard: null,
+    //   linkFileDesign: null,
+    //   note: "",
+    // });
     // Don't set step here - stay on step 4
   };
 
@@ -1391,7 +1498,7 @@ export default function EditOrderPage() {
         },
         orderUpdate: {
           // Cập nhật thông tin Order chính
-          orderCode: orderId, // Sử dụng orderId (params)
+          orderCode: orderCodeGoc, // Sử dụng orderId (params)
           activeTTS: activeTTS,
           // Bạn có thể giữ lại các trường khác nếu cần cập nhật
           tracking: "",
@@ -1874,7 +1981,7 @@ export default function EditOrderPage() {
                   <span>
                     BaseCost:{" "}
                     <span className="font-medium">
-                      ${item.baseCost?.toFixed(2)}
+                      {Number(item.baseCost).toLocaleString("vi-VN")} ₫
                     </span>
                   </span>
                 </div>
@@ -1987,7 +2094,8 @@ export default function EditOrderPage() {
                           key={v.productVariantId}
                           value={v.productVariantId.toString()}
                         >
-                          {v.sizeInch} - ${v.baseCost.toFixed(2)}
+                          {v.sizeInch} -{" "}
+                          {Number(v.baseCost).toLocaleString("vi-VN")} ₫
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -2515,6 +2623,7 @@ export default function EditOrderPage() {
 
   const renderStep4 = () => (
     <div className="space-y-4">
+      <Input value={orderCodeGoc} disabled />
       <h3 className="text-lg font-semibold">
         Step 4: Configure Product & Review Costs
       </h3>
@@ -2592,7 +2701,8 @@ export default function EditOrderPage() {
                         key={v.productVariantId}
                         value={v.productVariantId.toString()}
                       >
-                        {v.sizeInch} - ${v.baseCost.toFixed(2)}
+                        {v.sizeInch} -{" "}
+                        {Number(v.baseCost).toLocaleString("vi-VN")} ₫
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -2898,7 +3008,7 @@ export default function EditOrderPage() {
                   key={v.productVariantId}
                   value={v.productVariantId.toString()}
                 >
-                  {v.sizeInch} - ${v.baseCost.toFixed(2)}
+                  {v.sizeInch} - {Number(v.baseCost).toLocaleString("vi-VN")} ₫
                 </SelectItem>
               ))}
             </SelectContent>
@@ -3139,32 +3249,37 @@ export default function EditOrderPage() {
           <h4 className="font-semibold text-slate-900 mb-4 text-lg">
             Cost Breakdown
           </h4>
+
           <div className="space-y-3">
             <div className="flex justify-between items-center text-sm">
               <span className="text-slate-600">Base Cost:</span>
               <span className="font-medium text-slate-900">
-                ${getCostDetails().baseCost.toFixed(2)}
+                {Number(getCostDetails().baseCost).toLocaleString("vi-VN")} ₫
               </span>
             </div>
+
             <div className="flex justify-between items-center text-sm">
               <span className="text-slate-600">Ship Cost:</span>
               <span className="font-medium text-slate-900">
-                ${getCostDetails().shipCost.toFixed(2)}
+                {Number(getCostDetails().shipCost).toLocaleString("vi-VN")} ₫
               </span>
             </div>
+
             <div className="flex justify-between items-center text-sm">
               <span className="text-slate-600">Extra Shipping (per unit):</span>
               <span className="font-medium text-slate-900">
-                ${getCostDetails().extraShipping.toFixed(2)}
+                {Number(getCostDetails().extraShipping).toLocaleString("vi-VN")}{" "}
+                ₫
               </span>
             </div>
+
             <div className="border-t border-slate-300 pt-3 mt-3 flex justify-between items-center bg-white bg-opacity-60 p-3 rounded">
               <span className="font-semibold text-slate-900">Unit Price:</span>
               <span className="font-bold text-blue-600 text-base">
-                $
-                {(
+                {Number(
                   getCostDetails().baseCost + getCostDetails().shipCost
-                ).toFixed(2)}
+                ).toLocaleString("vi-VN")}{" "}
+                ₫
               </span>
             </div>
           </div>
@@ -3178,11 +3293,7 @@ export default function EditOrderPage() {
                 Product Price:
               </span>
               <span className="text-xl font-bold text-blue-600">
-                $
-                {Number(calculateProductPrice()).toLocaleString("en-US", {
-                  minimumFractionDigits: 2,
-                  maximumFractionDigits: 2,
-                })}
+                {Number(calculateProductPrice()).toLocaleString("vi-VN")} ₫
               </span>
             </div>
           </div>
@@ -3405,6 +3516,7 @@ export default function EditOrderPage() {
         <h4 className="font-semibold text-gray-900 mb-4 text-lg">
           Cost Breakdown
         </h4>
+
         <div className="space-y-4">
           {/* Breakdown for existing items */}
           {currentOrderProducts.length > 0 && (
@@ -3413,6 +3525,7 @@ export default function EditOrderPage() {
                 <p className="text-sm text-gray-600 italic mb-2">
                   Breakdown for existing items:
                 </p>
+
                 {getDetailedCostBreakdown().existingItems.map((item) => (
                   <div
                     key={item.id}
@@ -3422,22 +3535,25 @@ export default function EditOrderPage() {
                       {item.name} (Qty: {item.qty}):
                     </span>
                     <span className="text-gray-900">
-                      ${item.baseCost.toFixed(2)}
+                      {Number(item.baseCost).toLocaleString("vi-VN")} ₫
                     </span>
                   </div>
                 ))}
+
                 <div className="flex justify-between text-sm ml-4 font-medium mt-2 pb-2 border-b border-gray-200">
                   <span className="text-gray-600">
                     Base Ship Cost (Existing):
                   </span>
                   <span className="text-gray-900">
-                    $
-                    {Math.max(
-                      ...getDetailedCostBreakdown().existingItems.map(
-                        (i) => i.shipCost
-                      ),
-                      0
-                    ).toFixed(2)}
+                    {Number(
+                      Math.max(
+                        ...getDetailedCostBreakdown().existingItems.map(
+                          (i) => i.shipCost
+                        ),
+                        0
+                      )
+                    ).toLocaleString("vi-VN")}{" "}
+                    ₫
                   </span>
                 </div>
               </div>
@@ -3451,6 +3567,7 @@ export default function EditOrderPage() {
                 <p className="text-sm text-gray-600 italic mb-2">
                   Breakdown for new items:
                 </p>
+
                 {getDetailedCostBreakdown().newItems.map((item) => (
                   <div
                     key={item.id}
@@ -3459,28 +3576,37 @@ export default function EditOrderPage() {
                     <p className="font-medium text-gray-800 mb-2">
                       {item.name}
                     </p>
+
                     <div className="flex justify-between text-sm ml-3">
                       <span className="text-gray-600">
-                        Base Cost ({item.baseCost.toFixed(2)} x {item.qty}):
+                        Base Cost (
+                        {Number(item.baseCost).toLocaleString("vi-VN")} ₫ x{" "}
+                        {item.qty}):
                       </span>
                       <span className="font-medium text-gray-900">
-                        ${item.totalBaseCost.toFixed(2)}
+                        {Number(item.totalBaseCost).toLocaleString("vi-VN")} ₫
                       </span>
                     </div>
+
                     <div className="flex justify-between text-sm ml-3">
                       <span className="text-gray-600">Ship Cost:</span>
                       <span className="font-medium text-gray-900">
-                        ${item.shipCost.toFixed(2)}
+                        {Number(item.shipCost).toLocaleString("vi-VN")} ₫
                       </span>
                     </div>
+
                     {item.extraShipping > 0 && item.qty > 1 && (
                       <div className="flex justify-between text-sm ml-3">
                         <span className="text-gray-600">
-                          Extra Shipping ({item.extraShipping.toFixed(2)} x{" "}
-                          {item.qty - 1}):
+                          Extra Shipping (
+                          {Number(item.extraShipping).toLocaleString("vi-VN")} ₫
+                          x {item.qty - 1}):
                         </span>
                         <span className="font-medium text-gray-900">
-                          ${(item.extraShipping * (item.qty - 1)).toFixed(2)}
+                          {Number(
+                            item.extraShipping * (item.qty - 1)
+                          ).toLocaleString("vi-VN")}{" "}
+                          ₫
                         </span>
                       </div>
                     )}
@@ -3497,17 +3623,25 @@ export default function EditOrderPage() {
                 Total Base Cost (All Items):
               </span>
               <span className="text-gray-900">
-                ${getDetailedCostBreakdown().totalBaseCost.toFixed(2)}
+                {Number(
+                  getDetailedCostBreakdown().totalBaseCost
+                ).toLocaleString("vi-VN")}{" "}
+                ₫
               </span>
             </div>
+
             <div className="flex justify-between text-sm font-medium">
               <span className="text-gray-700">
                 Base Ship Cost (Max from all):
               </span>
               <span className="text-gray-900">
-                ${getDetailedCostBreakdown().maxShipCost.toFixed(2)}
+                {Number(getDetailedCostBreakdown().maxShipCost).toLocaleString(
+                  "vi-VN"
+                )}{" "}
+                ₫
               </span>
             </div>
+
             {getDetailedCostBreakdown().extraShippingTotal > 0 && (
               <div className="flex justify-between text-sm font-medium">
                 <span className="text-gray-700">
@@ -3515,14 +3649,21 @@ export default function EditOrderPage() {
                   {getDetailedCostBreakdown().maxExtraProductName}):
                 </span>
                 <span className="text-gray-900">
-                  ${getDetailedCostBreakdown().extraShippingTotal.toFixed(2)}
+                  {Number(
+                    getDetailedCostBreakdown().extraShippingTotal
+                  ).toLocaleString("vi-VN")}{" "}
+                  ₫
                 </span>
               </div>
             )}
+
             <div className="border-t border-gray-200 pt-3 flex justify-between text-base font-bold">
               <span className="text-gray-900">Order Total:</span>
               <span className="text-blue-600 text-lg">
-                ${getDetailedCostBreakdown().orderTotal.toFixed(2)}
+                {Number(getDetailedCostBreakdown().orderTotal).toLocaleString(
+                  "vi-VN"
+                )}{" "}
+                ₫
               </span>
             </div>
           </div>
@@ -3533,18 +3674,19 @@ export default function EditOrderPage() {
       <div className="mt-4 bg-blue-50 p-4 rounded-lg border border-blue-200 flex flex-col sm:flex-row justify-between items-center gap-3">
         <div className="flex flex-col sm:flex-row items-center gap-4 w-full sm:w-auto">
           <div className="flex items-center space-x-2">
-            <Checkbox
-              id="activeTTS"
-              checked={activeTTS}
-              onCheckedChange={(checked) => setActiveTTS(checked)}
-            />
-            <Label htmlFor="activeTTS" className="text-gray-700">
-              Active TTS (Add $1 to Total)
-            </Label>
+            {/* <Checkbox
+                id="activeTTS"
+                checked={activeTTS}
+                onCheckedChange={(checked) => setActiveTTS(checked)}
+              />
+              <Label htmlFor="activeTTS" className="text-gray-700">
+                Active TTS (Add $1 to Total)
+              </Label> */}
           </div>
 
           <Label className="text-lg font-semibold text-blue-700">
-            Total Order: ${calculateOrderTotal().toFixed(2)}
+            Total Order: {Number(calculateOrderTotal()).toLocaleString("vi-VN")}{" "}
+            ₫
           </Label>
         </div>
       </div>
@@ -3668,7 +3810,7 @@ export default function EditOrderPage() {
                     <div className="flex-shrink-0 ml-4">
                       {/* Hiển thị giá tổng (price) đã lưu trong currentOrderProducts */}
                       <p className="font-medium text-gray-900">
-                        ${item.baseCost?.toFixed(2) || "0.00"}
+                        {Number(item.baseCost || 0).toLocaleString("vi-VN")} ₫
                       </p>
                     </div>
                   </div>
@@ -3722,7 +3864,7 @@ export default function EditOrderPage() {
               Total Order:
             </span>
             <span className="text-2xl font-bold text-green-700">
-              ${finalTotal.toFixed(2)}
+              {Number(finalTotal).toLocaleString("vi-VN")} ₫
             </span>
           </div>
         </div>

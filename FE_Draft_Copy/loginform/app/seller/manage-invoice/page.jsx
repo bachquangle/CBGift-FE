@@ -70,7 +70,9 @@ const PaymentMethodSelector = ({ invoice, onClose }) => {
     // Gợi ý: Bạn nên tạo trang /payment-success và /payment-cancel
     const returnUrl = `${window.location.origin}/seller/manage-invoice`;
     //const cancelUrl = window.location.href; // Quay lại trang hiện tại
-   const cancelUrl = `${window.location.origin}/api/payment/cancel`;
+//   const cancelUrl = `${window.location.origin}/api/payment/cancel`;
+    const cancelUrl = `https://cb-gift-app-xsgw5.ondigitalocean.app/api/payment/cancel`;
+
     //const publicBaseUrl = " https://slyvia-nonsubordinating-sulkily.ngrok-free.dev";
 
     // URL này VNPay sẽ chấp nhận VÌ NÓ LÀ PUBLIC

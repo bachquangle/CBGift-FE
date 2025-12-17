@@ -778,7 +778,7 @@ export default function EditOrderPage() {
     try {
       setCatalogLoading(true);
       const category = categoryFilter === "all" ? "" : categoryFilter;
-      const url = `${apiClient.defaults.baseURL}/api/Product/filter?searchTerm=${searchTerm}&category=${category}&status=&page=${catalogPage}&pageSize=${catalogItemsPerPage}`;
+      const url = `${apiClient.defaults.baseURL}/api/Product/filter?searchTerm=${searchTerm}&category=${category}&status=1&page=${catalogPage}&pageSize=${catalogItemsPerPage}`;
 
       const res = await fetch(url, { cache: "no-store" });
       if (!res.ok) throw new Error("Failed to fetch products");

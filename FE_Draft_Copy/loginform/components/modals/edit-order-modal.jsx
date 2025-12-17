@@ -176,27 +176,35 @@ const EditOrderModal = ({ open, onOpenChange, order, onSave }) => {
     }
   };
 
-  const fetchProducts = async () => {
-    try {
-      const params = new URLSearchParams({
-        SearchProductName: searchProductName,
-        PageSize: pageSize,
-        PageNum: pageNum,
-      });
-      const response = await apiClient.get(`/api/Product?${params}`);
-      const productList = response.data || [];
-      setProducts(productList);
+const fetchProducts = async () => {
+  try {
+    // 1. Chỉ giữ lại các tham số động cần thiết
+    const params = new URLSearchParams({
+      searchTerm: searchProductName || "",
+      category: "", // Nên để trống thay vì xóa bỏ để khớp với cấu trúc URL BE yêu cầu
+      page: pageNum || 1,
+      pageSize: pageSize || 3, // Khớp với pageSize=3 bạn mong muốn
+    });
 
-      const filtered = productList.filter((p) =>
-        (p.productName || "")
-          .toLowerCase()
-          .includes(searchProductName.toLowerCase())
-      );
-      setFilteredProducts(filtered);
-    } catch (error) {
-      console.error("Error fetching products:", error);
-    }
-  };
+    // 2. Viết cứng status=1 ngay sau dấu ?
+    // Đảm bảo không có dấu cách thừa trong chuỗi này
+    const finalUrl = `/api/Product/filter?status=1&${params.toString()}`;
+
+    console.log("Thực tế URL gửi đi:", finalUrl);
+
+    const response = await apiClient.get(finalUrl);
+    const data = response.data;
+
+    // 3. Truy cập đúng mảng products
+    const productList = data.products || []; 
+
+    setProducts(productList);
+    setFilteredProducts(productList);
+    
+  } catch (error) {
+    console.error("Error fetching products:", error);
+  }
+};
 
   useEffect(() => {
     if (currentStep === 3) {

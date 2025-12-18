@@ -50,11 +50,14 @@ export default function PasswordModal({ open, onOpenChange }) {
   const handleChange = () => {
     setFieldErrors({ current: "", new: "" });
 
+    // 1. Kiểm tra rỗng
     if (!passwords.current || !passwords.new || !passwords.confirm) {
       setResult({ success: false, message: "Please fill all the input" });
       setShowResult(true);
       return;
     }
+
+    // 2. Kiểm tra khớp mật khẩu
     if (passwords.new !== passwords.confirm) {
       setResult({
         success: false,
@@ -63,6 +66,8 @@ export default function PasswordModal({ open, onOpenChange }) {
       setShowResult(true);
       return;
     }
+
+    // 3. Kiểm tra độ dài (>= 6)
     if (passwords.new.length < 6) {
       setResult({
         success: false,
@@ -71,6 +76,20 @@ export default function PasswordModal({ open, onOpenChange }) {
       setShowResult(true);
       return;
     }
+
+    // 4. Kiểm tra có số hay không (MỚI THÊM)
+    // /\d/ là regex kiểm tra xem chuỗi có chứa bất kỳ số nào từ 0-9 không
+    const hasDigit = /\d/.test(passwords.new);
+    if (!hasDigit) {
+      setResult({
+        success: false,
+        message: "Password must have at least one digit ('0'-'9')",
+      });
+      setShowResult(true);
+      return;
+    }
+
+    // Nếu thỏa mãn tất cả thì hiện xác nhận
     setShowConfirm(true);
   };
 
@@ -194,7 +213,7 @@ export default function PasswordModal({ open, onOpenChange }) {
                 type="password"
                 value={passwords.new}
                 onChange={(e) => handleInputChange("new", e.target.value)}
-                placeholder="Minimum 6 characters"
+                placeholder="Minimum 6 characters,at least 1 digit"
               />
               {fieldErrors.new && (
                 <p className="text-sm text-red-600 mt-1">{fieldErrors.new}</p>

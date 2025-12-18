@@ -441,8 +441,8 @@ export default function CheckProduct() {
                   <div className="col-span-2"><Label className="text-xs text-gray-500">Address</Label>
                     <p className="font-medium text-gray-800">
                       {selectedOrder.address || ""} 
-                      {selectedOrder.shipCity ? `, ${selectedOrder.shipCity}` : ""}
-                      {selectedOrder.shipState ? `, ${selectedOrder.shipState}` : ""}
+                      {/* {selectedOrder.shipCity ? `, ${selectedOrder.shipCity}` : ""}
+                      {selectedOrder.shipState ? `, ${selectedOrder.shipState}` : ""} */}
                     </p>
                   </div>
                 </div>

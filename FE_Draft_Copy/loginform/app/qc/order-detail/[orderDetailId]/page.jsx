@@ -9,6 +9,7 @@ import { Loader2, Printer, Tag } from "lucide-react"; // ĐÃ SỬA: Thêm impor
 import apiClient from "../../../../lib/apiClient";
 import QcSidebar from "@/components/layout/qc/sidebar";
 import QcHeader from "@/components/layout/qc/header";
+import Swal from 'sweetalert2';
 
 // --- MAPPING STATUS ---
 const STATUS_MAP = {
@@ -174,50 +175,135 @@ export default function OrderDetailPage() {
 
   // --- ACCEPT / REJECT ---
   const handleAccept = async () => {
+    // 1. Confirmation Dialog
+    const result = await Swal.fire({
+        title: 'Accept Order?',
+        text: `Are you sure you want to accept Order Detail #${orderDetailId}?`,
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonColor: '#3085d6', // Blue/Green usually for positive actions
+        cancelButtonColor: '#d33',
+        confirmButtonText: 'Yes, accept it!',
+        cancelButtonText: 'Cancel'
+    });
+
+    // If user clicks Cancel, stop here
+    if (!result.isConfirmed) return;
+
     setIsSubmitting(true);
+
+    // 2. Show Loading
+    Swal.fire({
+        title: 'Processing...',
+        text: 'Please wait a moment.',
+        allowOutsideClick: false,
+        didOpen: () => {
+            Swal.showLoading();
+        }
+    });
+
     try {
-      const res = await fetch(`${apiClient.defaults.baseURL}/api/OrderDetail/${orderDetailId}/accept`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-      });
-      if (!res.ok) {
-        const errData = await res.json();
-        throw new Error(errData.message || `HTTP ${res.status}`);
-      }
-      alert(`Order Detail #${orderDetailId} đã được chấp nhận.`);
-      fetchLatestData();
+        const res = await fetch(`${apiClient.defaults.baseURL}/api/OrderDetail/${orderDetailId}/accept`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+        });
+
+        if (!res.ok) {
+            const errData = await res.json();
+            throw new Error(errData.message || `HTTP ${res.status}`);
+        }
+
+        // 3. Success Alert
+        await Swal.fire({
+            icon: 'success',
+            title: 'Accepted!',
+            text: `Order Detail #${orderDetailId} has been accepted successfully.`,
+            confirmButtonText: 'OK'
+        });
+
+        fetchLatestData();
+
     } catch (err) {
-      console.error(err);
-      alert(`Failed to accept order: ${err.message}`);
+        console.error(err);
+        // 4. Error Alert
+        Swal.fire({
+            icon: 'error',
+            title: 'Failed',
+            text: `Failed to accept order: ${err.message}`,
+        });
     } finally {
-      setIsSubmitting(false);
+        setIsSubmitting(false);
     }
   };
 
-  const handleReject = async () => {
-    const reason = prompt("Vui lòng nhập lý do từ chối (ít nhất 10 ký tự):");
-    if (!reason || reason.trim().length < 10) return alert("Lý do phải ≥ 10 ký tự.");
+ const handleReject = async () => {
+    // 1. Input dialog
+    const { value: reason } = await Swal.fire({
+        title: 'Reject Order?',
+        text: "Please enter a reason for rejection (at least 10 characters).",
+        icon: 'warning',
+        input: 'textarea',
+        inputPlaceholder: 'Enter reason here...',
+        showCancelButton: true,
+        confirmButtonText: 'Confirm Reject',
+        cancelButtonText: 'Cancel',
+        confirmButtonColor: '#d33', // Red color for danger action
+        inputValidator: (value) => {
+            if (!value || value.trim().length < 10) {
+                return 'The reason must be at least 10 characters long!';
+            }
+        }
+    });
+
+    // If cancelled or invalid
+    if (!reason) return;
 
     setIsSubmitting(true);
+
+    // Show loading
+    Swal.fire({
+        title: 'Processing...',
+        text: 'Please wait a moment.',
+        allowOutsideClick: false,
+        didOpen: () => {
+            Swal.showLoading();
+        }
+    });
+
     try {
-      const res = await fetch(`${apiClient.defaults.baseURL}/api/OrderDetail/${orderDetailId}/reject`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ reason }),
-      });
-      if (!res.ok) {
-        const errData = await res.json();
-        throw new Error(errData.message || `HTTP ${res.status}`);
-      }
-      alert(`Order Detail #${orderDetailId} đã bị từ chối.`);
-      fetchLatestData();
+        const res = await fetch(`${apiClient.defaults.baseURL}/api/OrderDetail/${orderDetailId}/reject`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            body: JSON.stringify({ reason }),
+        });
+
+        if (!res.ok) {
+            const errData = await res.json();
+            throw new Error(errData.message || `HTTP ${res.status}`);
+        }
+
+        // 2. Success alert
+        await Swal.fire({
+            icon: 'success',
+            title: 'Success!',
+            text: `Order Detail #${orderDetailId} has been rejected.`,
+            confirmButtonText: 'OK'
+        });
+
+        fetchLatestData();
+
     } catch (err) {
-      console.error(err);
-      alert(`Failed to reject order: ${err.message}`);
+        console.error(err);
+        // 3. Error alert
+        Swal.fire({
+            icon: 'error',
+            title: 'Failed',
+            text: `Failed to reject order: ${err.message}`,
+        });
     } finally {
-      setIsSubmitting(false);
+        setIsSubmitting(false);
     }
   };
 
@@ -317,10 +403,10 @@ export default function OrderDetailPage() {
 
               <InfoCard title="Cost Breakdown">
                 <InfoGrid items={[
-                  { label: "Base Cost", value: `$${orderDetail.productVariant?.baseCost.toLocaleString("vi-VN")}` },
-                  { label: "Ship Cost", value: `$${orderDetail.productVariant?.shipCost.toLocaleString("vi-VN")}` },
-                  { label: "Extra Shipping", value: `$${orderDetail.productVariant?.extraShipping.toLocaleString("vi-VN")}` },
-                  { label: "Total Cost", value: `$${orderDetail.productVariant?.totalCost.toLocaleString("vi-VN")}`, className: "font-semibold text-lg" },
+                  { label: "Base Cost", value: `${orderDetail.productVariant?.baseCost.toLocaleString("vi-VN")}` },
+                  { label: "Ship Cost", value: `${orderDetail.productVariant?.shipCost.toLocaleString("vi-VN")}` },
+                  { label: "Extra Shipping", value: `${orderDetail.productVariant?.extraShipping.toLocaleString("vi-VN")}` },
+                  { label: "Total Cost", value: `${orderDetail.productVariant?.totalCost.toLocaleString("vi-VN")}`, className: "font-semibold text-lg" },
                 ]} />
               </InfoCard>
 

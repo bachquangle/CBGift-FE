@@ -57,15 +57,7 @@ export default function EditAddressModal({
 
   useEffect(() => {
     if (open && initialAddress) {
-      const fullAddressString = [
-        initialAddress.address || "",
-        initialAddress.wardName || "",
-        initialAddress.districtName || "",
-        initialAddress.provinceName || "",
-      ]
-        .map((s) => s.trim())
-        .filter((s) => s.length > 0)
-        .join(", ");
+      // 1. Fill dữ liệu từ Order vào Form
       setCustomerInfo({
         name: initialAddress.name || "",
         phone: initialAddress.phone || "",
@@ -80,22 +72,28 @@ export default function EditAddressModal({
         wardName: initialAddress.wardName || "",
       });
 
-      // Fetch provinces on mount
-      if (provinces.length === 0) {
-        fetchProvinces();
-      }
+      // 2. Hàm load dữ liệu song song để tối ưu tốc độ
+      const loadLocationData = async () => {
+        // Luôn load Provinces nếu chưa có
+        if (provinces.length === 0) {
+          fetchProvinces(); // Không cần await để nó chạy ngầm
+        }
 
-      // If provinceId exists, load districts
-      if (initialAddress.provinceId && !districts.length) {
-        fetchDistricts(initialAddress.provinceId);
-      }
+        // QUAN TRỌNG: Luôn fetch Districts dựa theo ProvinceID của Order
+        // Bỏ điều kiện !districts.length để đảm bảo luôn load đúng quận của tỉnh hiện tại
+        if (initialAddress.provinceId) {
+          await fetchDistricts(initialAddress.provinceId);
+        }
 
-      // If districtId exists, load wards
-      if (initialAddress.districtId && !wards.length) {
-        fetchWards(initialAddress.districtId);
-      }
+        // QUAN TRỌNG: Luôn fetch Wards dựa theo DistrictID của Order
+        if (initialAddress.districtId) {
+          await fetchWards(initialAddress.districtId);
+        }
+      };
+
+      loadLocationData();
     }
-  }, [open, initialAddress]);
+  }, [open, initialAddress]); // Chạy lại mỗi khi mở modal hoặc data đầu vào thay đổi
 
   const fetchProvinces = async () => {
     setLoadingProvinces(true);

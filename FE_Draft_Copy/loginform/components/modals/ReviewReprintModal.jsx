@@ -46,7 +46,7 @@ export default function ReviewReprintModal({
     
     // Truyền MẢNG ID (vd: [399, 400]) làm tham số đầu tiên (requestId)
     // onReview sẽ nhận: ([int, int], 'REPRINT', bool, string/null)
-    onReview(orderDetailIdsToPass, request.type, approved, approved ? null : rejectionReason);
+    onReview(orderDetailIdsToPass, request.type, approved, approved ? "approved" : rejectionReason);
     // Bỏ onClose()
     };
     // Giả định: Dữ liệu chi tiết sản phẩm nằm trong trường 'requestedItems'

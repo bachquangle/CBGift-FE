@@ -469,7 +469,7 @@ export default function LoginPage() {
               <DialogHeader>
                 <DialogTitle>Reset Password</DialogTitle>
                 <DialogDescription>
-                  Set your new password (min. 8 characters).
+                  Set your new password (min. 6 characters).
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-4 py-4">

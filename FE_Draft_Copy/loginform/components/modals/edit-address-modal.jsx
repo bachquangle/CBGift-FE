@@ -56,44 +56,96 @@ export default function EditAddressModal({
   const [hoverWard, setHoverWard] = useState(null);
 
   useEffect(() => {
-    if (open && initialAddress) {
-      // 1. Fill dữ liệu từ Order vào Form
-      setCustomerInfo({
-        name: initialAddress.name || "",
-        phone: initialAddress.phone || "",
-        email: initialAddress.email || "",
-        address: initialAddress.address || "",
-        address1: initialAddress.address1 || "",
-        provinceId: initialAddress.provinceId || "",
-        provinceName: initialAddress.provinceName || "",
-        districtId: initialAddress.districtId || "",
-        districtName: initialAddress.districtName || "",
-        wardId: initialAddress.wardId || "",
-        wardName: initialAddress.wardName || "",
-      });
+    if (!open || !initialAddress) return;
 
-      // 2. Hàm load dữ liệu song song để tối ưu tốc độ
-      const loadLocationData = async () => {
-        // Luôn load Provinces nếu chưa có
-        if (provinces.length === 0) {
-          fetchProvinces(); // Không cần await để nó chạy ngầm
-        }
+    const parsed = parseLocationFromAddress(initialAddress.address);
 
-        // QUAN TRỌNG: Luôn fetch Districts dựa theo ProvinceID của Order
-        // Bỏ điều kiện !districts.length để đảm bảo luôn load đúng quận của tỉnh hiện tại
-        if (initialAddress.provinceId) {
-          await fetchDistricts(initialAddress.provinceId);
-        }
+    setCustomerInfo({
+      name: initialAddress.name || "",
+      phone: initialAddress.phone || "",
+      email: initialAddress.email || "",
+      address: initialAddress.address
+        ? initialAddress.address.split(",")[0].trim()
+        : "",
+      address1: initialAddress.address1 || "",
 
-        // QUAN TRỌNG: Luôn fetch Wards dựa theo DistrictID của Order
-        if (initialAddress.districtId) {
-          await fetchWards(initialAddress.districtId);
-        }
-      };
+      provinceName: parsed.provinceName || "",
+      districtName: parsed.districtName || "",
+      wardName: parsed.wardName || "",
 
-      loadLocationData();
-    }
-  }, [open, initialAddress]); // Chạy lại mỗi khi mở modal hoặc data đầu vào thay đổi
+      provinceId: "",
+      districtId: "",
+      wardId: "",
+    });
+
+    fetchProvinces();
+  }, [open, initialAddress]);
+
+  useEffect(() => {
+    if (!open || !initialAddress) return;
+    if (!initialAddress.provinceName) return;
+    if (provinces.length === 0) return;
+
+    // Nếu đã có provinceId thì bỏ qua
+
+    const matchedProvince = provinces.find(
+      (p) =>
+        p.name.trim().toLowerCase() ===
+        initialAddress.provinceName.trim().toLowerCase()
+    );
+
+    if (!matchedProvince) return;
+
+    setCustomerInfo((prev) => ({
+      ...prev,
+      provinceId: matchedProvince.id.toString(),
+      provinceName: matchedProvince.name,
+    }));
+
+    fetchDistricts(matchedProvince.id);
+  }, [provinces]);
+
+  useEffect(() => {
+    if (!initialAddress?.districtName) return;
+    if (!customerInfo.provinceId) return;
+    if (districts.length === 0) return;
+
+    const matchedDistrict = districts.find(
+      (d) =>
+        d.name.trim().toLowerCase() ===
+        initialAddress.districtName.trim().toLowerCase()
+    );
+
+    if (!matchedDistrict) return;
+
+    setCustomerInfo((prev) => ({
+      ...prev,
+      districtId: matchedDistrict.id.toString(),
+      districtName: matchedDistrict.name,
+    }));
+
+    fetchWards(matchedDistrict.id);
+  }, [districts]);
+
+  useEffect(() => {
+    if (!initialAddress?.wardName) return;
+    if (!customerInfo.districtId) return;
+    if (wards.length === 0) return;
+
+    const matchedWard = wards.find(
+      (w) =>
+        w.name.trim().toLowerCase() ===
+        initialAddress.wardName.trim().toLowerCase()
+    );
+
+    if (!matchedWard) return;
+
+    setCustomerInfo((prev) => ({
+      ...prev,
+      wardId: matchedWard.id.toString(),
+      wardName: matchedWard.name,
+    }));
+  }, [wards]);
 
   const fetchProvinces = async () => {
     setLoadingProvinces(true);
@@ -175,6 +227,18 @@ export default function EditAddressModal({
     } finally {
       setLoadingWards(false);
     }
+  };
+
+  const parseLocationFromAddress = (address) => {
+    if (!address) return {};
+
+    const parts = address.split(",").map((p) => p.trim());
+
+    return {
+      wardName: parts[parts.length - 3] || "",
+      districtName: parts[parts.length - 2] || "",
+      provinceName: parts[parts.length - 1] || "",
+    };
   };
 
   const handleProvinceChange = (provinceId) => {

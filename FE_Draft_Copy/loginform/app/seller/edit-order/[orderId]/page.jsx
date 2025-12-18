@@ -257,14 +257,13 @@ export default function EditOrderPage() {
   };
 
   const getErrorMessageFromXHR = (xhr) => {
-  try {
-    const data = JSON.parse(xhr.responseText);
-    return data.message || data.detail || data.error || "Upload failed";
-  } catch {
-    return xhr.responseText || "Upload failed";
-  }
-};
-
+    try {
+      const data = JSON.parse(xhr.responseText);
+      return data.message || data.detail || data.error || "Upload failed";
+    } catch {
+      return xhr.responseText || "Upload failed";
+    }
+  };
 
   // Dòng ~39: Hàm handleEditProduct đã được sửa
   const handleEditProduct = async (product) => {
@@ -927,8 +926,7 @@ export default function EditOrderPage() {
         if (previewUrl) URL.revokeObjectURL(previewUrl);
 
         const response = JSON.parse(xhr.responseText);
-        const uploadedUrl =
-          response.url || response.secureUrl || response.path;
+        const uploadedUrl = response.url || response.secureUrl || response.path;
 
         setEditingProductConfig((prev) => ({
           ...prev,
@@ -990,7 +988,6 @@ export default function EditOrderPage() {
     xhr.withCredentials = true;
     xhr.send(formData);
   };
-
 
   // ADDED: Handler to remove uploaded files in edit modal
   const handleEditRemoveFile = (fieldName) => {
@@ -1304,7 +1301,7 @@ export default function EditOrderPage() {
 
     // ÁP DỤNG Extra Shipping Max nếu Total Quantity > 1
     if (totalQtyAllItems > 1) {
-      extraShippingTotal = maxExtraShipping*(totalQtyAllItems-1);
+      extraShippingTotal = maxExtraShipping * (totalQtyAllItems - 1);
     }
 
     if (allItems.length === 1) {

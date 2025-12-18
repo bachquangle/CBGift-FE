@@ -45,7 +45,12 @@ export default function AssignAccountModal({
 
   const validateForm = () => {
     const newErrors = {};
-    if (!formData.fullName.trim()) newErrors.fullName = "Full name is required";
+    const fullName = formData.fullName.trim();
+    if (!fullName) {
+      newErrors.fullName = "Full name is required";
+    } else if (fullName.length < 3 || fullName.length > 50) {
+      newErrors.fullName = "Full name must be between 3 and 50 characters";
+    }
     if (!formData.email.trim()) newErrors.email = "Email is required";
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email))
       newErrors.email = "Please enter a valid email address";
@@ -271,7 +276,7 @@ export default function AssignAccountModal({
                 </div>
               </div>
 
-              <div>
+              {/* <div>
                 <Label>Username *</Label>
                 <Input
                   value={formData.username}
@@ -283,7 +288,7 @@ export default function AssignAccountModal({
                 {errors.username && (
                   <p className="text-sm text-red-500">{errors.username}</p>
                 )}
-              </div>
+              </div> */}
             </div>
 
             <Separator />

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import apiClient from "../../../lib/apiClient";
-// Import UI components
+// Import các components UI
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -47,7 +47,7 @@ import DesignerSidebar from "@/components/layout/designer/sidebar";
 import { useSignalR } from "@/contexts/SignalRContext";
 import { toast } from "@/components/ui/use-toast";
 
-// UPDATE CONSTANTS BASED ON ENUM ProductionStatus
+// CẬP NHẬT CONSTANTS DỰ TRÊN ENUM ProductionStatus MỚI
 const DESIGN_STATUSES = {
   NEED_DESIGN: { name: "NEED DESIGN", color: "bg-red-500", code: 2 },
   DESIGNING: { name: "DESIGNING", color: "bg-yellow-500", code: 3 },
@@ -65,9 +65,9 @@ export default function DesignAssignPage() {
   // UPLOAD/IMAGE STATES
   const [designFile, setDesignFile] = useState(null);
   const [designNotes, setDesignNotes] = useState("");
-  const [uploadedImages, setUploadedImages] = useState([]); // Gallery images
-  const [selectedImageUrl, setSelectedImageUrl] = useState(""); // Selected URL from gallery
-  const [showImageModal, setShowImageModal] = useState(false); // Gallery Modal
+  const [uploadedImages, setUploadedImages] = useState([]); // Kho ảnh đã upload
+  const [selectedImageUrl, setSelectedImageUrl] = useState(""); // URL ảnh được chọn từ kho ảnh
+  const [showImageModal, setShowImageModal] = useState(false); // Modal kho ảnh
 
   // General States
   const [selectedOrderDetails, setSelectedOrderDetails] = useState(new Set());
@@ -83,8 +83,7 @@ export default function DesignAssignPage() {
   const [assignedOrders, setAssignedOrders] = useState([]);
   const [detailLoading, setDetailLoading] = useState(false);
   const [taskLogs, setTaskLogs] = useState([]);
-
-  // --- SIGNALR: receive new assignment from server ---
+  // --- SIGNALR: nhận assignment mới từ server ---
   const connection = useSignalR();
 
   useEffect(() => {
@@ -100,7 +99,7 @@ export default function DesignAssignPage() {
         className: "bg-green-50 text-green-700 border border-green-200",
       });
 
-      fetchTasks(); // 🔁 Reload list
+      fetchTasks(); // 🔁 Reload danh sách
     };
 
     window.addEventListener("taskAssigned", handleNewTask);
@@ -134,12 +133,12 @@ export default function DesignAssignPage() {
     joinGroup();
   }, [connection]);
 
-  // Function to get Code (Int) from Status Name (String)
+  // Hàm lấy giá trị Code (Int) từ tên Status (String)
   const getStatusCode = (statusKey) => DESIGN_STATUSES[statusKey]?.code;
-
-  // --- API CALL TO FETCH IMAGE GALLERY ---
+  // --- HÀM GỌI API LẤY KHO ẢNH (ĐÃ CẬP NHẬT URL API VÀ XỬ LÝ LỖI) ---
   const fetchMyImages = async () => {
     try {
+      // SỬA URL API THÀNH '/api/images/my-images'
       const res = await fetch(
         `${apiClient.defaults.baseURL}/api/images/my-images`,
         {
@@ -148,25 +147,16 @@ export default function DesignAssignPage() {
       );
 
       if (!res.ok) {
+        // Xử lý lỗi xác thực (401/403)
         if (res.status === 401 || res.status === 403) {
           console.error(
             "Authentication failed. User not logged in or unauthorized."
           );
-          toast({
-            variant: "destructive",
-            title: "Authentication Error",
-            description: "Please log in again to access the image gallery.",
-          });
+          alert("Error: Please log in again to access the photo gallery.");
           return;
         }
         const errorText = res.statusText || `Status ${res.status}`;
         console.error("Failed to fetch my images:", errorText);
-        
-        toast({
-          variant: "destructive",
-          title: "Gallery Error",
-          description: "Failed to load images from server.",
-        });
         return;
       }
 
@@ -174,24 +164,16 @@ export default function DesignAssignPage() {
       setUploadedImages(data);
     } catch (error) {
       console.error("Error fetching images:", error);
-      toast({
-          variant: "destructive",
-          title: "Connection Error",
-          description: "Could not connect to image server.",
-      });
+      // Trong trường hợp lỗi mạng hoặc lỗi khác, chúng ta chỉ cần log
     }
   };
 
-  // --- API CALL TO UPDATE STATUS ---
+  // --- HÀM GỌI API CẬP NHẬT TRẠNG THÁI ---
   const updateDesignStatusApi = async (orderDetailId, newStatusKey) => {
     const newStatusCode = getStatusCode(newStatusKey);
     if (!newStatusCode && newStatusCode !== 0) {
       console.error("Invalid status key:", newStatusKey);
-      toast({
-        variant: "destructive",
-        title: "System Error",
-        description: `Status ${newStatusKey} is invalid.`,
-      });
+      alert(`Error: Status ${newStatusKey} invalid.`);
       return false;
     }
 
@@ -225,42 +207,20 @@ export default function DesignAssignPage() {
       return true;
     } catch (error) {
       console.error("API Error during status update:", error);
-      toast({
-        variant: "destructive",
-        title: "Update Failed",
-        description: error.message,
-      });
+      alert(`Error updating status: ${error.message}`);
       return false;
     }
   };
 
-  // --- OPTIMISTIC UI UPDATE HELPER (FIXED) ---
+  // Hàm cập nhật trạng thái trên frontend (chỉ khi API thành công)
   const handleUpdateStatusLocal = (orderId, newStatusKey) => {
-    // BUG FIX: Get the numeric code (e.g., CHECK_DESIGN = 4)
-    // This is crucial because the "Send" button logic checks order.orderStatus == 4
-    const newStatusCode = DESIGN_STATUSES[newStatusKey]?.code;
-
-    // 1. Update the main list (Table)
     setAssignedOrders((prevOrders) =>
       prevOrders.map((order) =>
         order.id === orderId
-          ? { 
-              ...order, 
-              ProductionStatus: newStatusKey, // Update text status
-              orderStatus: newStatusCode      // Update numeric status so button appears!
-            }
+          ? { ...order, ProductionStatus: newStatusKey }
           : order
       )
     );
-
-    // 2. Update the currently open Modal (if applicable)
-    if (selectedOrder && selectedOrder.id === orderId) {
-      setSelectedOrder((prev) => ({
-        ...prev,
-        ProductionStatus: newStatusKey,
-        orderStatus: newStatusCode // Also update here
-      }));
-    }
   };
 
   const handleUpdateOrderStatusLocal = (orderId, newStatusKey) => {
@@ -271,7 +231,7 @@ export default function DesignAssignPage() {
     );
   };
 
-  // Handle Accept Design (NEED_DESIGN -> DESIGNING)
+  // Hàm chấp nhận thiết kế (NEED_DESIGN -> DESIGNING)
   const handleAcceptDesign = async (orderId) => {
     const success = await updateDesignStatusApi(orderId, "DESIGNING");
     if (success) {
@@ -279,149 +239,152 @@ export default function DesignAssignPage() {
     }
   };
 
-  // --- HANDLE UPLOAD FILE OR SELECTED URL ---
+  // --- HÀM UPLOAD FILE HOẶC URL ĐÃ CHỌN ---
+  // --- HÀM UPLOAD FILE HOẶC URL ĐÃ CHỌN (ĐÃ ĐƯỢC DỌN DẸP) ---
   const handleUploadDesign = async () => {
-    // 1. Check input conditions
+    // 1. Kiểm tra điều kiện đầu vào: Phải chọn file mới HOẶC file cũ
     if (!designFile && !selectedImageUrl) {
-      toast({
-        variant: "destructive",
-        title: "Missing File",
-        description: "Please select a new file or a file from the gallery.",
-      });
+      alert("Please select a new file or a file from the image library.");
       return;
     }
+
+    // LƯU Ý: ĐÃ XÓA LOGIC KIỂM TRA KÍCH THƯỚC/ĐỊNH DẠNG Ở ĐÂY
+    // VÌ NÓ ĐÃ ĐƯỢC THỰC HIỆN TRONG HÀM handleDesignFileChange
 
     const orderDetailId = selectedOrder.id;
     const url = `${apiClient.defaults.baseURL}/api/designer/tasks/${orderDetailId}/upload`;
 
-    setLoading(true);
+    setLoading(true); // Bật loading
 
     try {
       const formData = new FormData();
+      // Đảm bảo Note luôn là chuỗi (chuỗi rỗng nếu không nhập) để tránh lỗi Model Binding 400
       const noteToSend = designNotes || "";
 
-      // 1. CHOOSE SOURCE: DesignFile OR FileUrl
+      // 1. CHỌN NGUỒN FILE: Chỉ gửi một trong hai trường (DesignFile HOẶC FileUrl)
       if (designFile) {
+        // Trường hợp 1: File mới (Đã được kiểm tra hợp lệ)
         formData.append("DesignFile", designFile);
       } else if (selectedImageUrl) {
+        // Trường hợp 2: File cũ
         formData.append("FileUrl", selectedImageUrl);
       }
 
-      // 2. SEND NOTE
+      // 2. GỬI NOTE
       formData.append("Note", noteToSend);
 
-      // --- 3. EXECUTE UPLOAD/SUBMIT ---
+      // --- 3. THỰC HIỆN UPLOAD/SUBMIT ---
       const response = await fetch(url, {
         method: "POST",
-        body: formData,
+        body: formData, // Tự động set Content-Type: multipart/form-data
         credentials: "include",
       });
 
+      // Khởi tạo biến để đọc response body
       let errorDetails = response.statusText || `Status ${response.status}`;
       let errorData = null;
       const contentType = response.headers.get("content-type");
 
+      // Cố gắng đọc JSON (Problem Details) trước khi kiểm tra lỗi
       if (contentType && contentType.includes("application/json")) {
         errorData = await response.json();
       }
 
       if (!response.ok) {
+        // XỬ LÝ VÀ PHÂN TÍCH LỖI SERVER
         if (errorData && errorData.errors) {
+          // Lỗi Model Binding (400 Bad Request)
           const modelErrors = Object.values(errorData.errors).flat().join("; ");
           errorDetails = errorData.title || "Model Binding Error";
-          errorDetails += ` [Details: ${modelErrors}]`;
+          errorDetails += ` [Chi tiết: ${modelErrors}]`;
         } else if (errorData) {
+          // Lỗi Server/Nghiệp vụ (403/500) có trả về message
           errorDetails = errorData.message || errorDetails;
         } else {
+          // Lỗi không phải JSON (rất hiếm, ví dụ: Timeout)
           errorDetails = await response.text();
         }
+
+        // Ném lỗi để hiển thị Alert
         throw new Error(errorDetails);
       }
 
-      // --- 4. SUCCESS: OPTIMISTIC UPDATE (NO RELOAD) ---
-      
-      // Update state to 'CHECK_DESIGN' locally.
-      // This function has been FIXED to also update orderStatus to 4
+      // --- 4. THÀNH CÔNG: Cập nhật trạng thái thành CHECK_DESIGN ---
       handleUpdateStatusLocal(orderDetailId, "CHECK_DESIGN");
 
-      // Reset form fields
+      // Reset state và đóng dialog
       setDesignFile(null);
       setDesignNotes("");
       setSelectedImageUrl("");
-      
-      toast({
-        title: "Success",
-        description: "Design uploaded successfully! Ready to send.",
-        className: "bg-green-50 text-green-700 border border-green-200",
-      });
+      setSelectedOrder(null);
+      alert("The design file has been successfully uploaded and submitted for review!");
 
+      return true;
     } catch (error) {
-      console.error("Error uploading design file:", error);
-      toast({
-        variant: "destructive",
-        title: "Upload Failed",
-        description: error.message,
-      });
+      console.error("Error when uploading design file:", error);
+      alert(`Error when uploading design file: ${error.message}`);
+      return false;
     } finally {
-      setLoading(false);
+      setLoading(false); // Tắt loading
     }
   };
-
-  // Format check
+  // định dạng size.
   const handleDesignFileChange = (event) => {
     const file = event.target.files[0];
+
+    // Đảm bảo xóa file cũ (nếu có) nếu người dùng không chọn gì hoặc chọn file lỗi
     setDesignFile(null);
 
     if (!file) {
+      // Nếu không chọn file, vẫn đảm bảo selectedImageUrl bị xóa
       setSelectedImageUrl("");
       return;
     }
 
-    // 1. CHECK FORMAT (JPG, JPEG, PNG)
+    // 1. ✅ KIỂM TRA ĐỊNH DẠNG (JPG, JPEG, PNG)
     const allowedTypes = ["image/jpeg", "image/jpg", "image/png"];
     if (!allowedTypes.includes(file.type)) {
-      toast({
-        variant: "destructive",
-        title: "Invalid Format",
-        description: "Only JPG, JPEG, and PNG files are accepted.",
-      });
-      
+      alert("❌ Invalid file format. Only JPG, JPEG, and PNG are accepted.");
+      // Rất quan trọng: Xóa giá trị input để người dùng có thể chọn lại
       event.target.value = "";
-      setSelectedImageUrl("");
+      setSelectedImageUrl(""); // Reset file cũ
       return;
     }
 
-    // 2. CHECK SIZE (Max 5MB)
-    const maxSizeMB = 5;
+    // 2. ✅ KIỂM TRA DUNG LƯỢNG (Tối đa 5MB)
+    const maxSizeMB = 10;
     const maxSizeBytes = maxSizeMB * 1024 * 1024;
     if (file.size > maxSizeBytes) {
-      toast({
-        variant: "destructive",
-        title: "File Too Large",
-        description: `Maximum size allowed is ${maxSizeMB} MB.`,
-      });
-
+      alert(`⚠️The file is too large. The maximum allowed size is ${maxSizeMB} MB.`);
+      // Rất quan trọng: Xóa giá trị input để người dùng có thể chọn lại
       event.target.value = "";
-      setSelectedImageUrl("");
+      setSelectedImageUrl(""); // Reset file cũ
       return;
     }
 
+    // Nếu hợp lệ: Cập nhật state designFile và xóa selectedImageUrl
     setDesignFile(file);
     setSelectedImageUrl("");
+  };
+
+  // Hàm Bắt đầu Redo (DESIGN_REDO -> DESIGNING)
+  const handleStartRedo = async (orderId) => {
+    const success = await updateDesignStatusApi(orderId, "DESIGNING");
+    if (success) {
+      handleUpdateStatusLocal(orderId, "DESIGNING");
+    }
   };
 
   const handleSendToSellerCheck = async (orderId) => {
     const success = await updateDesignStatusApi(orderId, "CHECK_DESIGN");
     if (success) {
-      // NOTE: "CHECK_DESIGN" is technically status key, ensure backend accepts logic
-      handleUpdateOrderStatusLocal(orderId, "CHECK_DESIGN"); 
-      toast({
-        title: "Sent to Review",
-        description: "Design sent for review. Order status updated.",
-        className: "bg-blue-50 text-blue-700 border border-blue-200",
-      });
-      fetchTasks(); // Optional refresh to sync with server
+      handleUpdateOrderStatusLocal(orderId, "CHECK_DESIGN");
+      alert(
+        "The design has been submitted for review. The order status will be updated."
+      );
+      fetchTasks();
     }
+    //window.location.reload();
   };
 
   const handleItemsPerPageChange = (value) => {
@@ -452,11 +415,6 @@ export default function DesignAssignPage() {
       setAssignedOrders(mapped);
     } catch (err) {
       console.error("❌ Failed to fetch tasks:", err);
-      toast({
-        variant: "destructive",
-        title: "Data Error",
-        description: "Failed to load tasks. Please refresh.",
-      });
       setAssignedOrders([]);
     } finally {
       setLoading(false);
@@ -477,12 +435,11 @@ export default function DesignAssignPage() {
     });
     return Array.from(monthYearSet).sort().reverse();
   };
-
-  // --- FETCH TASK DETAILS AND LOGS ---
+  // --- HÀM ĐỂ LẤY CHI TIẾT TASK VÀ LOGS ---
   const fetchTaskDetail = async (orderDetailId) => {
     if (!orderDetailId) return;
     setDetailLoading(true);
-    setTaskLogs([]);
+    setTaskLogs([]); // Xóa log cũ
     try {
       const res = await fetch(
         `${apiClient.defaults.baseURL}/api/designer/tasks/${orderDetailId}`,
@@ -501,14 +458,16 @@ export default function DesignAssignPage() {
         id: data.taskInfo.orderDetailId.toString(),
         ProductionStatus: data.taskInfo.productionStatus || "NEED_DESIGN",
       };
-      
+      // CẬP NHẬT 2 STATE:
+      // 1. Cập nhật selectedOrder với dữ liệu MỚI NHẤT từ API
       setSelectedOrder(updatedTaskInfo);
+      // 2. Lưu trữ danh sách logs
       setTaskLogs(data.logs || []);
     } catch (error) {
       console.error("Error fetching task detail:", error);
       toast({
-        title: "Error",
-        description: "Could not load task details or history.",
+        title: "Lỗi",
+        description: "Unable to load job details or history.",
         variant: "destructive",
       });
     } finally {
@@ -517,7 +476,7 @@ export default function DesignAssignPage() {
   };
   const availableMonthsYears = getAvailableMonthsYears();
 
-  // --- FILTER/COUNT/DISPLAY LOGIC ---
+  // --- LOGIC FILTER/COUNT/DISPLAY ---
   const filteredOrders = assignedOrders.filter((order) => {
     const matchesSearch =
       order.orderCode.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -549,6 +508,7 @@ export default function DesignAssignPage() {
       counts[key] = 0;
     });
 
+    // Count only orders that match current date filters
     const dateFilteredOrders = assignedOrders.filter((order) => {
       if (selectedMonth !== "all-months" && selectedYear !== "all-years") {
         const date = new Date(order.assignedAt);
@@ -853,7 +813,7 @@ export default function DesignAssignPage() {
             )}
             {!loading && filteredOrders.length === 0 && (
               <div className="p-4 text-center text-slate-500 bg-white rounded-lg">
-                No design tasks found.
+                No design assignments were found.
               </div>
             )}
             {!loading && filteredOrders.length > 0 && (
@@ -921,7 +881,7 @@ export default function DesignAssignPage() {
                           {order.orderDetailId}
                         </TableCell>
 
-                        {/* ORDER CODE CELL */}
+                        {/* ORDER CODE CELL (Đã sửa để ẩn khi trùng) */}
                         <TableCell className="font-medium text-slate-900 whitespace-nowrap">
                           {order.orderCode}
                         </TableCell>
@@ -948,15 +908,19 @@ export default function DesignAssignPage() {
                           <div className="flex gap-2">
                             <Dialog
                               onOpenChange={(open) => {
+                                // Logic reset state khi mở/đóng Dialog [cite: 179]
                                 if (open) {
+                                  // 1. Set state stale (từ bảng) để dialog mở ngay lập tức
                                   setSelectedOrder(order);
                                   setDesignFile(null);
                                   setDesignNotes("");
                                   setSelectedImageUrl("");
-                                  fetchTaskDetail(order.id);
+
+                                  // --- GỌI API MỚI ---
+                                  fetchTaskDetail(order.id); // order.id chính là orderDetailId [cite: 88]
                                 } else {
                                   setSelectedOrder(null);
-                                  setTaskLogs([]);
+                                  setTaskLogs([]); // Xóa logs khi đóng
                                 }
                               }}
                             >
@@ -1031,8 +995,9 @@ export default function DesignAssignPage() {
                                             </div>
                                           </div>
                                         </div>
+                                        {/* --- PHẦN MỚI THÊM: LOADING VÀ LỊCH SỬ REJECT --- */}
 
-                                        {/* LOADING & HISTORY */}
+                                        {/* 1. HIỂN THỊ LOADING */}
                                         {detailLoading && (
                                           <div className="text-center p-6 bg-gray-50 rounded-lg">
                                             <p className="text-gray-600">
@@ -1041,6 +1006,7 @@ export default function DesignAssignPage() {
                                           </div>
                                         )}
 
+                                        {/* 2. HIỂN THỊ LỊCH SỬ LOGS (ĐÃ CẬP NHẬT) */}
                                         {!detailLoading &&
                                           taskLogs.length > 0 && (
                                             <div className="space-y-4">
@@ -1057,11 +1023,12 @@ export default function DesignAssignPage() {
                                                     log.eventType ===
                                                     "DESIGN_APPROVED";
 
+                                                  // Xác định style dựa trên loại log
                                                   let containerClass =
                                                     "bg-gray-50 border-gray-200 p-4 rounded-lg border";
                                                   let titleClass =
                                                     "font-medium text-gray-700";
-                                                  let title = log.eventType;
+                                                  let title = log.eventType; // Tiêu đề mặc định
 
                                                   if (isRejection) {
                                                     containerClass =
@@ -1072,7 +1039,7 @@ export default function DesignAssignPage() {
                                                       log.eventType ===
                                                       "DESIGN_REJECTED"
                                                         ? "Design Rejected"
-                                                        : "QC Error";
+                                                        : "QC Báo lỗi";
                                                   } else if (isApproval) {
                                                     containerClass =
                                                       "bg-green-50 border-green-200 p-4 rounded-lg border";
@@ -1083,12 +1050,8 @@ export default function DesignAssignPage() {
 
                                                   return (
                                                     <li
-                                                      key={
-                                                        log.orderDetailLogId
-                                                      }
-                                                      className={
-                                                        containerClass
-                                                      }
+                                                      key={log.orderDetailLogId}
+                                                      className={containerClass}
                                                     >
                                                       <div className="flex justify-between items-center mb-1">
                                                         <span
@@ -1110,10 +1073,11 @@ export default function DesignAssignPage() {
                                                           "System"}
                                                       </p>
 
+                                                      {/* Chỉ hiển thị Lý do/Ghi chú nếu có */}
                                                       {log.reason && (
                                                         <p className="text-sm text-gray-800 mt-1">
                                                           <strong>
-                                                            Reason:
+                                                            Reason Reject:
                                                           </strong>{" "}
                                                           {log.reason}
                                                         </p>
@@ -1124,6 +1088,7 @@ export default function DesignAssignPage() {
                                               </ul>
                                             </div>
                                           )}
+                                        {/* --- KẾT THÚC PHẦN MỚI THÊM --- */}
 
                                         {/* Product Details Section */}
                                         <div>
@@ -1154,9 +1119,8 @@ export default function DesignAssignPage() {
                                                   SKU
                                                 </Label>
                                                 <p className="font-medium text-gray-900 mt-1">
-                                                  {selectedOrder
-                                                    .productDetails?.sku ||
-                                                    "N/A"}
+                                                  {selectedOrder.productDetails
+                                                    ?.sku || "N/A"}
                                                 </p>
                                               </div>
                                               <div>
@@ -1173,20 +1137,17 @@ export default function DesignAssignPage() {
                                                 </Label>
                                                 <p className="font-medium text-gray-900 mt-1">
                                                   {
-                                                    selectedOrder
-                                                      .productDetails
+                                                    selectedOrder.productDetails
                                                       ?.lengthCm
                                                   }
                                                   x
                                                   {
-                                                    selectedOrder
-                                                      .productDetails
+                                                    selectedOrder.productDetails
                                                       ?.heightCm
                                                   }
                                                   x
                                                   {
-                                                    selectedOrder
-                                                      .productDetails
+                                                    selectedOrder.productDetails
                                                       ?.widthCm
                                                   }
                                                   cm
@@ -1197,8 +1158,7 @@ export default function DesignAssignPage() {
                                                   Thickness
                                                 </Label>
                                                 <p className="font-medium text-gray-900 mt-1">
-                                                  {selectedOrder
-                                                    .productDetails
+                                                  {selectedOrder.productDetails
                                                     ?.thicknessMm || "N/A"}
                                                   mm
                                                 </p>
@@ -1208,9 +1168,8 @@ export default function DesignAssignPage() {
                                                   Layer
                                                 </Label>
                                                 <p className="font-medium text-gray-900 mt-1">
-                                                  {selectedOrder
-                                                    .productDetails?.layer ||
-                                                    "N/A"}
+                                                  {selectedOrder.productDetails
+                                                    ?.layer || "N/A"}
                                                 </p>
                                               </div>
                                               <div>
@@ -1218,8 +1177,7 @@ export default function DesignAssignPage() {
                                                   Custom Shape
                                                 </Label>
                                                 <p className="font-medium text-gray-900 mt-1">
-                                                  {selectedOrder
-                                                    .productDetails
+                                                  {selectedOrder.productDetails
                                                     ?.customShape || "N/A"}
                                                 </p>
                                               </div>
@@ -1228,8 +1186,7 @@ export default function DesignAssignPage() {
                                                   Size (Inch)
                                                 </Label>
                                                 <p className="font-medium text-gray-900 mt-1">
-                                                  {selectedOrder
-                                                    .productDetails
+                                                  {selectedOrder.productDetails
                                                     ?.sizeInch || "N/A"}
                                                 </p>
                                               </div>
@@ -1244,6 +1201,7 @@ export default function DesignAssignPage() {
                                                   <img
                                                     src={
                                                       selectedOrder.linkImg ||
+                                                      "/placeholder.svg" ||
                                                       "/placeholder.svg"
                                                     }
                                                     alt={
@@ -1265,6 +1223,7 @@ export default function DesignAssignPage() {
                                                     <img
                                                       src={
                                                         selectedOrder.linkThankCard ||
+                                                        "/placeholder.svg" ||
                                                         "/placeholder.svg"
                                                       }
                                                       alt="Thank Card"
@@ -1283,6 +1242,7 @@ export default function DesignAssignPage() {
                                                     <img
                                                       src={
                                                         selectedOrder.linkFileDesign ||
+                                                        "/placeholder.svg" ||
                                                         "/placeholder.svg"
                                                       }
                                                       alt="Design File"
@@ -1302,13 +1262,13 @@ export default function DesignAssignPage() {
                                           selectedOrder.orderStatus === 6) && (
                                           <div className="border-t pt-4">
                                             <h3 className="font-semibold text-lg mb-3">
-                                              {currentStatus ===
-                                              "CHECK_DESIGN"
+                                              {/* Sửa tiêu đề */}
+                                              {currentStatus === "CHECK_DESIGN"
                                                 ? "Edit & Resubmit Design"
                                                 : "Upload Design"}
                                             </h3>
                                             <div className="space-y-4">
-                                              {/* 1. INPUT FILE & GALLERY BUTTON */}
+                                              {/* 1. INPUT FILE MỚI & NÚT CHỌN KHO ẢNH */}
                                               <div className="flex items-start gap-3">
                                                 <div className="flex-1">
                                                   <Label htmlFor="design-file">
@@ -1325,7 +1285,7 @@ export default function DesignAssignPage() {
                                                   />
                                                 </div>
 
-                                                {/* Open Gallery Button */}
+                                                {/* Nút Mở Kho Ảnh */}
                                                 <Dialog
                                                   open={showImageModal}
                                                   onOpenChange={
@@ -1339,25 +1299,22 @@ export default function DesignAssignPage() {
                                                       className="mt-6 whitespace-nowrap bg-transparent"
                                                       onClick={fetchMyImages}
                                                     >
-                                                      Select from Gallery
+                                                     Choose from Photo Gallery
                                                     </Button>
                                                   </DialogTrigger>
 
-                                                  {/* Gallery Modal */}
+                                                  {/* Modal Kho Ảnh */}
                                                   <DialogContent className="max-w-3xl">
                                                     <DialogHeader>
                                                       <DialogTitle>
-                                                        Your Design Gallery
+                                                        Your Design Photo Gallery
                                                       </DialogTitle>
                                                     </DialogHeader>
                                                     <div className="grid grid-cols-4 gap-4 max-h-[50vh] overflow-y-auto">
                                                       {uploadedImages.length ===
                                                       0 ? (
                                                         <p className="col-span-4 text-center text-gray-500">
-                                                          You haven't
-                                                          uploaded any images
-                                                          or cannot load
-                                                          them.
+                                                          You haven't uploaded any photos or you can't upload photos.
                                                         </p>
                                                       ) : (
                                                         uploadedImages.map(
@@ -1382,6 +1339,7 @@ export default function DesignAssignPage() {
                                                               <img
                                                                 src={
                                                                   img.secureUrl ||
+                                                                  "/placeholder.svg" ||
                                                                   "/placeholder.svg"
                                                                 }
                                                                 alt={
@@ -1397,7 +1355,7 @@ export default function DesignAssignPage() {
                                                     </div>
                                                     {selectedImageUrl && (
                                                       <p className="text-sm text-blue-600 mt-2">
-                                                        Selected file: **
+                                                      File selected: **
                                                         {selectedImageUrl.substring(
                                                           0,
                                                           50
@@ -1416,21 +1374,21 @@ export default function DesignAssignPage() {
                                                           !selectedImageUrl
                                                         }
                                                       >
-                                                        Confirm Selection
+                                                        Confirm file selection
                                                       </Button>
                                                     </div>
                                                   </DialogContent>
                                                 </Dialog>
                                               </div>
 
-                                              {/* 2. SHOW SELECTED FILE STATUS */}
+                                              {/* 2. HIỂN THỊ TRẠNG THÁI FILE ĐÃ CHỌN */}
                                               <div className="mt-2 text-sm">
                                                 {designFile && (
                                                   <Badge
                                                     variant="secondary"
                                                     className="bg-green-100 text-green-800"
                                                   >
-                                                    New File: {designFile.name}
+                                                    File New: {designFile.name}
                                                   </Badge>
                                                 )}
                                                 {selectedImageUrl &&
@@ -1439,7 +1397,7 @@ export default function DesignAssignPage() {
                                                       variant="secondary"
                                                       className="bg-blue-100 text-blue-800"
                                                     >
-                                                      Old File:{" "}
+                                                      File Old:{" "}
                                                       {selectedImageUrl.substring(
                                                         0,
                                                         30
@@ -1450,14 +1408,13 @@ export default function DesignAssignPage() {
                                                 {!designFile &&
                                                   !selectedImageUrl && (
                                                     <p className="text-gray-500">
-                                                      No design file
-                                                      selected.
+                                                      No design file has been selected yet.
                                                     </p>
                                                   )}
                                               </div>
 
-                                              {/* 3. Input Notes */}
-                                              <div>
+                                              {/* 3. Input Ghi chú */}
+                                              {/* <div>
                                                 <Label htmlFor="design-notes">
                                                   Design Notes
                                                 </Label>
@@ -1471,9 +1428,9 @@ export default function DesignAssignPage() {
                                                     )
                                                   }
                                                 />
-                                              </div>
+                                              </div> */}
 
-                                              {/* 4. Upload/Send Button */}
+                                              {/* 4. Nút Upload/Send */}
                                               <div className="flex gap-2">
                                                 <Button
                                                   onClick={handleUploadDesign}
@@ -1491,6 +1448,25 @@ export default function DesignAssignPage() {
                                             </div>
                                           </div>
                                         )}
+
+                                        {/* <div className="border-t pt-4">
+                                          <h3 className="font-semibold text-lg mb-3">
+                                            Files from Seller
+                                          </h3>
+                                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                            <div className="border rounded-lg p-4 opacity-50">
+                                              <Label className="text-sm text-gray-500">
+                                                Reference Image
+                                              </Label>
+                                              <div className="mt-2 w-full h-32 bg-gray-100 rounded border flex items-center justify-center">
+                                                <ImageIcon className="h-8 w-8 text-gray-400" />
+                                              </div>
+                                              <p className="text-sm mt-2">
+                                                N/A
+                                              </p>
+                                            </div>
+                                          </div>
+                                        </div> */}
                                       </div>
                                     )}
                                   </DialogContent>
@@ -1507,6 +1483,17 @@ export default function DesignAssignPage() {
                                 <Check className="h-4 w-4 mr-1" />
                               </Button>
                             )}
+                            {/* {currentStatus === "DESIGNING" && (
+                              <Button size="sm" disabled className="opacity-50">
+                                <Upload className="h-4 w-4 mr-1" /> Upload
+                                Design
+                              </Button>
+                            )} */}
+                            {/* {currentStatus === "CHECK_DESIGN" && (
+                              <Button size="sm" disabled className="opacity-50">
+                                <Check className="h-4 w-4 mr-1" /> Checking
+                              </Button>
+                            )} */}
 
                             {currentStatus === "CHECK_DESIGN" &&
                               order.orderStatus !== "CHECK_DESIGN" &&
@@ -1551,9 +1538,7 @@ export default function DesignAssignPage() {
                   <span className="text-sm text-slate-700">Show</span>
                   <select
                     value={itemsPerPage}
-                    onChange={(e) =>
-                      handleItemsPerPageChange(e.target.value)
-                    }
+                    onChange={(e) => handleItemsPerPageChange(e.target.value)}
                     className="px-2 py-1 border border-blue-100 rounded-md text-sm bg-white focus:border-blue-300"
                   >
                     <option value="5">5</option>
@@ -1583,34 +1568,29 @@ export default function DesignAssignPage() {
                   </Button>
 
                   <div className="flex items-center gap-1">
-                    {Array.from(
-                      { length: Math.min(5, totalPages) },
-                      (_, i) => {
-                        let pageNum;
-                        if (totalPages <= 5) {
-                          pageNum = i + 1;
-                        } else if (page <= 3) {
-                          pageNum = i + 1;
-                        } else if (page >= totalPages - 2) {
-                          pageNum = totalPages - 4 + i;
-                        } else {
-                          pageNum = page - 2 + i;
-                        }
-                        return (
-                          <Button
-                            key={pageNum}
-                            variant={
-                              page === pageNum ? "default" : "outline"
-                            }
-                            size="sm"
-                            onClick={() => setPage(pageNum)}
-                            className="w-8 h-8 p-0"
-                          >
-                            {pageNum}
-                          </Button>
-                        );
+                    {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                      let pageNum;
+                      if (totalPages <= 5) {
+                        pageNum = i + 1;
+                      } else if (page <= 3) {
+                        pageNum = i + 1;
+                      } else if (page >= totalPages - 2) {
+                        pageNum = totalPages - 4 + i;
+                      } else {
+                        pageNum = page - 2 + i;
                       }
-                    )}
+                      return (
+                        <Button
+                          key={pageNum}
+                          variant={page === pageNum ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => setPage(pageNum)}
+                          className="w-8 h-8 p-0"
+                        >
+                          {pageNum}
+                        </Button>
+                      );
+                    })}
                   </div>
 
                   <Button
@@ -1630,7 +1610,7 @@ export default function DesignAssignPage() {
         </main>
       </div>
 
-      {/* Confirmation Dialog (kept as is) */}
+      {/* Confirmation Dialog (giữ nguyên) */}
       {showConfirmDialog && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-[9999]">
           <div className="bg-white rounded-lg max-w-md w-full p-6">

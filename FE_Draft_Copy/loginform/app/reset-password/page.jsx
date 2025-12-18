@@ -51,8 +51,8 @@ export default function ResetPasswordPage() {
       return;
     }
 
-    if (newPassword.length < 8) {
-      setError("Password must be at least 8 characters long");
+    if (newPassword.length < 6) {
+      setError("Password must be at least 6 characters long");
       setErrorOpen(true);
       return;
     }
@@ -141,7 +141,7 @@ export default function ResetPasswordPage() {
               </label>
               <Input
                 type="password"
-                placeholder="Enter new password (minimum 8 characters)"
+                placeholder="Enter new password (minimum 6 characters)"
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
                 className="w-full"

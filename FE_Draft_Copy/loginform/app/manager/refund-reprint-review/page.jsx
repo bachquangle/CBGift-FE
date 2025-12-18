@@ -173,7 +173,7 @@ const reviewReprintRequest = async (originalOrderDetailIds, approved, rejectionR
         
         const bodyContent = {
             originalOrderDetailIds: originalOrderDetailIds, // List<int>
-            rejectReason: approved ? null : rejectionReason 
+            rejectReason: approved ? "approved" : rejectionReason 
         };
 
         const response = await fetch(endpoint, {

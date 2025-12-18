@@ -1610,10 +1610,11 @@ export default function ManageOrder() {
         continue;
       }
 
-      const isDraft =
-        order.status === "DRAFT" || order.statusOrder === 0;
+      const isDraft = order.status === "DRAFT" || order.statusOrder === 0;
       const allProductsHaveDesign = hasDesignFile(order);
-      console.log(`Order ${orderId} - isDraft: ${isDraft}, allProductsHaveDesign: ${allProductsHaveDesign}`);
+      console.log(
+        `Order ${orderId} - isDraft: ${isDraft}, allProductsHaveDesign: ${allProductsHaveDesign}`
+      );
       if (!isDraft || !allProductsHaveDesign) {
         failedValidationOrders.push(orderId);
       }
@@ -3414,7 +3415,10 @@ whitespace-nowrap"
                                                         Base Cost:
                                                       </span>
                                                       <p className="text-slate-900 font-semibold">
-                                                        {item.price.toLocaleString("vi-VN") || "0"} VND
+                                                        {item.price.toLocaleString(
+                                                          "vi-VN"
+                                                        ) || "0"}{" "}
+                                                        VND
                                                       </p>
                                                     </div>
                                                     <div>

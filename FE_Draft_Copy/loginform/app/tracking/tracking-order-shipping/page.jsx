@@ -49,6 +49,10 @@ const StatusBadge = ({ status, className = "" }) => {
       bg: "bg-cyan-100 text-cyan-800 border-cyan-200", 
       label: "Mới tạo / Sẵn sàng lấy hàng" 
     },
+    cancel: { 
+      bg: "bg-red-100 text-red-800 border-red-200", 
+      label: "Đơn hàng đã bị hủy" 
+    },
     default: { 
       bg: "bg-gray-100 text-gray-800 border-gray-200", 
       label: status 
@@ -71,7 +75,8 @@ export default function TrackingOrderShippingPage() {
   const [trackResult, setTrackResult] = useState(null);
   const [trackError, setTrackError] = useState(null);
   const [isTracking, setIsTracking] = useState(false);
-  
+  const [cancelReason, setCancelReason] = useState("");
+  const [showCancelReason, setShowCancelReason] = useState(false);
   // State cho việc update manual
   const [isUpdating, setIsUpdating] = useState(false);
 
@@ -160,20 +165,21 @@ export default function TrackingOrderShippingPage() {
     setIsUpdating(true);
 
     try {
-        // 1. Gọi API Update
-        await apiClient.post("/api/shipping/update-status-manual", {
-            orderCode: trackResult.orderCode,
-            newStatus: newStatus
-        });
+      await apiClient.post("/api/shipping/update-status-manual", {
+        orderCode: trackResult.orderCode,
+        newStatus: newStatus,
+        reason: newStatus === "cancel" ? cancelReason : null
+      });
 
-        // 2. Gọi lại API Tracking để lấy dữ liệu mới nhất (Refresh UI)
-        const updatedResult = await fetchTrackingData(trackResult.orderCode);
-        setTrackResult(updatedResult);
+      const updatedResult = await fetchTrackingData(trackResult.orderCode);
+      setTrackResult(updatedResult);
 
+      setShowCancelReason(false);
+      setCancelReason("");
     } catch (error) {
-        alert("Lỗi cập nhật: " + (error.response?.data?.message || error.message));
+      alert("Lỗi cập nhật: " + (error.response?.data?.message || error.message));
     } finally {
-        setIsUpdating(false);
+      setIsUpdating(false);
     }
   };
 
@@ -367,6 +373,7 @@ export default function TrackingOrderShippingPage() {
                                                          log.status === "picking" ? "Đang giao hàng" :
                                                          log.status === "shipping" ? "Đang giao hàng" :
                                                          log.status === "delivered" ? "Giao hàng thành công" :
+                                                         log.status === "cancel" ? "Đơn hàng đã bị hủy" :
                                                          log.status === "shipped" ? "Giao hàng thành công" :
                                                          log.status.replaceAll("_", " ")}
                                                     </p>
@@ -407,29 +414,64 @@ export default function TrackingOrderShippingPage() {
                             className="bg-cyan-600 hover:bg-cyan-700 disabled:opacity-50 text-white font-bold py-3 px-6 rounded-lg transition-colors flex items-center gap-2"
                         >
                             📦 Sẵn sàng lấy
-                        </button>
-
-                        <button 
-                            onClick={() => handleUpdateStatus("shipping")}
-                            disabled={isUpdating}
-                            className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-bold py-3 px-6 rounded-lg transition-colors flex items-center gap-2"
-                        >
-                            🚚 Đang giao hàng
                         </button> */}
 
-                        <button 
-                            onClick={() => handleUpdateStatus("delivered")}
-                            disabled={isUpdating}
-                            className="bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white font-bold py-3 px-6 rounded-lg transition-colors flex items-center gap-2"
-                        >
-                            ✅ Giao thành công
-                        </button>
+                        <div className="flex items-center gap-3">
+                            {/* Nút Giao thành công */}
+                            <button 
+                                onClick={() => handleUpdateStatus("delivered")}
+                                disabled={isUpdating}
+                                className="bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white font-bold py-3 px-6 rounded-lg transition-colors flex items-center justify-center gap-2 min-w-[180px]"
+                            >
+                                <span>✅</span>
+                                <span>Giao thành công</span>
+                            </button>
 
-                         {isUpdating && <div className="flex items-center text-slate-300 ml-2"><LoadingSpinner /> <span className="ml-2">Đang xử lý...</span></div>}
+                            {/* Nút Hủy hàng */}
+                            <button 
+                              onClick={() => setShowCancelReason(true)}
+                              disabled={isUpdating}
+                              className="bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white font-bold py-3 px-6 rounded-lg transition-all flex items-center justify-center gap-2 min-w-[150px]"
+                            >
+                              ❌ Hủy hàng
+                            </button>
+                        </div>
+                        {isUpdating && <div className="flex items-center text-slate-300 ml-2"><LoadingSpinner /> <span className="ml-2">Đang xử lý...</span></div>} 
+                    </div>
+                </div>
+                <div className={`bg-black/50 fixed inset-0 flex items-center justify-center p-4 transition-opacity ${showCancelReason ? 'opacity-100 visible' : 'opacity-0 invisible'}`}>
+                    <div className="bg-white rounded-lg shadow-lg max-w-md w-full p-6">
+                        <h4 className="text-lg font-bold mb-4 text-slate-800">Lý do hủy đơn hàng</h4>
+                        <textarea
+                          value={cancelReason}
+                          onChange={(e) => setCancelReason(e.target.value)}
+                          placeholder="Nhập lý do (VD: Khách không nhận hàng, giao không thành công...)"
+                          className="w-full rounded-lg p-3 text-slate-800 text-sm outline-none"
+                          rows={3}
+                        />
+
+                        <div className="flex gap-3 mt-3">
+                          <button
+                            onClick={() => handleUpdateStatus("cancel")}
+                            disabled={isUpdating || !cancelReason.trim()}
+                            className="bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white font-bold px-5 py-2 rounded-lg"
+                          >
+                            Xác nhận hủy
+                          </button>
+
+                          <button
+                            onClick={() => {
+                              setShowCancelReason(false);
+                              setCancelReason("");
+                            }}
+                            className="bg-slate-500 hover:bg-slate-600 text-white px-5 py-2 rounded-lg"
+                          >
+                            Đóng
+                          </button>
+                        </div>
                     </div>
                 </div>
             </div>
-
           </div>
         )}
       </main>

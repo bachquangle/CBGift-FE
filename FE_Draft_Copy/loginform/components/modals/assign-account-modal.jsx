@@ -68,39 +68,6 @@ export default function AssignAccountModal({
     if (errors[field]) setErrors((prev) => ({ ...prev, [field]: "" }));
   };
 
-  const handleNameInput = (value) => {
-    let sanitized = value
-      // Chỉ cho chữ (kể cả tiếng Việt) + khoảng trắng
-      .replace(/[^\p{L}\s]/gu, "")
-      // Nhiều space -> 1 space
-      .replace(/\s+/g, " ")
-      // Không cho space đầu
-      .replace(/^\s+/, "");
-
-    setFormData((prev) => ({
-      ...prev,
-      fullName: sanitized,
-    }));
-
-    if (errors.fullName) {
-      setErrors((prev) => ({ ...prev, fullName: "" }));
-    }
-  };
-
-  const handleTrimmedInput = (field, value) => {
-    // Không cho toàn space
-    if (value.trim() === "" && value.length > 0) return;
-
-    setFormData((prev) => ({
-      ...prev,
-      [field]: value.trimStart(),
-    }));
-
-    if (errors[field]) {
-      setErrors((prev) => ({ ...prev, [field]: "" }));
-    }
-  };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!validateForm()) return;
@@ -282,39 +249,26 @@ export default function AssignAccountModal({
             <div className="space-y-4">
               <h3 className="text-lg font-semibold">Personal Information</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Full Name */}
                 <div>
                   <Label>Full Name *</Label>
                   <Input
                     value={formData.fullName}
-                    onChange={(e) => handleNameInput(e.target.value)}
-                    maxLength={50}
+                    onChange={(e) =>
+                      handleInputChange("fullName", e.target.value)
+                    }
                     className={errors.fullName ? "border-red-500" : ""}
-                    placeholder="Enter full name"
                   />
-                  <p className="text-xs text-gray-500 mt-1">
-                    {formData.fullName.length}/50 characters
-                  </p>
                   {errors.fullName && (
                     <p className="text-sm text-red-500">{errors.fullName}</p>
                   )}
                 </div>
-
-                {/* Email */}
                 <div>
                   <Label>Email *</Label>
                   <Input
                     type="email"
                     value={formData.email}
-                    onChange={(e) =>
-                      handleTrimmedInput("email", e.target.value)
-                    }
-                    onKeyDown={(e) => {
-                      if (e.key === " " || e.key === "Spacebar")
-                        e.preventDefault();
-                    }}
+                    onChange={(e) => handleInputChange("email", e.target.value)}
                     className={errors.email ? "border-red-500" : ""}
-                    placeholder="Enter email"
                   />
                   {errors.email && (
                     <p className="text-sm text-red-500">{errors.email}</p>

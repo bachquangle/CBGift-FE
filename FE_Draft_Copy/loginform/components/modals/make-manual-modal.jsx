@@ -347,62 +347,62 @@ export default function MakeManualModal({ isOpen, onClose }) {
     }
   };
   const uploadImage = async (file, onProgress) => {
-  const formData = new FormData();
-  formData.append("File", file);
+    const formData = new FormData();
+    formData.append("File", file);
 
-  try {
-    let currentProgress = 0;
-    const progressInterval = setInterval(() => {
-      if (currentProgress < 90) {
-        currentProgress += Math.random() * 30;
-        onProgress?.(Math.min(currentProgress, 90));
+    try {
+      let currentProgress = 0;
+      const progressInterval = setInterval(() => {
+        if (currentProgress < 90) {
+          currentProgress += Math.random() * 30;
+          onProgress?.(Math.min(currentProgress, 90));
+        }
+      }, 200);
+
+      const res = await fetch(
+        `${apiClient.defaults.baseURL}/api/images/upload`,
+        {
+          method: "POST",
+          credentials: "include",
+          body: formData,
+        }
+      );
+
+      clearInterval(progressInterval);
+
+      if (!res.ok) {
+        let errorMessage = "Upload failed";
+
+        try {
+          const errorData = await res.json();
+
+          // 🔥 ƯU TIÊN message TỪ BE
+          errorMessage =
+            errorData.message ||
+            errorData.detail ||
+            errorData.error ||
+            "Upload failed";
+        } catch {
+          const text = await res.text();
+          errorMessage = text || "Upload failed";
+        }
+
+        throw new Error(errorMessage);
       }
-    }, 200);
 
-    const res = await fetch(
-      `${apiClient.defaults.baseURL}/api/images/upload`,
-      {
-        method: "POST",
-        credentials: "include",
-        body: formData,
-      }
-    );
+      const data = await res.json();
+      onProgress?.(100);
 
-    clearInterval(progressInterval);
+      return data.url || data.secureUrl || data.path || null;
+    } catch (err) {
+      console.error("Upload error:", err);
 
-    if (!res.ok) {
-      let errorMessage = "Upload failed";
+      // ✅ HIỂN THỊ ĐÚNG MESSAGE BE
+      setErrorMessage(err.message);
+      setShowErrorDialog(true);
 
-      try {
-        const errorData = await res.json();
-
-        // 🔥 ƯU TIÊN message TỪ BE
-        errorMessage =
-          errorData.message ||
-          errorData.detail ||
-          errorData.error ||
-          "Upload failed";
-      } catch {
-        const text = await res.text();
-        errorMessage = text || "Upload failed";
-      }
-
-      throw new Error(errorMessage);
+      return null;
     }
-
-    const data = await res.json();
-    onProgress?.(100);
-
-    return data.url || data.secureUrl || data.path || null;
-  } catch (err) {
-    console.error("Upload error:", err);
-
-    // ✅ HIỂN THỊ ĐÚNG MESSAGE BE
-    setErrorMessage(err.message);
-    setShowErrorDialog(true);
-
-    return null;
-  }
   };
   const calculateProductPrice = () => {
     if (!currentProduct) return 0;
@@ -437,7 +437,7 @@ export default function MakeManualModal({ isOpen, onClose }) {
     );
 
     if (totalQty > 1) {
-      total += breakdown.maxExtraShipping*(totalQty-1); // Chỉ cộng 1 lần Max Extra Shipping
+      total += breakdown.maxExtraShipping * (totalQty - 1); // Chỉ cộng 1 lần Max Extra Shipping
     }
 
     // 3. CỘNG TTS (GIỮ NGUYÊN)
@@ -627,20 +627,19 @@ export default function MakeManualModal({ isOpen, onClose }) {
   };
 
   const handleNameInput = (value) => {
-  let sanitized = value
-    // Chỉ cho chữ tiếng Việt + khoảng trắng
-    .replace(/[^\p{L}\s]/gu, "")
-    // Nhiều space -> 1 space
-    .replace(/\s+/g, " ")
-    // Không cho space đầu
-    .replace(/^\s+/, "");
+    let sanitized = value
+      // Chỉ cho chữ tiếng Việt + khoảng trắng
+      .replace(/[^\p{L}\s]/gu, "")
+      // Nhiều space -> 1 space
+      .replace(/\s+/g, " ")
+      // Không cho space đầu
+      .replace(/^\s+/, "");
 
-  setCustomerInfo((prev) => ({
-    ...prev,
-    name: sanitized,
-  }));
+    setCustomerInfo((prev) => ({
+      ...prev,
+      name: sanitized,
+    }));
   };
-
 
   const handlePhoneInput = (value) => {
     // Allow only digits and spaces
@@ -665,92 +664,91 @@ export default function MakeManualModal({ isOpen, onClose }) {
   };
 
   const handleFileUpload = async (field, event) => {
-  const input = event.target;
-  const file = input.files?.[0];
-  if (!file) return;
+    const input = event.target;
+    const file = input.files?.[0];
+    if (!file) return;
 
-  // ✅ Reset helper
-  const resetInput = () => {
-    input.value = "";
-  };
+    // ✅ Reset helper
+    const resetInput = () => {
+      input.value = "";
+    };
 
-  // 1️⃣ Validate type
-  const allowedTypes = ["image/jpeg", "image/jpg", "image/png"];
-  if (!allowedTypes.includes(file.type)) {
-    setErrorMessage("❌ Only JPG, JPEG, PNG files are allowed.");
-    setShowErrorDialog(true);
-    resetInput();
-    return;
-  }
-
-  // 2️⃣ Validate file name (cho tiếng Việt + khoảng trắng, cấm ký tự đặc biệt)
-  const validNameRegex = /^[\p{L}0-9 _\-.]+$/u;
-  if (!validNameRegex.test(file.name)) {
-    setErrorMessage(
-      "❌ File name is invalid. Do not use special characters like # @ $ % ^ & *"
-    );
-    setShowErrorDialog(true);
-    resetInput();
-    return;
-  }
-
-  try {
-    setUploadProgress((prev) => ({
-      ...prev,
-      [field]: { isUploading: true, progress: 0 },
-    }));
-
-    const uploadedUrl = await uploadImage(file, (progress) => {
-      setUploadProgress((prev) => ({
-        ...prev,
-        [field]: { isUploading: true, progress },
-      }));
-    });
-
-    // ❌ BE trả lỗi nhưng không throw
-    if (!uploadedUrl) {
+    // 1️⃣ Validate type
+    const allowedTypes = ["image/jpeg", "image/jpg", "image/png"];
+    if (!allowedTypes.includes(file.type)) {
+      setErrorMessage("❌ Only JPG, JPEG, PNG files are allowed.");
+      setShowErrorDialog(true);
       resetInput();
-      setUploadProgress((prev) => ({
-        ...prev,
-        [field]: { isUploading: false, progress: 0 },
-      }));
       return;
     }
 
-    // ✅ Success
-    setCurrentProductConfig((prev) => ({
-      ...prev,
-      [field]: uploadedUrl,
-      [`${field}Preview`]: URL.createObjectURL(file),
-    }));
+    // 2️⃣ Validate file name (cho tiếng Việt + khoảng trắng, cấm ký tự đặc biệt)
+    const validNameRegex = /^[\p{L}0-9 _\-.]+$/u;
+    if (!validNameRegex.test(file.name)) {
+      setErrorMessage(
+        "❌ File name is invalid. Do not use special characters like # @ $ % ^ & *"
+      );
+      setShowErrorDialog(true);
+      resetInput();
+      return;
+    }
 
-    setUploadProgress((prev) => ({
-      ...prev,
-      [field]: { isUploading: false, progress: 100 },
-    }));
+    try {
+      setUploadProgress((prev) => ({
+        ...prev,
+        [field]: { isUploading: true, progress: 0 },
+      }));
 
-    setTimeout(() => {
+      const uploadedUrl = await uploadImage(file, (progress) => {
+        setUploadProgress((prev) => ({
+          ...prev,
+          [field]: { isUploading: true, progress },
+        }));
+      });
+
+      // ❌ BE trả lỗi nhưng không throw
+      if (!uploadedUrl) {
+        resetInput();
+        setUploadProgress((prev) => ({
+          ...prev,
+          [field]: { isUploading: false, progress: 0 },
+        }));
+        return;
+      }
+
+      // ✅ Success
+      setCurrentProductConfig((prev) => ({
+        ...prev,
+        [field]: uploadedUrl,
+        [`${field}Preview`]: URL.createObjectURL(file),
+      }));
+
+      setUploadProgress((prev) => ({
+        ...prev,
+        [field]: { isUploading: false, progress: 100 },
+      }));
+
+      setTimeout(() => {
+        setUploadProgress((prev) => ({
+          ...prev,
+          [field]: { isUploading: false, progress: 0 },
+        }));
+      }, 500);
+    } catch (err) {
+      console.error("Upload error:", err);
+
+      setErrorMessage(err.message || "⚠️ Upload failed.");
+      setShowErrorDialog(true);
+
+      // 🔥 RẤT QUAN TRỌNG
+      resetInput();
+
       setUploadProgress((prev) => ({
         ...prev,
         [field]: { isUploading: false, progress: 0 },
       }));
-    }, 500);
-  } catch (err) {
-    console.error("Upload error:", err);
-
-    setErrorMessage(err.message || "⚠️ Upload failed.");
-    setShowErrorDialog(true);
-
-    // 🔥 RẤT QUAN TRỌNG
-    resetInput();
-
-    setUploadProgress((prev) => ({
-      ...prev,
-      [field]: { isUploading: false, progress: 0 },
-    }));
-  }
+    }
   };
-
 
   const handleProductSelect = async (product) => {
     const id = product?.id ?? product?.productId;
@@ -1129,7 +1127,7 @@ export default function MakeManualModal({ isOpen, onClose }) {
               maxLength="10"
             />
             <p className="text-xs text-gray-500 mt-1">
-              Vietnamese format (10 digits, starts with 0)
+              Phone format (10 digits, starts with 0)
             </p>
           </div>
 
@@ -1516,7 +1514,9 @@ export default function MakeManualModal({ isOpen, onClose }) {
                     <p className="text-sm font-bold text-blue-600">
                       {minCost === maxCost
                         ? `${minCost.toLocaleString("vi-VN")} VND`
-                        : `${minCost.toLocaleString("vi-VN")} VND - ${maxCost.toLocaleString("vi-VN")} VND`}
+                        : `${minCost.toLocaleString(
+                            "vi-VN"
+                          )} VND - ${maxCost.toLocaleString("vi-VN")} VND`}
                     </p>
                   </div>
                 );
@@ -2262,7 +2262,6 @@ export default function MakeManualModal({ isOpen, onClose }) {
                               Extra Shipping:
                             </span>
                             <span className="font-medium text-gray-900">
-                              
                               {(
                                 getOrderCostBreakdown().maxExtraShipping *
                                 (item.qty - 1)
@@ -2300,8 +2299,8 @@ export default function MakeManualModal({ isOpen, onClose }) {
                       className="flex justify-between text-sm ml-3"
                     >
                       <span className="text-gray-600">
-                        {item.name} (Base: {item.baseCost.toLocaleString("vi-VN")}VND ×{" "}
-                        {item.qty})
+                        {item.name} (Base:{" "}
+                        {item.baseCost.toLocaleString("vi-VN")}VND × {item.qty})
                       </span>
                       <span className="font-medium text-gray-900">
                         {item.totalBaseCost.toLocaleString("vi-VN")}VND
@@ -2313,13 +2312,19 @@ export default function MakeManualModal({ isOpen, onClose }) {
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-600">Total Base Cost:</span>
                       <span className="font-medium text-gray-900">
-                        {getOrderCostBreakdown().totalBase.toLocaleString("vi-VN")}VND
+                        {getOrderCostBreakdown().totalBase.toLocaleString(
+                          "vi-VN"
+                        )}
+                        VND
                       </span>
                     </div>
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-600">Base Ship Cost:</span>
                       <span className="font-medium text-gray-900">
-                        {getOrderCostBreakdown().maxBaseShipCost.toLocaleString("vi-VN")}VND
+                        {getOrderCostBreakdown().maxBaseShipCost.toLocaleString(
+                          "vi-VN"
+                        )}
+                        VND
                       </span>
                     </div>
                     {getOrderCostBreakdown().maxExtraShipping > 0 && (
@@ -2336,7 +2341,8 @@ export default function MakeManualModal({ isOpen, onClose }) {
                               0
                             ) -
                               1)
-                          ).toLocaleString("vi-VN")}VND
+                          ).toLocaleString("vi-VN")}
+                          VND
                         </span>
                       </div>
                     )}
@@ -2345,7 +2351,10 @@ export default function MakeManualModal({ isOpen, onClose }) {
                   <div className="border-t border-slate-300 pt-2 flex justify-between font-semibold">
                     <span className="text-gray-900">Order Total:</span>
                     <span className="text-blue-600">
-                      {(calculateOrderTotal() - (activeTTS ? 1.0 : 0)).toLocaleString("vi-VN")}VND
+                      {(
+                        calculateOrderTotal() - (activeTTS ? 1.0 : 0)
+                      ).toLocaleString("vi-VN")}
+                      VND
                     </span>
                   </div>
                 </div>

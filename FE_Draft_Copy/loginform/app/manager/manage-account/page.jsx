@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import  apiClient  from "../../../lib/apiClient";
+import apiClient from "../../../lib/apiClient";
 import ManagerSidebar from "@/components/layout/manager/sidebar";
 import ManagerHeader from "@/components/layout/manager/header";
 import AccountDetailsModal from "@/components/modals/account-details-modal";
@@ -76,7 +76,9 @@ export default function ManageAccount() {
       if (statusFilter !== "all")
         params.append("isActive", statusFilter === "active" ? "true" : "false");
 
-      const url = `${apiClient.defaults.baseURL}/api/management/accounts?${params.toString()}`;
+      const url = `${
+        apiClient.defaults.baseURL
+      }/api/management/accounts?${params.toString()}`;
       console.log("[v0] Fetching accounts from:", url);
 
       const response = await fetch(url, {
@@ -303,10 +305,9 @@ export default function ManageAccount() {
           ? "Account unbanned successfully"
           : "Account banned successfully"
       );
-      
+
       setShowConfirmDialog(false);
       setShowSuccessDialog(true);
-
     } catch (err) {
       console.error(err);
     }

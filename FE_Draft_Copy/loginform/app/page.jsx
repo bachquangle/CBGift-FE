@@ -231,6 +231,40 @@ export default function LoginPage() {
     }
   };
 
+  const handleForgotEmail = (value) => {
+    // Không cho toàn space
+    if (value.trim() === "" && value.length > 0) return;
+
+    setForgotPasswordEmail(
+      value
+        .normalize("NFC") // fix Unicode copy/paste
+        .trimStart() // bỏ space đầu
+    );
+  };
+
+  const handleNewPassword = (value) => {
+    // Loại bỏ mọi khoảng trắng (kể cả paste)
+    const sanitized = value.replace(/\s/g, "");
+    setNewPassword(sanitized);
+  };
+
+  const handleLoginEmail = (value) => {
+    // Không cho toàn space
+    if (value.trim() === "" && value.length > 0) return;
+
+    setEmail(
+      value
+        .normalize("NFC") // fix Unicode copy/paste
+        .trimStart() // bỏ space đầu
+    );
+  };
+
+  const handlePasswordInput = (value) => {
+    // Loại bỏ mọi space (kể cả paste)
+    const sanitized = value.replace(/\s/g, "");
+    setPassword(sanitized);
+  };
+
   const handleResetPassword = async () => {
     if (!newPassword || !confirmPassword) {
       setError("Please fill in all fields");
@@ -242,6 +276,11 @@ export default function LoginPage() {
       setOpen(true);
       return;
     }
+
+    const handleConfirmPassword = (value) => {
+      // Không cho khoảng trắng (kể cả paste)
+      setConfirmPassword(value.replace(/\s/g, ""));
+    };
 
     setIsLoading(true);
     try {
@@ -318,9 +357,12 @@ export default function LoginPage() {
             </label>
             <Input
               type="email"
-              placeholder="Your@gmail.com"
+              placeholder="your@gmail.com"
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              onChange={(e) => handleLoginEmail(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === " " || e.key === "Spacebar") e.preventDefault();
+              }}
               className="w-full h-12 px-4 border-gray-300 rounded-lg"
             />
           </div>
@@ -334,9 +376,12 @@ export default function LoginPage() {
             <div className="relative">
               <Input
                 type={showPassword ? "text" : "password"}
-                placeholder="******"
+                placeholder="Enter your password"
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                onChange={(e) => handlePasswordInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === " " || e.key === "Spacebar") e.preventDefault();
+                }}
                 className="w-full h-12 px-4 pr-12 border-gray-300 rounded-lg"
               />
 
@@ -398,7 +443,11 @@ export default function LoginPage() {
                   type="email"
                   placeholder="Enter your email"
                   value={forgotPasswordEmail}
-                  onChange={(e) => setForgotPasswordEmail(e.target.value)}
+                  onChange={(e) => handleForgotEmail(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === " " || e.key === "Spacebar")
+                      e.preventDefault();
+                  }}
                   disabled={isLoading}
                 />
               </div>
@@ -478,9 +527,14 @@ export default function LoginPage() {
                     type={showNewPassword ? "text" : "password"}
                     placeholder="New Password"
                     value={newPassword}
-                    onChange={(e) => setNewPassword(e.target.value)}
+                    onChange={(e) => handleNewPassword(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === " " || e.key === "Spacebar")
+                        e.preventDefault();
+                    }}
                     className="pr-10"
                   />
+
                   <button
                     type="button"
                     onClick={() => setShowNewPassword(!showNewPassword)}
@@ -493,7 +547,11 @@ export default function LoginPage() {
                   type="password"
                   placeholder="Confirm Password"
                   value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  onChange={(e) => handleConfirmPassword(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === " " || e.key === "Spacebar")
+                      e.preventDefault();
+                  }}
                 />
               </div>
               <DialogFooter>

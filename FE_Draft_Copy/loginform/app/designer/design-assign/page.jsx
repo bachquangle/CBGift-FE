@@ -41,12 +41,13 @@ import {
   ChevronLeft,
   ChevronRight,
   Package,
+  Loader2,
 } from "lucide-react";
 import DesignerHeader from "@/components/layout/designer/header";
 import DesignerSidebar from "@/components/layout/designer/sidebar";
 import { useSignalR } from "@/contexts/SignalRContext";
 import { toast } from "@/components/ui/use-toast";
-
+import Swal from "sweetalert2";
 // CẬP NHẬT CONSTANTS DỰ TRÊN ENUM ProductionStatus MỚI
 const DESIGN_STATUSES = {
   NEED_DESIGN: { name: "NEED DESIGN", color: "bg-red-500", code: 2 },
@@ -68,7 +69,11 @@ export default function DesignAssignPage() {
   const [uploadedImages, setUploadedImages] = useState([]); // Kho ảnh đã upload
   const [selectedImageUrl, setSelectedImageUrl] = useState(""); // URL ảnh được chọn từ kho ảnh
   const [showImageModal, setShowImageModal] = useState(false); // Modal kho ảnh
-
+  
+  // --- NEW STATES FOR PROGRESS BAR & IMMEDIATE UPLOAD ---
+  const [uploadProgress, setUploadProgress] = useState(0); // 0 -> 100
+  const [isUploading, setIsUploading] = useState(false);
+  const [isFileUploaded, setIsFileUploaded] = useState(false);
   // General States
   const [selectedOrderDetails, setSelectedOrderDetails] = useState(new Set());
   const [selectAll, setSelectAll] = useState(false);
@@ -230,7 +235,51 @@ export default function DesignAssignPage() {
       )
     );
   };
+  const handleImmediateFileUpload = async (file) => {
+    if (!selectedOrder) return;
+    
+    setIsUploading(true);
+    setUploadProgress(0);
+    setIsFileUploaded(false);
 
+    const orderDetailId = selectedOrder.id;
+    const url = `/api/designer/tasks/${orderDetailId}/upload`; // Sử dụng axios của apiClient để có onUploadProgress
+
+    const formData = new FormData();
+    formData.append("DesignFile", file);
+    // Lưu ý: Nếu user chưa nhập note, note sẽ rỗng. 
+    // API upload ngay lập tức nên user cần nhập note trước hoặc API hỗ trợ update note sau.
+    formData.append("Note", designNotes || ""); 
+
+    try {
+        // Sử dụng apiClient (Axios instance) để bắt sự kiện onUploadProgress
+        await apiClient.post(url, formData, {
+            headers: {
+                "Content-Type": "multipart/form-data",
+            },
+            onUploadProgress: (progressEvent) => {
+                const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+                setUploadProgress(percentCompleted);
+            }
+        });
+
+        // Thành công
+        setIsFileUploaded(true);
+        handleUpdateStatusLocal(orderDetailId, "CHECK_DESIGN");
+        toast({
+            title: "Upload Complete",
+            description: "File uploaded successfully. Click 'Confirm Submission' to finish.",
+            className: "bg-green-50 text-green-700",
+        });
+
+    } catch (error) {
+        console.error("Upload failed:", error);
+        setDesignFile(null); // Reset file nếu lỗi để chọn lại
+        alert("Upload failed! Please try again.");
+    } finally {
+        setIsUploading(false);
+    }
+  };
   // Hàm chấp nhận thiết kế (NEED_DESIGN -> DESIGNING)
   const handleAcceptDesign = async (orderId) => {
     const success = await updateDesignStatusApi(orderId, "DESIGNING");
@@ -330,43 +379,141 @@ export default function DesignAssignPage() {
   };
   // định dạng size.
   const handleDesignFileChange = (event) => {
-    const file = event.target.files[0];
+  const file = event.target.files[0];
 
-    // Đảm bảo xóa file cũ (nếu có) nếu người dùng không chọn gì hoặc chọn file lỗi
-    setDesignFile(null);
+  // Reset các state liên quan
+  setDesignFile(null);
+  setIsFileUploaded(false);
+  setUploadProgress(0);
 
-    if (!file) {
-      // Nếu không chọn file, vẫn đảm bảo selectedImageUrl bị xóa
-      setSelectedImageUrl("");
-      return;
-    }
+  if (!file) {
+    return;
+  }
 
-    // 1. ✅ KIỂM TRA ĐỊNH DẠNG (JPG, JPEG, PNG)
-    const allowedTypes = ["image/jpeg", "image/jpg", "image/png"];
-    if (!allowedTypes.includes(file.type)) {
-      alert("❌ Invalid file format. Only JPG, JPEG, and PNG are accepted.");
-      // Rất quan trọng: Xóa giá trị input để người dùng có thể chọn lại
-      event.target.value = "";
-      setSelectedImageUrl(""); // Reset file cũ
-      return;
-    }
+  // Validate định dạng
+  const allowedTypes = ["image/jpeg", "image/jpg", "image/png"];
+  if (!allowedTypes.includes(file.type)) {
+    alert("❌ Invalid file format. Only JPG, JPEG, and PNG are accepted.");
+    event.target.value = "";
+    return;
+  }
+  
+  // Validate dung lượng (Ví dụ 10MB)
+  const maxSizeMB = 10;
+  if (file.size > maxSizeMB * 1024 * 1024) {
+    alert(`⚠️ The file is too large. Max ${maxSizeMB} MB.`);
+    event.target.value = "";
+    return;
+  }
 
-    // 2. ✅ KIỂM TRA DUNG LƯỢNG (Tối đa 5MB)
-    const maxSizeMB = 10;
-    const maxSizeBytes = maxSizeMB * 1024 * 1024;
-    if (file.size > maxSizeBytes) {
-      alert(`⚠️The file is too large. The maximum allowed size is ${maxSizeMB} MB.`);
-      // Rất quan trọng: Xóa giá trị input để người dùng có thể chọn lại
-      event.target.value = "";
-      setSelectedImageUrl(""); // Reset file cũ
-      return;
-    }
-
-    // Nếu hợp lệ: Cập nhật state designFile và xóa selectedImageUrl
-    setDesignFile(file);
-    setSelectedImageUrl("");
+  // --- THAY ĐỔI QUAN TRỌNG: Chỉ set state, KHÔNG gọi upload ngay ---
+  setDesignFile(file);
+  setSelectedImageUrl(""); // Xóa ảnh gallery nếu đang chọn
   };
+  // --- MODIFIED: NÚT UPLOAD CUỐI CÙNG (CONFIRM) ---
+  // Thay thế hoặc sửa hàm handleConfirmSubmission hiện tại thành hàm này
+const handleUploadAndSubmit = async () => {
+    // 1. Kiểm tra: Chưa chọn gì cả
+    if (!designFile && !selectedImageUrl) {
+      alert("Please select a file to upload or choose from the gallery.");
+      return;
+    }
 
+    const orderDetailId = selectedOrder.id;
+
+    // --- TRƯỜNG HỢP A: UPLOAD FILE MỚI (CÓ THANH TIẾN TRÌNH) ---
+    if (designFile) {
+      setIsUploading(true);
+      setUploadProgress(0);
+      
+      const formData = new FormData();
+      formData.append("DesignFile", designFile);
+      formData.append("Note", designNotes || "");
+
+      try {
+        // Dùng apiClient (Axios) để bắt sự kiện onUploadProgress
+        await apiClient.post(`/api/designer/tasks/${orderDetailId}/upload`, formData, {
+          headers: { "Content-Type": "multipart/form-data" },
+          onUploadProgress: (progressEvent) => {
+            const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+            setUploadProgress(percentCompleted);
+          }
+        });
+
+        // --- KHI UPLOAD THÀNH CÔNG ---
+        setIsFileUploaded(true);
+        
+        // Cập nhật giao diện cục bộ
+        handleUpdateStatusLocal(orderDetailId, "CHECK_DESIGN");
+        
+        // >> QUAN TRỌNG: Load lại danh sách Task <<
+        await fetchTasks();
+
+        // Hiển thị thông báo thành công
+        Swal.fire({
+          title: "Success!",
+          text: "File uploaded and submitted successfully!",
+          icon: "success",
+          confirmButtonText: "OK",
+        }).then(() => {
+          // Reset và đóng modal sau khi ấn OK
+          setSelectedOrder(null);
+          setDesignFile(null);
+          setDesignNotes("");
+          setUploadProgress(0);
+          setIsFileUploaded(false);
+        });
+
+      } catch (error) {
+        console.error("Upload failed:", error);
+        alert("Upload failed! Please try again.");
+        setUploadProgress(0);
+      } finally {
+        setIsUploading(false);
+      }
+      return;
+    }
+
+    // --- TRƯỜNG HỢP B: CHỌN ẢNH TỪ GALLERY (LOGIC CŨ) ---
+    if (selectedImageUrl) {
+      setLoading(true);
+      try {
+        const formData = new FormData();
+        formData.append("FileUrl", selectedImageUrl);
+        formData.append("Note", designNotes || "");
+
+        const response = await fetch(`${apiClient.defaults.baseURL}/api/designer/tasks/${orderDetailId}/upload`, {
+          method: "POST",
+          body: formData,
+          credentials: "include",
+        });
+
+        if (!response.ok) {
+          const errText = await response.text();
+          throw new Error(errText);
+        }
+
+        handleUpdateStatusLocal(orderDetailId, "CHECK_DESIGN");
+        await fetchTasks(); // >> Load lại danh sách <<
+
+        Swal.fire({
+          title: "Success!",
+          text: "Gallery image submitted successfully!",
+          icon: "success",
+          confirmButtonText: "OK",
+        }).then(() => {
+          setSelectedOrder(null);
+          setSelectedImageUrl("");
+          setDesignNotes("");
+        });
+
+      } catch (error) {
+        alert(`Error: ${error.message}`);
+      } finally {
+        setLoading(false);
+      }
+    }
+  };
   // Hàm Bắt đầu Redo (DESIGN_REDO -> DESIGNING)
   const handleStartRedo = async (orderId) => {
     const success = await updateDesignStatusApi(orderId, "DESIGNING");
@@ -374,7 +521,20 @@ export default function DesignAssignPage() {
       handleUpdateStatusLocal(orderId, "DESIGNING");
     }
   };
+  const handleViewDetails = (order) => {
+    // Reset state
+    setDesignFile(null);
+    setDesignNotes("");
+    setSelectedImageUrl("");
+    setUploadProgress(0);
+    setIsFileUploaded(false);
+    
+    // Set order để mở Dialog
+    setSelectedOrder(order);
 
+    // Gọi API chi tiết
+    fetchTaskDetail(order.id);
+  };
   const handleSendToSellerCheck = async (orderId) => {
     const success = await updateDesignStatusApi(orderId, "CHECK_DESIGN");
     if (success) {
@@ -439,40 +599,21 @@ export default function DesignAssignPage() {
   const fetchTaskDetail = async (orderDetailId) => {
     if (!orderDetailId) return;
     setDetailLoading(true);
-    setTaskLogs([]); // Xóa log cũ
+    setTaskLogs([]);
     try {
-      const res = await fetch(
-        `${apiClient.defaults.baseURL}/api/designer/tasks/${orderDetailId}`,
-        {
-          credentials: "include",
-        }
-      );
-
-      if (!res.ok) {
-        throw new Error(`Failed to fetch details: ${res.status}`);
-      }
-
+      const res = await fetch(`${apiClient.defaults.baseURL}/api/designer/tasks/${orderDetailId}`, { credentials: "include" });
+      if (!res.ok) throw new Error("Err");
       const data = await res.json();
-      const updatedTaskInfo = {
+      
+      // Need Fix: Cập nhật lại selectedOrder với thông tin mới nhất từ API
+      setSelectedOrder(prev => ({
+        ...prev,
         ...data.taskInfo,
         id: data.taskInfo.orderDetailId.toString(),
         ProductionStatus: data.taskInfo.productionStatus || "NEED_DESIGN",
-      };
-      // CẬP NHẬT 2 STATE:
-      // 1. Cập nhật selectedOrder với dữ liệu MỚI NHẤT từ API
-      setSelectedOrder(updatedTaskInfo);
-      // 2. Lưu trữ danh sách logs
+      }));
       setTaskLogs(data.logs || []);
-    } catch (error) {
-      console.error("Error fetching task detail:", error);
-      toast({
-        title: "Lỗi",
-        description: "Unable to load job details or history.",
-        variant: "destructive",
-      });
-    } finally {
-      setDetailLoading(false);
-    }
+    } catch (e) { console.error(e); } finally { setDetailLoading(false); }
   };
   const availableMonthsYears = getAvailableMonthsYears();
 
@@ -915,7 +1056,8 @@ export default function DesignAssignPage() {
                                   setDesignFile(null);
                                   setDesignNotes("");
                                   setSelectedImageUrl("");
-
+                                  setUploadProgress(0); // Reset progress
+                                  setIsFileUploaded(false); // Reset upload status
                                   // --- GỌI API MỚI ---
                                   fetchTaskDetail(order.id); // order.id chính là orderDetailId [cite: 88]
                                 } else {
@@ -925,8 +1067,12 @@ export default function DesignAssignPage() {
                               }}
                             >
                               <DialogTrigger asChild>
-                                <Button variant="outline" size="sm">
-                                  <Eye className="h-4 w-4 mr-1" />
+                               <Button 
+                                    variant="outline" 
+                                    size="sm" 
+                                    onClick={() => handleViewDetails(order)}
+                                >
+                                    <Eye className="h-4 w-4 mr-1" />
                                 </Button>
                               </DialogTrigger>
 
@@ -1254,7 +1400,7 @@ export default function DesignAssignPage() {
                                             </div>
                                           </div>
                                         </div>
-
+                                        {/* --- PHẦN UPLOAD --- */}
                                         {(currentStatus === "DESIGNING" ||
                                           currentStatus === "DESIGN_REDO" ||
                                           (currentStatus === "CHECK_DESIGN" &&
@@ -1281,9 +1427,27 @@ export default function DesignAssignPage() {
                                                     onChange={
                                                       handleDesignFileChange
                                                     }
+                                                    disabled={isUploading || isFileUploaded}
                                                     className="mt-1"
                                                   />
                                                 </div>
+                                                {/* --- PROGRESS BAR UI --- */}
+                                                                {(isUploading || isFileUploaded) && (
+                                                                <div className="mt-4 mb-4">
+                                                                  <div className="flex justify-between text-xs mb-1">
+                                                                    <span className={isFileUploaded ? "text-green-600 font-bold" : "text-blue-600"}>
+                                                                      {isFileUploaded ? "Upload Completed" : "Uploading..."}
+                                                                    </span>
+                                                                    <span>{uploadProgress}%</span>
+                                                                  </div>
+                                                                  <div className="w-full bg-gray-200 rounded-full h-2.5">
+                                                                    <div 
+                                                                      className={`h-2.5 rounded-full transition-all duration-300 ${isFileUploaded ? "bg-green-600" : "bg-blue-600"}`} 
+                                                                      style={{ width: `${uploadProgress}%` }}
+                                                                    ></div>
+                                                                  </div>
+                                                                </div>
+                                                              )}
 
                                                 {/* Nút Mở Kho Ảnh */}
                                                 <Dialog
@@ -1412,39 +1576,29 @@ export default function DesignAssignPage() {
                                                     </p>
                                                   )}
                                               </div>
-
-                                              {/* 3. Input Ghi chú */}
-                                              {/* <div>
-                                                <Label htmlFor="design-notes">
-                                                  Design Notes
-                                                </Label>
-                                                <Textarea
-                                                  id="design-notes"
-                                                  placeholder="Add notes..."
-                                                  value={designNotes}
-                                                  onChange={(e) =>
-                                                    setDesignNotes(
-                                                      e.target.value
-                                                    )
-                                                  }
-                                                />
-                                              </div> */}
-
                                               {/* 4. Nút Upload/Send */}
-                                              <div className="flex gap-2">
-                                                <Button
-                                                  onClick={handleUploadDesign}
-                                                  className="flex-1"
-                                                  disabled={
-                                                    (!designFile &&
-                                                      !selectedImageUrl) ||
-                                                    loading
-                                                  }
+                                              <div className="flex gap-2 mt-4">
+                                                <Button 
+                                                    onClick={handleUploadAndSubmit} 
+                                                    className={`flex-1 ${isFileUploaded ? "bg-green-600 hover:bg-green-700" : "bg-blue-600 hover:bg-blue-700"}`}
+                                                    disabled={isUploading || (!designFile && !selectedImageUrl)}
                                                 >
-                                                  <Upload className="h-4 w-4 mr-2" />{" "}
-                                                  Upload
+                                                    {isUploading ? (
+                                                        <>
+                                                          <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Uploading {uploadProgress}%
+                                                        </>
+                                                    ) : isFileUploaded ? (
+                                                        <>
+                                                            <Check className="h-4 w-4 mr-2" /> Done!
+                                                        </>
+                                                    ) : (
+                                                        <>
+                                                            <Upload className="h-4 w-4 mr-2" /> 
+                                                            {designFile ? "Upload & Submit" : "Submit Selected"}
+                                                        </>
+                                                    )}
                                                 </Button>
-                                              </div>
+                                            </div>
                                             </div>
                                           </div>
                                         )}

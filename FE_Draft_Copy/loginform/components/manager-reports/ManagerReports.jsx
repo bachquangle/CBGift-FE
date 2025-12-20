@@ -30,6 +30,8 @@ export default function ManagerReports() {
   const [issuesData, setIssuesData] = useState(null);
   const [reasonsData, setReasonsData] = useState(null);
   const [topSellers, setTopSellers] = useState(null);
+  const [outstandingDebt, setOutstandingDebt] = useState(null);
+  const [loadingDebt, setLoadingDebt] = useState(true);
 
   // --- 2. State quản lý Loading riêng biệt ---
   const [loadingKpi, setLoadingKpi] = useState(true);
@@ -52,6 +54,7 @@ export default function ManagerReports() {
       // Reset state về null để hiện Skeleton khi filter thay đổi
       setKpis(null); setRevenueData(null); setIssuesData(null); setReasonsData(null); setTopSellers(null);
       setLoadingKpi(true); setLoadingRevenue(true); setLoadingIssues(true); setLoadingReasons(true); setLoadingSellers(true);
+      setOutstandingDebt(null);setLoadingDebt(true);
 
       // Chuẩn bị Query Params
       const params = new URLSearchParams({
@@ -100,6 +103,12 @@ export default function ManagerReports() {
         .then((data) => setTopSellers(data))
         .catch((err) => console.error("Err Sellers:", err))
         .finally(() => setLoadingSellers(false));
+      // --- Gọi API 6: GetOutstandingDebt
+       fetch(`${baseUrl}/outstanding-debt?${params}`, fetchOptions)
+        .then((res) => res.ok ? res.json() : null)
+        .then((data) => setOutstandingDebt(data))
+        .catch((err) => console.error("Err Outstanding Debt:", err))
+        .finally(() => setLoadingDebt(false)); 
     };
 
     fetchAllData();
@@ -123,44 +132,48 @@ export default function ManagerReports() {
       />
 
       {/* --- SECTION 1: KPIs --- */}
-      <div className="mb-8 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {loadingKpi || !kpis ? (
-          // Skeleton Loading cho 4 cards
-          [...Array(3)].map((_, i) => <Skeleton key={i} className="h-32 bg-white border border-gray-200" />)
+      <div className="mb-8 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
+        {loadingKpi || loadingDebt || !kpis || !outstandingDebt ? (
+          [...Array(4)].map((_, i) => (
+            <Skeleton key={i} className="h-32 bg-white border border-gray-200" />
+          ))
         ) : (
           <>
             <KPICard
               title="Total Revenue"
               value={`${kpis.totalRevenue.toLocaleString()} ₫`}
-              subtitle="Invoiced amount"
+              subtitle="Revenue Before Refund"
               icon={VndIcon}
               trend="Current Period"
               color="blue"
             />
+
             <KPICard
               title="Cash Collected"
               value={`${kpis.cashCollected.toLocaleString()} ₫`}
-              subtitle={`Outstanding Debt: ${kpis.outstandingDebt.toLocaleString()} ₫`}
+              subtitle="Actual Cash Flow"
               icon={TrendingUp}
-              trend="Real Cash Flow"
+              trend="Completed Payments"
               color="green"
             />
+
+            <KPICard
+              title="Outstanding Debt"
+              value={`${outstandingDebt.outstandingDebt.toLocaleString()} ₫`}
+              subtitle="Accounts Receivable"
+              icon={AlertCircle}
+              trend="Unpaid Invoices"
+              color="orange"
+            />
+
             <KPICard
               title="Total Refunds"
               value={`${kpis.totalRefunds.toLocaleString()} ₫`}
-              subtitle="Financial loss"
+              subtitle="Approved Refunds"
               icon={TrendingDown}
-              trend="Approved Refunds"
+              trend="Financial Loss"
               color="red"
             />
-            {/* <KPICard
-              title="Reprint Rate"
-              value={`${kpis.reprintRate}%`}
-              subtitle="Operational Efficiency"
-              icon={AlertCircle}
-              trend="Based on Orders"
-              color="orange"
-            /> */}
           </>
         )}
       </div>

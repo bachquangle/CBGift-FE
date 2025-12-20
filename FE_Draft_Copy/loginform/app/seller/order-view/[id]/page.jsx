@@ -271,10 +271,10 @@ export default function OrderViewPage() {
             // Ghi đè/Bổ sung các trường hoạt động từ API mới
             allRefunds: activityDataApi.allRefunds || [], 
             allReprints: activityDataApi.allReprints || [],
+            shippedDate: activityDataApi.shippedDate || orderDataApi.shippedDate,
             creationDate: activityDataApi.creationDate || orderDataApi.creationDate,
             orderDate: activityDataApi.orderDate || orderDataApi.orderDate,
         };
-        
 
         const mappedData = mapApiToUiData(mergedData);
         setOrderData(mappedData);

@@ -72,7 +72,7 @@ export default function SellerSidebar({ currentPage }) {
         {/* Tiêu đề */}
         {!isCollapsed && (
           <h1 className="text-xl font-bold text-indigo-900 whitespace-nowrap">
-            CNC - Seller
+            CB Gift - Seller
           </h1>
         )}
 

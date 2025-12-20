@@ -125,7 +125,7 @@ export default function RoleSidebar({
       {/* Logo/Brand */}
       <div className="p-4 sm:p-6 border-b border-gray-200">
         <h1 className="text-lg sm:text-xl font-bold text-gray-900">
-          CNC - System
+          CB Gift - System
         </h1>
       </div>
 

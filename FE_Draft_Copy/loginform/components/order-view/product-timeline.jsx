@@ -44,6 +44,8 @@ export default function ProductTimeline({ productDetails }) {
       
       case "REFUND":
         return <XCircle className="h-5 w-5 text-gray-500" />;
+      case "CANCEL_SHIP":
+        return <XCircle className="h-5 w-5 text-gray-500" />;
         
       default:
         return <AlertCircle className="h-5 w-5 text-gray-400" />;

@@ -26,6 +26,7 @@ const PRODUCTION_STATUS_MAP = {
   14: "HOLD_RF", // Thêm mới
   15: "HOLD_RP", // Thêm mới
   16: "REFUND", // Thêm mới
+  17:"CANCEL_SHIP",
 };
 
 // Hàm map dữ liệu từ API sang cấu trúc UI cần

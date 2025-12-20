@@ -194,6 +194,45 @@ export default function EditOrderPage() {
 
   const [editingProductDetail, setEditingProductDetail] = useState(null);
 
+  // Name: chỉ chữ tiếng Việt + space, không space đầu, gộp space
+  const handleNameInput = (value) => {
+    const sanitized = value
+      .replace(/[^\p{L}\s]/gu, "")
+      .replace(/\s+/g, " ")
+      .replace(/^\s+/, "");
+
+    setCustomerInfo((prev) => ({
+      ...prev,
+      name: sanitized,
+    }));
+  };
+
+  // Trim input chung (email, address, address1)
+  const handleTrimmedInput = (field, value) => {
+    if (value.trim() === "" && value.length > 0) return;
+
+    setCustomerInfo((prev) => ({
+      ...prev,
+      [field]: value.trimStart(),
+    }));
+  };
+
+  // Email: không cho space
+  const handleEmailInput = (value) => {
+    const sanitized = value.replace(/\s/g, "");
+    handleTrimmedInput("email", sanitized);
+  };
+
+  // Phone: chỉ số, tối đa 10
+  const handlePhoneInput = (value) => {
+    const sanitized = value.replace(/[^\d]/g, "").slice(0, 10);
+
+    setCustomerInfo((prev) => ({
+      ...prev,
+      phone: sanitized,
+    }));
+  };
+
   // ADDED: uploadImage function for Step 4 file uploads
   const uploadImage = async (file, onProgress) => {
     const formData = new FormData();
@@ -1560,74 +1599,47 @@ export default function EditOrderPage() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
-          <Label htmlFor="name">Customer Name</Label>
+          <Label htmlFor="name">Customer Name *</Label>
           <Input
             id="name"
             value={customerInfo.name}
-            onChange={(e) => {
-              const value = e.target.value;
-              // Only allow letters (including Vietnamese), numbers, and spaces
-              const filtered = value.replace(
-                /[^a-zA-Z0-9\s\u0100-\u017Fa-ỿ]/g,
-                ""
-              );
-              if (filtered.length <= 50) {
-                setCustomerInfo((prev) => ({
-                  ...prev,
-                  name: filtered,
-                }));
-              }
-            }}
-            placeholder="Enter customer name (3-50 characters)"
-            className="mt-1"
+            onChange={(e) => handleNameInput(e.target.value)}
+            placeholder="Enter customer name"
             maxLength={50}
+            className="mt-1"
           />
           <p className="text-xs text-gray-500 mt-1">
-            {customerInfo.name.length}/50 characters (no special characters)
+            {customerInfo.name.length}/50 characters
           </p>
         </div>
 
         <div>
-          <Label htmlFor="phone">Phone</Label>
+          <Label htmlFor="phone">Phone *</Label>
           <Input
             id="phone"
             value={customerInfo.phone}
-            onChange={(e) => {
-              const value = e.target.value;
-              // Only allow numbers
-              const filtered = value.replace(/[^0-9]/g, "").slice(0, 10);
-              setCustomerInfo((prev) => ({
-                ...prev,
-                phone: filtered,
-              }));
-            }}
-            placeholder="Enter phone number (Vietnamese format)"
-            className="mt-1"
+            onChange={(e) => handlePhoneInput(e.target.value)}
+            placeholder="Enter phone number"
             maxLength={10}
+            className="mt-1"
           />
           <p className="text-xs text-gray-500 mt-1">
-            {customerInfo.phone.length}/10 digits
-            {customerInfo.phone.length > 0 &&
-            !customerInfo.phone.startsWith("0")
-              ? " (must start with 0)"
-              : ""}
+            Phone format (10 digits, starts with 0)
           </p>
         </div>
 
         <div>
-          <Label htmlFor="email">Email</Label>
+          <Label htmlFor="email">Email *</Label>
           <Input
             id="email"
             type="email"
             value={customerInfo.email}
-            onChange={(e) =>
-              setCustomerInfo((prev) => ({
-                ...prev,
-                email: e.target.value,
-              }))
-            }
-            placeholder="Enter email"
+            onChange={(e) => handleEmailInput(e.target.value)}
+            placeholder="Enter email address"
             className="mt-1"
+            onKeyDown={(e) => {
+              if (e.key === " " || e.key === "Spacebar") e.preventDefault();
+            }}
           />
         </div>
 

@@ -76,6 +76,15 @@ const mapApiToUiData = (apiData) => {
       description: "Order has been successfully delivered to the customer.",
     });
   }
+  if (apiData.canceledDate) {
+  activitiesLog.push({
+    date: new Date(apiData.canceledDate).toLocaleString(),
+    title: "Order Canceled",
+    description: apiData.cancelReason
+      ? `Reason: ${apiData.cancelReason}`
+      : "Order was canceled by GHN.",
+  });
+  }
 
   // --- 2. ✨ XỬ LÝ REFUND CHI TIẾT (TỔNG HỢP TỪ allRefunds) ✨ ---
   if (apiData.allRefunds && apiData.allRefunds.length > 0) {
@@ -272,6 +281,7 @@ export default function OrderViewPage() {
             allRefunds: activityDataApi.allRefunds || [], 
             allReprints: activityDataApi.allReprints || [],
             shippedDate: activityDataApi.shippedDate || orderDataApi.shippedDate,
+            canceledDate: activityDataApi.canceledDate || orderDataApi.canceledDate,
             creationDate: activityDataApi.creationDate || orderDataApi.creationDate,
             orderDate: activityDataApi.orderDate || orderDataApi.orderDate,
         };

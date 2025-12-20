@@ -9,7 +9,8 @@ RefreshCcw,  // Icon cho Refund/Rejected
 Circle,  // Icon mặc định
 Printer,
 Truck,
-PackageCheck  
+PackageCheck,
+AlertCircle  
 } from "lucide-react";
 
 export default function OrderActivity({ activities }) {
@@ -38,6 +39,16 @@ export default function OrderActivity({ activities }) {
         color: "bg-indigo-100 text-indigo-600 border-indigo-200",
         lineColor: "bg-indigo-200",
         icon: PackageCheck,
+      };
+    }
+    if (
+    lowerTitle.includes("cancel") ||
+    lowerTitle.includes("canceled")
+    ) {
+      return {
+        color: "bg-rose-100 text-rose-600 border-rose-200",
+        lineColor: "bg-rose-200",
+        icon: AlertCircle,
       };
     }
 

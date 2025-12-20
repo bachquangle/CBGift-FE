@@ -45,12 +45,6 @@ const SellerInfoTab = ({ seller }) => {
                 {seller.name}
               </p>
             </div>
-            <div>
-              <label className="text-xs text-gray-500 font-semibold uppercase">
-                Địa chỉ
-              </label>
-              <p className="text-gray-900 mt-1">{seller.address}</p>
-            </div>
           </div>
         </div>
         <div>

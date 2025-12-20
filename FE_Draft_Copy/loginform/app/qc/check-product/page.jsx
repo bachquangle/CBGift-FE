@@ -214,8 +214,8 @@ export default function CheckProduct() {
         
         Swal.fire({
             icon: 'success',
-            title: 'Thành công!',
-            text: `Đơn hàng ${selectedOrder?.orderCode || orderId} đã được duyệt giao hàng!`,
+            title: 'Success',
+            text: `Order ${selectedOrder?.orderCode || orderId} delivery has been approved!`,
             confirmButtonText: 'OK'
         }).then((swalResult) => {
             // [QUAN TRỌNG] Chỉ chạy đoạn này khi người dùng ấn OK
@@ -231,9 +231,9 @@ export default function CheckProduct() {
         
         Swal.fire({
             icon: "error",
-            title: "Lỗi hệ thống", 
+            title: "GHN message", 
             text: error.message,
-            confirmButtonText: 'Đã hiểu'
+            confirmButtonText: 'Ok'
         }).then(() => {
             // Kể cả lỗi cũng nên load lại để đồng bộ dữ liệu
             setSelectedOrder(null);

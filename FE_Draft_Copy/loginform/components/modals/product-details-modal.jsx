@@ -225,9 +225,9 @@ export default function ProductDetailsModal({
       onUpdated?.();
       onClose();
 
-      setTimeout(() => {
-        window.location.reload();
-      }, 700);
+      // setTimeout(() => {
+      //   window.location.reload();
+      // }, 700);
     } catch (err) {
       toast({
         title: "Update Failed",
@@ -410,7 +410,7 @@ export default function ProductDetailsModal({
                   </span>
 
                   <div className="flex items-center gap-2">
-                    {isEditing && formData.variants.length > 1 && (
+                    {/* {isEditing && formData.variants.length > 1 && (
                       <Button
                         type="button"
                         variant="destructive"
@@ -422,7 +422,7 @@ export default function ProductDetailsModal({
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>
-                    )}
+                    )} */}
 
                     {expandedVariant === index ? (
                       <ChevronDown />

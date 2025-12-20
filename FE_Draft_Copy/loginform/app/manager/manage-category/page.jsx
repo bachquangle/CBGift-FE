@@ -32,7 +32,7 @@ import {
   RotateCcw,
   EyeOff,
 } from "lucide-react";
-
+import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 
 export default function ManageCategory() {
@@ -180,6 +180,7 @@ export default function ManageCategory() {
           body: JSON.stringify({
             categoryName: editingName,
             categoryCode: editingCode,
+            Status: 1,
           }),
         }
       );
@@ -203,7 +204,7 @@ export default function ManageCategory() {
   // 📌 SOFT DELETE → status = 0
   // =============================
   const handleDeleteCategory = async (id) => {
-    if (!confirm("Are you sure to deactivate this category?")) return;
+    if (!confirm("When you hide a category, all active products belonging to that category will become inactive.\nAre you sure you want to continue?")) return;
 
     try {
       const res = await fetch(
@@ -232,6 +233,7 @@ export default function ManageCategory() {
   // 📌 RESTORE → status = 1
   // =============================
   const handleRestoreCategory = async (id) => {
+     if (!confirm("When restoring the category, all inactive products belonging to this category will be reactivated.\nAre you sure you want to continue?")) return;
     try {
       const res = await fetch(
         `${apiClient.defaults.baseURL}/api/Categories/${id}/status`,
@@ -446,20 +448,31 @@ export default function ManageCategory() {
             <DialogTitle>Edit Category</DialogTitle>
           </DialogHeader>
 
-          <Input
-            className="mb-3"
-            placeholder="Category name"
-            value={editingName}
-            onChange={(e) => setEditingName(e.target.value)}
-          />
+          <div className="space-y-4">
+            {/* Name */}
+            <div className="space-y-1">
+              <Label htmlFor="category-name">Name</Label>
+              <Input
+                id="category-name"
+                placeholder="Category name"
+                value={editingName}
+                onChange={(e) => setEditingName(e.target.value)}
+              />
+            </div>
 
-          <Input
-            placeholder="Category code"
-            value={editingCode}
-            onChange={(e) => setEditingCode(e.target.value)}
-          />
+            {/* Code */}
+            <div className="space-y-1">
+              <Label htmlFor="category-code">Code</Label>
+              <Input
+                id="category-code"
+                placeholder="Category code"
+                value={editingCode}
+                onChange={(e) => setEditingCode(e.target.value)}
+              />
+            </div>
+          </div>
 
-          <div className="flex justify-end gap-2 mt-4">
+          <div className="flex justify-end gap-2 mt-6">
             <Button variant="outline" onClick={() => setShowEditModal(false)}>
               Cancel
             </Button>
@@ -467,6 +480,7 @@ export default function ManageCategory() {
           </div>
         </DialogContent>
       </Dialog>
+
     </div>
   );
 }

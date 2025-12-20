@@ -17,7 +17,7 @@ export const SignalRProvider = ({
   // 🔹 Khởi tạo kết nối
   useEffect(() => {
     const token =
-      localStorage.getItem("token") || sessionStorage.getItem("token");
+      localStorage.getItem("accessToken") || sessionStorage.getItem("token");
 
     console.log("🎫 SignalR using token:", token ? "✅ FOUND" : "❌ NOT FOUND");
 

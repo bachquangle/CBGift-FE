@@ -57,7 +57,7 @@ export default function QcSidebar({ currentPage, setCurrentPage }) {
         {/* Tiêu đề */}
         {!isCollapsed && (
           <h1 className="text-xl font-bold text-indigo-900 whitespace-nowrap">
-            CNC - QC
+            CB Gift - QC
           </h1>
         )}
 

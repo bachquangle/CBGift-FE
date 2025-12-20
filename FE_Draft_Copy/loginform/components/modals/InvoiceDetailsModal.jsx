@@ -77,10 +77,10 @@ export default function InvoiceDetailsModal({ isOpen, onClose, invoice }) {
             </div>
             <div>
               <Label className="text-gray-500 font-medium flex items-center gap-1">
-                <DollarSign size={14} /> Total Amount
+                 Total Amount
               </Label>
               <p className="font-bold text-lg text-blue-600 mt-1">
-                ${invoice.totalAmount.toFixed(2)}
+                {invoice.totalAmount.toLocaleString("vi-VN")}
               </p>
             </div>
           </div>
@@ -166,13 +166,13 @@ export default function InvoiceDetailsModal({ isOpen, onClose, invoice }) {
 
                           <TableCell>
                             <Badge variant="outline">
-                              {item.order.statusOrderNavigation?.nameVi ||
+                              {item.order.statusOrderNavigation?.code ||
                                 `Status ID: ${item.order.statusOrder}`}
                             </Badge>
                           </TableCell>
 
                           <TableCell className="text-right font-medium">
-                            ${item.amount.toFixed(2)}
+                            {item.amount.toLocaleString("vi-VN")}
                           </TableCell>
                         </TableRow>
                       </React.Fragment>

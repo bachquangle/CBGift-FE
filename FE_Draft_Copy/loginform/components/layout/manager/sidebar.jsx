@@ -103,7 +103,7 @@ export default function ManagerSidebar({
         {/* Tiêu đề */}
         {!isLocalCollapsed && (
           <h1 className="text-xl font-bold text-indigo-900 whitespace-nowrap">
-            CNC - Manager
+            CB Gift - Manager
           </h1>
         )}
 

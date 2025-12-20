@@ -1047,17 +1047,17 @@ export default function ManageOrder() {
 
       const res = await apiClient.put(
         apiPath,
-        payload, // ✅ GỬI PAYLOAD MỚI
+        payload, //
         { withCredentials: true }
       );
 
       if (res.status !== 200 && res.status !== 204) {
         throw new Error(
-          res.data?.message || `HTTP ${res.status}: Cập nhật địa chỉ thất bại.`
+          res.data?.message || `HTTP ${res.status}: Fail Update Address`
         );
       }
 
-      setSuccessMessage("✅ Địa chỉ đã được cập nhật thành công.");
+      setSuccessMessage("Change Address sucessfully");
       setShowSuccessDialog(true);
 
       setShowEditAddressModal(false);

@@ -82,70 +82,73 @@ export default function EditAddressModal({
   }, [open, initialAddress]);
 
   useEffect(() => {
-    if (!open || !initialAddress) return;
-    if (!initialAddress.provinceName) return;
-    if (provinces.length === 0) return;
-
-    // Nếu đã có provinceId thì bỏ qua
+    if (!customerInfo.provinceName || provinces.length === 0) return;
 
     const matchedProvince = provinces.find(
       (p) =>
         p.name.trim().toLowerCase() ===
-        initialAddress.provinceName.trim().toLowerCase()
+        customerInfo.provinceName.trim().toLowerCase()
     );
 
     if (!matchedProvince) return;
 
-    setCustomerInfo((prev) => ({
-      ...prev,
-      provinceId: matchedProvince.id.toString(),
-      provinceName: matchedProvince.name,
-    }));
+    // Only update if provinceId is different to avoid infinite loops
+    if (customerInfo.provinceId !== matchedProvince.id.toString()) {
+      setCustomerInfo((prev) => ({
+        ...prev,
+        provinceId: matchedProvince.id.toString(),
+        provinceName: matchedProvince.name,
+      }));
 
-    fetchDistricts(matchedProvince.id);
-  }, [provinces]);
+      fetchDistricts(matchedProvince.id);
+    }
+  }, [provinces, customerInfo.provinceName]);
 
   useEffect(() => {
-    if (!initialAddress?.districtName) return;
+    if (!customerInfo.districtName || districts.length === 0) return;
     if (!customerInfo.provinceId) return;
-    if (districts.length === 0) return;
 
     const matchedDistrict = districts.find(
       (d) =>
         d.name.trim().toLowerCase() ===
-        initialAddress.districtName.trim().toLowerCase()
+        customerInfo.districtName.trim().toLowerCase()
     );
 
     if (!matchedDistrict) return;
 
-    setCustomerInfo((prev) => ({
-      ...prev,
-      districtId: matchedDistrict.id.toString(),
-      districtName: matchedDistrict.name,
-    }));
+    // Only update if districtId is different
+    if (customerInfo.districtId !== matchedDistrict.id.toString()) {
+      setCustomerInfo((prev) => ({
+        ...prev,
+        districtId: matchedDistrict.id.toString(),
+        districtName: matchedDistrict.name,
+      }));
 
-    fetchWards(matchedDistrict.id);
-  }, [districts]);
+      fetchWards(matchedDistrict.id);
+    }
+  }, [districts, customerInfo.districtName]);
 
   useEffect(() => {
-    if (!initialAddress?.wardName) return;
+    if (!customerInfo.wardName || wards.length === 0) return;
     if (!customerInfo.districtId) return;
-    if (wards.length === 0) return;
 
     const matchedWard = wards.find(
       (w) =>
         w.name.trim().toLowerCase() ===
-        initialAddress.wardName.trim().toLowerCase()
+        customerInfo.wardName.trim().toLowerCase()
     );
 
     if (!matchedWard) return;
 
-    setCustomerInfo((prev) => ({
-      ...prev,
-      wardId: matchedWard.id.toString(),
-      wardName: matchedWard.name,
-    }));
-  }, [wards]);
+    // Only update if wardId is different
+    if (customerInfo.wardId !== matchedWard.id.toString()) {
+      setCustomerInfo((prev) => ({
+        ...prev,
+        wardId: matchedWard.id.toString(),
+        wardName: matchedWard.name,
+      }));
+    }
+  }, [wards, customerInfo.wardName]);
 
   const fetchProvinces = async () => {
     setLoadingProvinces(true);
@@ -291,16 +294,42 @@ export default function EditAddressModal({
     setSearchWard("");
   };
 
-  const handleTrimmedInput = (field, value) => {
+  // NAME: chỉ chữ + space, không space đầu, không nhiều space
+  const handleNameInput = (value) => {
+    let sanitized = value
+      .replace(/[^\p{L}\s]/gu, "") // chỉ chữ (VN) + space
+      .replace(/\s+/g, " ") // nhiều space -> 1
+      .replace(/^\s+/, ""); // không space đầu
+
+    setCustomerInfo((prev) => ({
+      ...prev,
+      name: sanitized,
+    }));
+  };
+
+  // EMAIL: không cho space, trimStart
+  const handleEmailInput = (value) => {
     if (value.trim() === "" && value.length > 0) return;
 
-    if (field === "email") {
-      value = value.replace(/\s/g, "");
-    }
+    setCustomerInfo((prev) => ({
+      ...prev,
+      email: value.replace(/\s/g, "").trimStart(),
+    }));
+  };
 
-    if (field === "phone") {
-      value = value.replace(/[^\d+]/g, "");
-    }
+  // PHONE: chỉ số + space, max 10 số
+  const handlePhoneInput = (value) => {
+    const sanitized = value.replace(/[^\d\s]/g, "");
+
+    setCustomerInfo((prev) => ({
+      ...prev,
+      phone: sanitized.trimStart(),
+    }));
+  };
+
+  // Các field text thường (address, address1)
+  const handleTrimmedInput = (field, value) => {
+    if (value.trim() === "" && value.length > 0) return;
 
     setCustomerInfo((prev) => ({
       ...prev,
@@ -358,11 +387,14 @@ export default function EditAddressModal({
             </Label>
             <Input
               id="name"
-              type="text"
               value={customerInfo.name}
-              onChange={(e) => handleTrimmedInput("name", e.target.value)}
+              onChange={(e) => handleNameInput(e.target.value)}
               placeholder="Enter customer name"
+              maxLength={50}
             />
+            <p className="text-xs text-gray-500 mt-1">
+              {customerInfo.name.length}/50 characters
+            </p>
           </div>
 
           {/* Phone */}
@@ -372,11 +404,14 @@ export default function EditAddressModal({
             </Label>
             <Input
               id="phone"
-              type="text"
               value={customerInfo.phone}
-              onChange={(e) => handleTrimmedInput("phone", e.target.value)}
+              onChange={(e) => handlePhoneInput(e.target.value)}
               placeholder="Enter phone number"
+              maxLength={10}
             />
+            <p className="text-xs text-gray-500 mt-1">
+              Phone format (10 digits, starts with 0)
+            </p>
           </div>
 
           {/* Email */}
@@ -388,8 +423,11 @@ export default function EditAddressModal({
               id="email"
               type="email"
               value={customerInfo.email}
-              onChange={(e) => handleTrimmedInput("email", e.target.value)}
+              onChange={(e) => handleEmailInput(e.target.value)}
               placeholder="Enter email address"
+              onKeyDown={(e) => {
+                if (e.key === " " || e.key === "Spacebar") e.preventDefault();
+              }}
             />
           </div>
 
@@ -452,25 +490,33 @@ export default function EditAddressModal({
                   />
                   <div className="max-h-60 overflow-y-auto">
                     {filteredProvinces.length > 0 ? (
-                      filteredProvinces.map((p) => (
-                        <button
-                          key={p.id}
-                          type="button"
-                          onClick={() => handleProvinceChange(p.id?.toString())}
-                          onMouseEnter={() => setHoverProvince(p.id)}
-                          onMouseLeave={() => setHoverProvince(null)}
-                          className={`w-full px-3 py-2 text-left text-sm transition-colors ${
-                            hoverProvince === p.id
-                              ? "bg-blue-100 text-blue-900"
-                              : customerInfo.provinceId?.toString() ===
-                                p.id?.toString()
-                              ? "bg-blue-50 text-blue-700"
-                              : "hover:bg-gray-50"
-                          }`}
-                        >
-                          {p.name}
-                        </button>
-                      ))
+                      filteredProvinces.map((p) => {
+                        const isSelected =
+                          customerInfo.provinceId?.toString() ===
+                          p.id?.toString();
+
+                        return (
+                          <button
+                            key={p.id}
+                            type="button"
+                            onClick={() =>
+                              handleProvinceChange(p.id?.toString())
+                            }
+                            onMouseEnter={() => setHoverProvince(p.id)}
+                            onMouseLeave={() => setHoverProvince(null)}
+                            className={`w-full px-3 py-2 text-left text-sm transition-colors flex items-center justify-between ${
+                              isSelected
+                                ? "bg-blue-600 text-white font-bold"
+                                : hoverProvince === p.id
+                                ? "bg-blue-100 text-blue-900"
+                                : "hover:bg-gray-50 text-gray-700"
+                            }`}
+                          >
+                            <span>{p.name}</span>
+                            {isSelected && <span className="font-bold">✓</span>}
+                          </button>
+                        );
+                      })
                     ) : (
                       <div className="px-3 py-2 text-gray-500">
                         No province found
@@ -522,25 +568,35 @@ export default function EditAddressModal({
                   />
                   <div className="max-h-60 overflow-y-auto">
                     {filteredDistricts.length > 0 ? (
-                      filteredDistricts.map((d) => (
-                        <button
-                          key={d.id}
-                          type="button"
-                          onClick={() => handleDistrictChange(d.id?.toString())}
-                          onMouseEnter={() => setHoverDistrict(d.id)}
-                          onMouseLeave={() => setHoverDistrict(null)}
-                          className={`w-full px-3 py-2 text-left text-sm transition-colors ${
-                            hoverDistrict === d.id
-                              ? "bg-blue-100 text-blue-900"
-                              : customerInfo.districtId?.toString() ===
-                                d.id?.toString()
-                              ? "bg-blue-50 text-blue-700"
-                              : "hover:bg-gray-50"
-                          }`}
-                        >
-                          {d.name}
-                        </button>
-                      ))
+                      filteredDistricts.map((d) => {
+                        const isSelected =
+                          customerInfo.districtId?.toString() ===
+                          d.id?.toString();
+
+                        return (
+                          <button
+                            key={d.id}
+                            type="button"
+                            onClick={() =>
+                              handleDistrictChange(d.id?.toString())
+                            }
+                            onMouseEnter={() => setHoverDistrict(d.id)}
+                            onMouseLeave={() => setHoverDistrict(null)}
+                            className={`w-full px-3 py-2 text-left text-sm transition-colors flex items-center justify-between ${
+                              isSelected
+                                ? "bg-blue-50 text-blue-700 font-semibold"
+                                : hoverDistrict === d.id
+                                ? "bg-blue-100 text-blue-900"
+                                : "hover:bg-gray-50 text-gray-700"
+                            }`}
+                          >
+                            <span>{d.name}</span>
+                            {isSelected && (
+                              <span className="text-blue-700">✓</span>
+                            )}
+                          </button>
+                        );
+                      })
                     ) : (
                       <div className="px-3 py-2 text-gray-500">
                         No district found
@@ -592,25 +648,32 @@ export default function EditAddressModal({
                   />
                   <div className="max-h-60 overflow-y-auto">
                     {filteredWards.length > 0 ? (
-                      filteredWards.map((w) => (
-                        <button
-                          key={w.id}
-                          type="button"
-                          onClick={() => handleWardChange(w.id?.toString())}
-                          onMouseEnter={() => setHoverWard(w.id)}
-                          onMouseLeave={() => setHoverWard(null)}
-                          className={`w-full px-3 py-2 text-left text-sm transition-colors ${
-                            hoverWard === w.id
-                              ? "bg-blue-100 text-blue-900"
-                              : customerInfo.wardId?.toString() ===
-                                w.id?.toString()
-                              ? "bg-blue-50 text-blue-700"
-                              : "hover:bg-gray-50"
-                          }`}
-                        >
-                          {w.name}
-                        </button>
-                      ))
+                      filteredWards.map((w) => {
+                        const isSelected =
+                          customerInfo.wardId?.toString() === w.id?.toString();
+
+                        return (
+                          <button
+                            key={w.id}
+                            type="button"
+                            onClick={() => handleWardChange(w.id?.toString())}
+                            onMouseEnter={() => setHoverWard(w.id)}
+                            onMouseLeave={() => setHoverWard(null)}
+                            className={`w-full px-3 py-2 text-left text-sm transition-colors flex items-center justify-between ${
+                              isSelected
+                                ? "bg-blue-50 text-blue-700 font-semibold"
+                                : hoverWard === w.id
+                                ? "bg-blue-100 text-blue-900"
+                                : "hover:bg-gray-50 text-gray-700"
+                            }`}
+                          >
+                            <span>{w.name}</span>
+                            {isSelected && (
+                              <span className="text-blue-700">✓</span>
+                            )}
+                          </button>
+                        );
+                      })
                     ) : (
                       <div className="px-3 py-2 text-gray-500">
                         No ward found

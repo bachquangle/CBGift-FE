@@ -896,7 +896,7 @@ export default function PrinterBillPage() {
                                 </span>
                               </TableCell>
                               <TableCell className="text-gray-900 font-medium">
-                                ${order.totalCost}
+                                {order.totalCost.toLocaleString("vi-VN")}
                               </TableCell>
                               <TableCell>
                                 <div className="flex items-center gap-2">
@@ -1203,7 +1203,7 @@ export default function PrinterBillPage() {
                       Total Amount
                     </label>
                     <p className="font-bold text-blue-600 text-lg mt-1">
-                      ${selectedOrderDetails.totalCost}
+                      {selectedOrderDetails.totalCost.toLocaleString("vi-VN")}
                     </p>
                   </div>
                 </div>
@@ -1252,7 +1252,7 @@ export default function PrinterBillPage() {
                                 Unit Price
                               </label>
                               <p className="font-medium text-gray-900 mt-1">
-                                ${product.price?.toFixed(2) || "0.00"}
+                                {product.price?.toLocaleString("vi-VN") || "0"}
                               </p>
                             </div>
                             <div>
@@ -1260,10 +1260,10 @@ export default function PrinterBillPage() {
                                 Total Price
                               </label>
                               <p className="font-bold text-blue-600 mt-1">
-                                $
+                                
                                 {(
                                   (product.price || 0) * (product.quantity || 1)
-                                ).toFixed(2)}
+                                ).toLocaleString("vi-VN")}
                               </p>
                             </div>
                             <div>

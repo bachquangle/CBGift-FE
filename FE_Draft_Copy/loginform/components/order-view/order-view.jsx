@@ -196,6 +196,7 @@ export default function OrderView({
           onBack={onBack}
           isEligible={isEligible} 
           orderStatus={order.status}
+          paymentStatus = {order.paymentStatus}
           onOpenRefund={() => setIsOrderRefundModalOpen(true)}
           onOpenReprint={() => setIsOrderReprintModalOpen(true)}
         />

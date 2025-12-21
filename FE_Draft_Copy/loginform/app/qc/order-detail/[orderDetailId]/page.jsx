@@ -365,7 +365,7 @@ export default function OrderDetailPage() {
                   { label: "Order Detail ID", value: orderDetail.orderDetailId },
                   { label: "Order ID", value: orderDetail.orderId },
                   { label: "Quantity", value: orderDetail.quantity },
-                  { label: "Price", value: `$${orderDetail.price.toFixed(2)}` },
+                  { label: "Price", value: `${orderDetail.price.toLocaleString("vi-VN")}` },
                   { label: "Created Date", value: new Date(orderDetail.createdDate).toLocaleString() },
                   { label: "Production Status", value: orderDetail.productionStatus },
                   { label: "Need Design", value: orderDetail.needDesign ? "Yes" : "No" },

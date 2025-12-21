@@ -177,6 +177,7 @@ const mapApiToUiData = (apiData) => {
     createdAt: apiData.creationDate,
     orderDate: apiData.orderDate || null,
     trackingCode: apiData.tracking?.trim() ? apiData.tracking.trim() : "N/A",
+    paymentStatus: apiData.paymentStatus,
     products: apiData.details.map((item) => {
       const currentStatusCode = item.productionStatus ?? 0;
 

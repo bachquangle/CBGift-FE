@@ -218,25 +218,50 @@ export default function MakeManualModal({ isOpen, onClose }) {
   const [productSearchTerm, setProductSearchTerm] = useState("");
   const [productCurrentPage, setProductCurrentPage] = useState(1);
   const [productItemsPerPage, setProductItemsPerPage] = useState(6);
+  const [productCategoryFilter, setProductCategoryFilter] = useState("all");
+  const [categories, setCategories] = useState([]);
+  const [totalProductsCount, setTotalProductsCount] = useState(0);
 
   useEffect(() => {
     if (!isOpen) return;
     fetchProducts();
     fetchProvinces();
+    fetchCategories();
     setProductCurrentPage(1);
     setProductSearchTerm("");
+    setProductCategoryFilter("all");
   }, [isOpen]);
+
+  const fetchCategories = async () => {
+    try {
+      const res = await fetch(
+        `${apiClient.defaults.baseURL}/api/Categories/public`
+      );
+      if (!res.ok) throw new Error("Failed to load categories");
+      const data = await res.json();
+      const names = data.map((c) => c.categoryName);
+      setCategories(names);
+    } catch (err) {
+      console.error("fetchCategories error:", err);
+    }
+  };
 
   const fetchProducts = async () => {
     setLoadingProducts(true);
     setProductsError(null);
     try {
-      const res = await fetch(`${apiClient.defaults.baseURL}/api/Product`, {
+      const category =
+        productCategoryFilter === "all" ? "" : productCategoryFilter;
+      const url = `${apiClient.defaults.baseURL}/api/Product/filter?searchTerm=${productSearchTerm}&category=${category}&status=1&page=${productCurrentPage}&pageSize=${productItemsPerPage}`;
+
+      const res = await fetch(url, {
         credentials: "include",
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
-      setProducts(data || []);
+
+      setTotalProductsCount(data.total || 0);
+      setProducts(data.products || []);
     } catch (err) {
       console.error("fetchProducts error:", err);
       setProductsError(err.message || "Failed to load products");
@@ -244,6 +269,16 @@ export default function MakeManualModal({ isOpen, onClose }) {
       setLoadingProducts(false);
     }
   };
+
+  useEffect(() => {
+    if (!isOpen) return;
+    fetchProducts();
+  }, [
+    productSearchTerm,
+    productCategoryFilter,
+    productCurrentPage,
+    productItemsPerPage,
+  ]);
 
   const fetchProvinces = async () => {
     setLoadingProvinces(true);
@@ -574,7 +609,7 @@ export default function MakeManualModal({ isOpen, onClose }) {
       const phoneRegex = /^0\d{9}$/;
       if (!phoneRegex.test(customerInfo.phone.replace(/\s/g, ""))) {
         setErrorMessage(
-          "Phone must be a valid Vietnamese number (10 digits, starting with 0)."
+          "Phone must be a valid Phone number format (10 digits, starting with 0)."
         );
         setShowErrorDialog(true);
         return;
@@ -627,7 +662,7 @@ export default function MakeManualModal({ isOpen, onClose }) {
   };
 
   const handleNameInput = (value) => {
-    let sanitized = value
+    const sanitized = value
       // Chỉ cho chữ tiếng Việt + khoảng trắng
       .replace(/[^\p{L}\s]/gu, "")
       // Nhiều space -> 1 space
@@ -793,6 +828,11 @@ export default function MakeManualModal({ isOpen, onClose }) {
   };
 
   const handleAddToCart = async () => {
+    if (!orderId || !orderId.trim()) {
+      setErrorMessage("Order Code is required. Please enter Order Code.");
+      setShowErrorDialog(true);
+      return;
+    }
     // 1. Thêm async
     if (!currentProduct) return;
 
@@ -805,10 +845,10 @@ export default function MakeManualModal({ isOpen, onClose }) {
 
       if (isDuplicate) {
         setErrorMessage(
-          `⚠️ Order Code "${orderId}" already exists! Please enter another code.`
+          `Order Code "${orderId}" already exists! Please enter another code.`
         );
         setShowErrorDialog(true);
-        return; // ⛔ Dừng lại: Không thêm vào giỏ, KHÔNG khóa input
+        return; // Dừng lại: Không thêm vào giỏ, KHÔNG khóa input
       }
     }
     // -----------------------------------------
@@ -1395,37 +1435,43 @@ export default function MakeManualModal({ isOpen, onClose }) {
   };
 
   const renderStep2 = () => {
-    const filteredProducts = products.filter(
-      (p) =>
-        p.productName
-          ?.toLowerCase()
-          .includes(productSearchTerm.toLowerCase()) ||
-        p.describe?.toLowerCase().includes(productSearchTerm.toLowerCase())
-    );
-
-    const totalProducts = filteredProducts.length;
-    const totalPages = Math.ceil(totalProducts / productItemsPerPage);
-    const startIndex = (productCurrentPage - 1) * productItemsPerPage;
-    const paginatedProducts = filteredProducts.slice(
-      startIndex,
-      startIndex + productItemsPerPage
-    );
+    const totalPages = Math.ceil(totalProductsCount / productItemsPerPage);
 
     return (
       <div className="space-y-4">
         <h3 className="text-lg font-semibold">Step 2: Select Product</h3>
 
-        <div className="flex gap-2 items-center">
+        <div className="flex flex-col md:flex-row gap-2">
           <Input
             type="text"
             placeholder="Search products by name or description..."
             value={productSearchTerm}
             onChange={(e) => {
               setProductSearchTerm(e.target.value);
-              setProductCurrentPage(1); // Reset to first page when searching
+              setProductCurrentPage(1);
             }}
             className="flex-1"
           />
+
+          <Select
+            value={productCategoryFilter}
+            onValueChange={(value) => {
+              setProductCategoryFilter(value);
+              setProductCurrentPage(1);
+            }}
+          >
+            <SelectTrigger className="w-full md:w-48">
+              <SelectValue placeholder="Filter by category" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Categories</SelectItem>
+              {categories.map((cat) => (
+                <SelectItem key={cat} value={cat}>
+                  {cat}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
         <div className="flex justify-between items-center">
@@ -1450,7 +1496,7 @@ export default function MakeManualModal({ isOpen, onClose }) {
             </Select>
           </div>
           <span className="text-sm text-gray-600">
-            Page {productCurrentPage} of {totalPages || 1} ({totalProducts}{" "}
+            Page {productCurrentPage} of {totalPages || 1} ({totalProductsCount}{" "}
             items)
           </span>
         </div>
@@ -1468,16 +1514,16 @@ export default function MakeManualModal({ isOpen, onClose }) {
               Retry
             </Button>
           </div>
-        ) : filteredProducts.length === 0 ? (
+        ) : products.length === 0 ? (
           <div className="text-gray-600">
-            {productSearchTerm
-              ? "No products match your search"
+            {productSearchTerm || productCategoryFilter !== "all"
+              ? "No products match your filters"
               : "No products found"}
           </div>
         ) : (
           <>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {paginatedProducts.map((p) => {
+              {products.map((p) => {
                 const baseCosts = p.variants?.map((v) => v.baseCost) || [];
                 const minCost = baseCosts.length ? Math.min(...baseCosts) : 0;
                 const maxCost = baseCosts.length ? Math.max(...baseCosts) : 0;
@@ -1492,11 +1538,6 @@ export default function MakeManualModal({ isOpen, onClose }) {
                       src={
                         p.itemLink ||
                         "/placeholder.svg?height=128&width=256&query=product" ||
-                        "/placeholder.svg" ||
-                        "/placeholder.svg" ||
-                        "/placeholder.svg" ||
-                        "/placeholder.svg" ||
-                        "/placeholder.svg" ||
                         "/placeholder.svg"
                       }
                       alt={p.productName}
@@ -1536,7 +1577,6 @@ export default function MakeManualModal({ isOpen, onClose }) {
                 </Button>
 
                 <div className="flex items-center gap-1">
-                  {/* Show first page only if not on page 1 */}
                   {productCurrentPage !== 1 && (
                     <Button
                       variant="outline"
@@ -1547,17 +1587,13 @@ export default function MakeManualModal({ isOpen, onClose }) {
                     </Button>
                   )}
 
-                  {/* Show ellipsis if needed before current page */}
                   {productCurrentPage > 3 && (
                     <span className="px-2 text-gray-500">...</span>
                   )}
 
-                  {/* Show pages around current page */}
                   {Array.from({ length: totalPages }, (_, i) => i + 1)
                     .filter((page) => {
-                      // Show page 1 only once (already shown above if not on page 1)
                       if (page === 1) return productCurrentPage === 1;
-                      // Show current page and 1 page before/after
                       if (page === productCurrentPage) return true;
                       if (
                         page === productCurrentPage - 1 &&
@@ -1574,22 +1610,22 @@ export default function MakeManualModal({ isOpen, onClose }) {
                     .map((page) => (
                       <Button
                         key={page}
-                        variant={
-                          productCurrentPage === page ? "default" : "outline"
-                        }
+                        variant="outline"
                         onClick={() => setProductCurrentPage(page)}
-                        className="w-10"
+                        className={`w-10 ${
+                          productCurrentPage === page
+                            ? "bg-blue-600 text-white border-blue-600 hover:bg-blue-700"
+                            : ""
+                        }`}
                       >
                         {page}
                       </Button>
                     ))}
 
-                  {/* Show ellipsis if needed after current page */}
                   {productCurrentPage < totalPages - 2 && (
                     <span className="px-2 text-gray-500">...</span>
                   )}
 
-                  {/* Show last page only if not on last page */}
                   {productCurrentPage !== totalPages && totalPages > 1 && (
                     <Button
                       variant="outline"
@@ -1657,6 +1693,7 @@ export default function MakeManualModal({ isOpen, onClose }) {
           }}
           placeholder="Enter Order Code..."
           className="mt-1"
+          required
           readOnly={isOrderIdSet}
           disabled={isOrderIdSet}
         />
@@ -1805,6 +1842,7 @@ export default function MakeManualModal({ isOpen, onClose }) {
                     <img
                       src={
                         currentProductConfig.linkThanksCard ||
+                        "/placeholder.svg" ||
                         "/placeholder.svg"
                       }
                       alt="Thanks Card Preview"
@@ -1872,6 +1910,7 @@ export default function MakeManualModal({ isOpen, onClose }) {
                     <img
                       src={
                         currentProductConfig.linkFileDesign ||
+                        "/placeholder.svg" ||
                         "/placeholder.svg" ||
                         "/placeholder.svg" ||
                         "/placeholder.svg" ||
@@ -2029,6 +2068,7 @@ export default function MakeManualModal({ isOpen, onClose }) {
         <Button
           onClick={handleAddToCart}
           disabled={!currentProductConfig.variantId}
+          className="bg-blue-600 hover:bg-blue-700 text-white"
         >
           Add to Order
         </Button>
@@ -2194,6 +2234,7 @@ export default function MakeManualModal({ isOpen, onClose }) {
                               <img
                                 src={
                                   item.config.linkFileDesign ||
+                                  "/placeholder.svg" ||
                                   "/placeholder.svg" ||
                                   "/placeholder.svg" ||
                                   "/placeholder.svg" ||
@@ -2605,11 +2646,19 @@ export default function MakeManualModal({ isOpen, onClose }) {
               variant="outline"
               onClick={handleBack}
               disabled={currentStep === 1}
+              className="bg-blue-600 hover:bg-blue-700 text-white"
             >
               Back
             </Button>
 
-            {currentStep < 4 && <Button onClick={handleNext}>Next</Button>}
+            {currentStep < 4 && (
+              <Button
+                onClick={handleNext}
+                className="bg-blue-600 hover:bg-blue-700 text-white"
+              >
+                Next
+              </Button>
+            )}
 
             {currentStep === 4 && (
               <Button

@@ -1090,7 +1090,7 @@ export default function ManageOrder() {
     try {
       const orderToDelete = orders.find((o) => o.id === orderId);
       if (!orderToDelete) {
-        setResultMessage("⚠️ Không tìm thấy đơn hàng để xóa.");
+        setResultMessage("Not found the order to delete.");
         setShowResultDialog(true);
         return;
       }
@@ -1853,7 +1853,7 @@ export default function ManageOrder() {
                   <Button
                     variant="outline"
                     onClick={handleExport}
-                    className="border-blue-100 hover:bg-blue-50 bg-transparent"
+                    className="border-blue-200 text-blue-600 bg-blue-50 hover:bg-blue-100"
                   >
                     <FileDown className="h-4 w-4 mr-2" />
                     <span className="hidden sm:inline">Export file</span>
@@ -1862,7 +1862,7 @@ export default function ManageOrder() {
                   <Button
                     variant="outline"
                     onClick={() => setShowImportModal(true)}
-                    className="border-blue-100 hover:bg-blue-50"
+                    className="border-emerald-200 text-emerald-600 bg-emerald-50 hover:bg-emerald-100"
                   >
                     <Upload className="h-4 w-4 mr-2" />
                     <span className="hidden sm:inline">Import file</span>
@@ -1871,7 +1871,7 @@ export default function ManageOrder() {
                   <Button
                     variant="outline"
                     onClick={() => setShowMakeManualModal(true)}
-                    className="border-blue-100 hover:bg-blue-50"
+                    className="border-purple-200 text-purple-600 bg-purple-50 hover:bg-purple-100"
                   >
                     <FileText className="h-4 w-4 mr-2" />
                     <span className="hidden sm:inline">Make manual</span>

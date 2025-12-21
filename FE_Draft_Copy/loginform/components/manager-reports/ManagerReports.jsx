@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { TrendingUp, TrendingDown, AlertCircle } from "lucide-react";
+import { TrendingUp, TrendingDown, AlertCircle,Wallet } from "lucide-react";
 import apiClient from "../../lib/apiClient";
 
 // Import các component con
@@ -132,9 +132,11 @@ export default function ManagerReports() {
       />
 
       {/* --- SECTION 1: KPIs --- */}
-      <div className="mb-8 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="mb-8 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+        
         {loadingKpi || loadingDebt || !kpis || !outstandingDebt ? (
-          [...Array(4)].map((_, i) => (
+          // Tăng số lượng Skeleton lên 5
+          [...Array(5)].map((_, i) => (
             <Skeleton key={i} className="h-32 bg-white border border-gray-200" />
           ))
         ) : (
@@ -142,28 +144,10 @@ export default function ManagerReports() {
             <KPICard
               title="Total Revenue"
               value={`${kpis.totalRevenue.toLocaleString()} ₫`}
-              subtitle="Revenue Before Refund"
+              subtitle="Gross Revenue"
               icon={VndIcon}
-              trend="Current Period"
+              trend="Before Refunds"
               color="blue"
-            />
-
-            <KPICard
-              title="Cash Collected"
-              value={`${kpis.cashCollected.toLocaleString()} ₫`}
-              subtitle="Actual Cash Flow"
-              icon={TrendingUp}
-              trend="Completed Payments"
-              color="green"
-            />
-
-            <KPICard
-              title="Outstanding Debt"
-              value={`${outstandingDebt.outstandingDebt.toLocaleString()} ₫`}
-              subtitle="Accounts Receivable"
-              icon={AlertCircle}
-              trend="Unpaid Invoices"
-              color="orange"
             />
 
             <KPICard
@@ -173,6 +157,34 @@ export default function ManagerReports() {
               icon={TrendingDown}
               trend="Financial Loss"
               color="red"
+            />
+
+             {/* 4. Thêm Card Net Revenue Mới */}
+             <KPICard
+              title="Net Revenue"
+              value={`${kpis.netRevenue.toLocaleString()} ₫`}
+              subtitle="Revenue After Refunds"
+              icon={Wallet}
+              trend="Real Income"
+              color="indigo" // Dùng màu khác biệt (tím/indigo)
+            />
+
+            <KPICard
+              title="Cash Collected"
+              value={`${kpis.cashCollected.toLocaleString()} ₫`}
+              subtitle="Actual Cash Flow"
+              icon={TrendingUp}
+              trend="In Bank"
+              color="green"
+            />
+
+            <KPICard
+              title="Outstanding Debt"
+              value={`${outstandingDebt.outstandingDebt.toLocaleString()} ₫`}
+              subtitle="Accounts Receivable"
+              icon={AlertCircle}
+              trend="Unpaid"
+              color="orange"
             />
           </>
         )}

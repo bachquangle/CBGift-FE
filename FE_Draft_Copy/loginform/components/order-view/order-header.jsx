@@ -1,141 +1,140 @@
 "use client";
 
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Trash2, ArrowLeft, Wallet, Printer } from 'lucide-react';
+import { ArrowLeft, Wallet, Printer, CreditCard } from 'lucide-react';
 
- export default function OrderHeader({
+export default function OrderHeader({
   orderId,
   orderCode,
-  status, // Đây là statusOderName (string) từ API
+  status,          // Order Status (SHIPPED, CREATED...)
   createdAt,
   orderDate,
-  onCancel,
   trackingCode,
   onBack,
   onOpenRefund,
   onOpenReprint,
-  isEligible,
-  orderStatus,
+  isEligible,      // Đủ điều kiện trạng thái (Shipped/Completed)
+  orderStatus,     // Tên trạng thái hiện tại (dùng cho tooltip)
+  paymentStatus,   // ✨ Trạng thái thanh toán (Paid/Unpaid)
 }) {
- const getStatusBadgeColor = (status) => {
-  const colors = {
-    // --- Trạng thái khởi tạo ---
-    DRAFT: "bg-gray-200 text-gray-800",
-    CREATED: "bg-blue-200 text-blue-800",
 
-    // --- Thiết kế ---
-    NEEDDESIGN: "bg-yellow-200 text-yellow-800",
-    DESIGNING: "bg-yellow-300 text-yellow-900",
-    CHECKDESIGN: "bg-amber-200 text-amber-800",
-    DESIGN_REDO: "bg-orange-300 text-orange-900",
-
-    // --- Xác nhận & sản xuất ---
-    CONFIRMED: "bg-green-200 text-green-800",
-    READY_PROD: "bg-cyan-200 text-cyan-800",
-    INPROD: "bg-cyan-300 text-cyan-900",
-    PROD_REWORK: "bg-orange-200 text-orange-800",
-
-    // --- Giai đoạn QC ---
-    FINISHED: "bg-indigo-200 text-indigo-800",
-    QC_DONE: "bg-purple-200 text-purple-800",
-    QC_FAIL: "bg-red-300 text-red-900",
-
-    // --- Vận chuyển ---
-    SHIPPING: "bg-sky-200 text-sky-800",
-    SHIPPED: "bg-green-300 text-green-900",
-
-    // --- Hold trạng thái ---
-    HOLD_RF: "bg-gray-300 text-gray-900",
-    HOLD_RP: "bg-gray-300 text-gray-900",
-
-    // --- Refund & thay đổi ---
-    REFUND: "bg-red-200 text-red-800",
-    CHANGE_ADDRESS: "bg-teal-200 text-teal-900",
+  // --- 1. Helper: Màu cho Order Status ---
+  const getStatusBadgeColor = (status) => {
+    const safeStatus = status?.toUpperCase() || "";
+    const colors = {
+      DRAFT: "bg-gray-200 text-gray-800",
+      CREATED: "bg-blue-200 text-blue-800",
+      NEEDDESIGN: "bg-yellow-200 text-yellow-800",
+      DESIGNING: "bg-yellow-300 text-yellow-900",
+      CHECKDESIGN: "bg-amber-200 text-amber-800",
+      DESIGN_REDO: "bg-orange-300 text-orange-900",
+      CONFIRMED: "bg-green-200 text-green-800",
+      READY_PROD: "bg-cyan-200 text-cyan-800",
+      INPROD: "bg-cyan-300 text-cyan-900",
+      PROD_REWORK: "bg-orange-200 text-orange-800",
+      FINISHED: "bg-indigo-200 text-indigo-800",
+      QC_DONE: "bg-purple-200 text-purple-800",
+      QC_FAIL: "bg-red-300 text-red-900",
+      SHIPPING: "bg-sky-200 text-sky-800",
+      SHIPPED: "bg-green-300 text-green-900",
+      HOLD_RF: "bg-gray-300 text-gray-900",
+      HOLD_RP: "bg-gray-300 text-gray-900",
+      REFUND: "bg-red-200 text-red-800",
+      CHANGE_ADDRESS: "bg-teal-200 text-teal-900",
+      COMPLETED: "bg-green-600 text-white",
+    };
+    return colors[safeStatus] || "bg-gray-100 text-gray-800";
   };
 
-  return colors[status] || "bg-gray-100 text-gray-800";
+  // --- 2. Helper: Màu cho Payment Status ---
+  const isPaid = paymentStatus && paymentStatus.toLowerCase() === "paid";
+
+  const getPaymentBadgeColor = () => {
+    return isPaid
+      ? "bg-emerald-100 text-emerald-800 border border-emerald-200" // Paid: Xanh ngọc
+      : "bg-rose-100 text-rose-800 border border-rose-200";         // Unpaid: Đỏ hồng
   };
 
-  const getStatusLabel = (status) => status;
-  const handleDisabledClick = (action) => {
-        alert(`Không thể ${action}. Trạng thái đơn hàng phải là SHIPPED hoặc COMPLETED. Trạng thái hiện tại: ${orderStatus}.`);
+  // --- 3. Logic: Nút bấm (Disabled nếu Unpaid HOẶC chưa Shipped) ---
+  const canAction = isPaid && isEligible;
+
+  const getButtonTitle = (actionName) => {
+    if (!isPaid) return `Không thể ${actionName}: Đơn hàng chưa thanh toán (Unpaid)`;
+    if (!isEligible) return `Không thể ${actionName}: Trạng thái phải là SHIPPED/COMPLETED (Hiện tại: ${orderStatus})`;
+    return `Yêu cầu ${actionName}`;
   };
 
   return (
     <div className="border-b border-gray-200 pb-4 mb-6">
-      <div className="flex items-start justify-between">
+      <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
+        
+        {/* --- CỘT THÔNG TIN --- */}
         <div>
-          <div className="flex items-center gap-3 mb-2">
+          <div className="flex items-center gap-3 mb-2 flex-wrap">
             <h1 className="text-xl font-semibold text-gray-900">
               Order: {orderCode}
             </h1>
-            <div
-              className={`
-                inline-block px-3 py-1 rounded-md text-sm font-medium 
-                ${getStatusBadgeColor(status)}`}>
-              {getStatusLabel(status)}
+            
+            {/* Badge 1: Order Status */}
+            <div className={`inline-block px-3 py-1 rounded-md text-sm font-medium ${getStatusBadgeColor(status)}`}>
+              {status}
             </div>
+
+            {/* ✨ Badge 2: Payment Status (Hiển thị ngay cạnh) */}
+            {paymentStatus && (
+              <div className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-sm font-medium ${getPaymentBadgeColor()}`}>
+                <CreditCard className="w-3.5 h-3.5" />
+                <span>{paymentStatus}</span>
+              </div>
+            )}
           </div>
-          <p className="text-sm text-gray-500">
-            Created at: {new Date(createdAt).toLocaleString()}
-          </p>
-          <p className="text-sm text-gray-500">
-            Order Date: {new Date(orderDate).toLocaleString()}
-          </p>
-          <p className="text-sm text-gray-500">
-            Tracking Code: <span className="font-medium text-gray-700 whitespace-nowrap">{trackingCode}</span>
-        </p>  
+
+          <div className="text-sm text-gray-500 space-y-1">
+            <p>Created at: {new Date(createdAt).toLocaleString()}</p>
+            <p>Order Date: {new Date(orderDate).toLocaleString()}</p>
+            <p>
+              Tracking Code: <span className="font-medium text-gray-700">{trackingCode || "N/A"}</span>
+            </p>
+          </div>
         </div>
+
+        {/* --- CỘT NÚT HÀNH ĐỘNG --- */}
         <div className="flex gap-2">
-          {/* {onCancel && (
+          
+          {/* NÚT REFUND */}
+          {onOpenRefund && (
+            <Button
+              variant="destructive"
+              size="sm"
+              disabled={!canAction} 
+              onClick={onOpenRefund}
+              className="bg-red-500 hover:bg-red-600 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+              title={getButtonTitle("Hoàn tiền")}
+            >
+              <Wallet className="h-4 w-4 mr-2" /> Refund Order
+            </Button>
+          )}
+
+          {/* NÚT REPRINT */}
+          {onOpenReprint && (
             <Button
               variant="outline"
-              onClick={onCancel}
-              className="border-red-200 text-red-600 hover:bg-red-50"
+              size="sm"
+              disabled={!canAction}
+              onClick={onOpenReprint}
+              className="border-blue-300 text-blue-600 hover:bg-blue-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              title={getButtonTitle("In lại")}
             >
-              <Trash2 className="h-4 w-4 mr-2" />
-              Cancel
+              <Printer className="h-4 w-4 mr-2" /> Reprint Order
             </Button>
-          )} */}
-          {/* Phần Nút Hành động */}
-           {/* NÚT YÊU CẦU HOÀN TIỀN (CẤP ORDER) */}
-                    {onOpenRefund && (
-                        <Button
-                            variant="destructive"
-                            size="sm"// ✨ DISABLE NẾU KHÔNG ĐỦ ĐIỀU KIỆN ✨
-                            disabled={!isEligible} 
-                            onClick={isEligible ? onOpenRefund : () => handleDisabledClick('Hoàn tiền')}
-                            className="bg-red-500 hover:bg-red-600 text-white"
-                            // ✨ THÔNG BÁO VỚI TITLE ✨
-                            title={!isEligible ? `Trạng thái phải là SHIPPED/COMPLETED (Hiện tại: ${orderStatus})` : "Yêu cầu Hoàn tiền cho toàn bộ đơn hàng"}
-                        >
-                            <Wallet className="h-4 w-4 mr-2" /> Refund Order
-                        </Button>
-                    )}
-                    
-                    {/* NÚT YÊU CẦU IN LẠI (CẤP ORDER) */}
-                    {onOpenReprint && (
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            // ✨ DISABLE NẾU KHÔNG ĐỦ ĐIỀU KIỆN ✨
-                            disabled={!isEligible} 
-                            onClick={isEligible ? onOpenReprint : () => handleDisabledClick('In lại')}
-                            className="border-blue-300 text-blue-600 hover:bg-blue-50"
-                            // ✨ THÔNG BÁO VỚI TITLE ✨
-                            title={!isEligible ? `Trạng thái phải là SHIPPED/COMPLETED (Hiện tại: ${orderStatus})` : "Yêu cầu In lại cho toàn bộ đơn hàng"}
-                        >
-                            <Printer className="h-4 w-4 mr-2" /> Reprint Order
-                        </Button>
-                    )}       
+          )}
+
           {onBack && (
             <Button
               onClick={onBack}
               className="bg-blue-600 hover:bg-blue-700 text-white"
             >
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back
+              <ArrowLeft className="h-4 w-4 mr-2" /> Back
             </Button>
           )}
         </div>

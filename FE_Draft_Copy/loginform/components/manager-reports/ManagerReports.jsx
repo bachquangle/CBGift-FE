@@ -132,11 +132,10 @@ export default function ManagerReports() {
       />
 
       {/* --- SECTION 1: KPIs --- */}
-      <div className="mb-8 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-        
+     <div className="mb-8 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {loadingKpi || loadingDebt || !kpis || !outstandingDebt ? (
           // Tăng số lượng Skeleton lên 5
-          [...Array(5)].map((_, i) => (
+          [...Array(4)].map((_, i) => (
             <Skeleton key={i} className="h-32 bg-white border border-gray-200" />
           ))
         ) : (
@@ -160,19 +159,19 @@ export default function ManagerReports() {
             />
 
              {/* 4. Thêm Card Net Revenue Mới */}
-             <KPICard
+             {/* <KPICard
               title="Net Revenue"
               value={`${kpis.netRevenue.toLocaleString()} ₫`}
               subtitle="Revenue After Refunds"
               icon={Wallet}
               trend="Real Income"
               color="indigo" // Dùng màu khác biệt (tím/indigo)
-            />
+            /> */}
 
             <KPICard
-              title="Cash Collected"
+              title="Net Cash Collected"
               value={`${kpis.cashCollected.toLocaleString()} ₫`}
-              subtitle="Actual Cash Flow"
+              subtitle="Actual Cash Flow (after refund)"
               icon={TrendingUp}
               trend="In Bank"
               color="green"
